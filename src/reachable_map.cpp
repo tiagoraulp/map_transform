@@ -84,7 +84,46 @@ std::vector<std::vector<signed char> > Reach_transf::close (std::vector<std::vec
         }
     }
 
-    return f_map;
+    fr_map=std::vector<std::vector<signed char> >(f_map);
+
+    std::vector<std::vector<char> > labels(0);
+
+    for(int i=0;i<fr_map.size();i++){
+        for(int j=0;j<fr_map[i].size();j++){
+
+            if(fr_map[i][j]!=1) {
+
+                for (int k=-1;k<=0;k++){
+                     for (int l=-1;l<=-2*k-1;l++){
+
+                         if( (i+k)>=0 && (i+k)<fr_map.size() && (j+l)>=0 && (j+l)<fr_map[i].size() )
+                         {
+
+                             if( (fr_map[i+k][j+l]>1))
+                             {
+                                 if (fr_map[i][j]<1)
+                                     fr_map[i][j]=fr_map[i+k][j+l];
+                                 else if (fr_map[i+k][j+l]!=fr_map[i][j])
+                                 {
+                                     //f_map[i][j]=0;
+                                 }
+                             }
+                         }
+                    }
+                }
+
+                if (fr_map[i][j]<1)
+                {
+                    fr_map[i][j]=2+labels.size();
+                    //labels
+                }
+
+            }
+        }
+    }
+
+
+    return fr_map;
 }
 
 void Reach_transf::transf(const nav_msgs::OccupancyGrid::ConstPtr& msg)
@@ -124,7 +163,7 @@ void Reach_transf::transf(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     for(unsigned int i=0;i<msg->info.height;i++){
         for(unsigned int j=0;j<msg->info.width;j++){
                 signed char val;
-                if(GridMap[i][j] == 1)
+                if(GridMap[i][j] >= 1)
                     val = 100;
                 else if(GridMap[i][j] == 0)
                     val = 0;
@@ -156,7 +195,7 @@ void Reach_transf::transf(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     for(unsigned int i=0;i<msg->info.height;i++){
         for(unsigned int j=0;j<msg->info.width;j++){
                 signed char val;
-                if(n_map[i][j] == 1)
+                if(n_map[i][j] >= 1)
                     val = 100;
                 else if(n_map[i][j] == 0)
                     val = 0;
