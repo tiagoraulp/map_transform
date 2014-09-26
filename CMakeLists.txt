@@ -29,4 +29,16 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
 
+find_package(OpenCV)
+
+find_package(Boost REQUIRED COMPONENTS system thread)
+
+include_directories(${OpenCV_INCLUDE_DIRS})
+
+rosbuild_add_boost_directories()
+
 rosbuild_add_executable(reach_tr src/reachable_map.cpp)
+
+target_link_libraries(reach_tr ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
+
+rosbuild_link_boost(reach_tr thread signals system)

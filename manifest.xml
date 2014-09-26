@@ -9,7 +9,9 @@
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/map_transform</url>
   <depend package="nav_msgs"/>
+  <depend package="cv_bridge"/>
   <depend package="roscpp"/>
+
 
 </package>
 
