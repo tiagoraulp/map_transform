@@ -78,6 +78,8 @@ public:
 
         nh_.param("infl", infl, 5);
 
+        nh_.param("kernel", kernel, 2);
+
         count=0;
 
         treated=false;
@@ -510,7 +512,29 @@ void Reach_transf::transf(void)
     if (count>0 && !treated)
     {
         treated=true;
-        cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+        cv::Mat element1 = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+                                               cv::Size( 2*infl + 1, 2*infl+1 ),
+                                               cv::Point( infl, infl ) );
+
+
+        cv::Mat element2 = cv::getStructuringElement( cv::MORPH_ERODE,
+                                               cv::Size( 2*infl + 1, 2*infl+1 ),
+                                               cv::Point( infl, infl ) );
+
+        cv::Mat element3 = cv::getStructuringElement( cv::MORPH_DILATE,
+                                               cv::Size( 2*infl + 1, 2*infl+1 ),
+                                               cv::Point( infl, infl ) );
+
+        //cv::Mat element4 = cv::getStructuringElement( cv::MORPH_CLOSE,
+        //                                       cv::Size( 2*infl + 1, 2*infl+1 ),
+        //                                         cv::Point( infl, infl ) );
+
+
+        cv::Mat element5 = cv::getStructuringElement( cv::MORPH_CROSS,
+                                               cv::Size( 2*infl + 1, 2*infl+1 ),
+                                               cv::Point( infl, infl ) );
+
+        cv::Mat element6 = cv::getStructuringElement( cv::MORPH_RECT,
                                                cv::Size( 2*infl + 1, 2*infl+1 ),
                                                cv::Point( infl, infl ) );
 
@@ -522,9 +546,30 @@ void Reach_transf::transf(void)
 
 
         /// Apply the erosion operation
-        erode( or_map, er_map, element );
+        ///
+        ///
+
+        switch (kernel) {
+        case 1:
+            erode( or_map, er_map, element1);
+            dilate( er_map, cl_map, element1 );
+            break;
+        case 3:
+            erode( or_map, er_map, element5);
+            dilate( er_map, cl_map, element5 );
+            break;
+        default:
+            erode( or_map, er_map, element6);
+            dilate( er_map, cl_map, element6 );
+            break;
+        }
+
+        //erode( or_map, er_map, element1);
         //erode( cv_map, map_erosionOp, element );
-        dilate( er_map, cl_map, element );
+        //dilate( er_map, cl_map, element3 );
+        //dilate( er_map, cl_map, element1 );
+
+        //cv::morphologyEx(or_map,cl_map,cv::MORPH_CLOSE, element1);
 
         es_map=er_map.clone();
 
@@ -538,6 +583,8 @@ void Reach_transf::transf(void)
         bitwise_not( cl_map,r_map);
         bitwise_not(es_map,temp);
         //r_map= ( (r_map/255) | (temp/255) )*255;
+        r_map= ( (r_map) | (temp) );
+        bitwise_not(or_map,temp);
         r_map= ( (r_map) | (temp) );
         bitwise_not(r_map,r_map);
 

@@ -2,12 +2,12 @@
  <arg name="i" default="1"/>
  <arg name="k" default="3"/>
 
- <node pkg="map_server" type="map_server" name="map_server" args="$(find explore_stage_com)/maps_deec/map.pgm 0.1" respawn="false" >
+ <node pkg="map_server" type="map_server" name="map_server" args="$(find explore_stage_com)/bosch_maps/maze3.png 0.1" respawn="false" > 
     <param name="frame_id" value="/map" />
     <remap from="map" to="/create_reach/map" />
  </node>
 
- <node pkg="map_transform" type="reach_tr" name="create_reach" output="screen">
+ <node pkg="map_transform" type="reach_tr" name="create_reach" output="screen">    
     <param name="infl" value="$(arg i)" />
     <param name="kernel" value="$(arg k)" />
  </node>
