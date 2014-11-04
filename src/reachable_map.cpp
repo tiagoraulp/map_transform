@@ -59,6 +59,8 @@ private:
 
     int infl;
 
+    int kernel;
+
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
 
     cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label;
