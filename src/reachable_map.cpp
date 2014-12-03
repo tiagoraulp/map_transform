@@ -1,4 +1,5 @@
 #include "ros/ros.h"
+#include "string"
 #include "nav_msgs/OccupancyGrid.h"
 
 //#include "opencv2/core/core_c.h"
@@ -19,7 +20,13 @@
 #include "boost/thread/mutex.hpp"
 #include "boost/bind.hpp"
 
+ #include <tf/transform_listener.h>
+
+
 #include <sstream>
+
+
+bool debug;
 
 static const std::string M_WINDOW = "Map";
 static const std::string E_WINDOW = "Erosion";
@@ -28,6 +35,7 @@ static const std::string ES_WINDOW = "Erosion+Skeleton";
 static const std::string R_WINDOW = "Reachable";
 static const std::string L_WINDOW = "Labelled";
 
+using namespace std;
 
 //boost::mutex mux;
 
@@ -43,6 +51,7 @@ private:
     
     ros::Subscriber sub;
 
+    tf::TransformListener pos_listener;
 
     std::vector<std::vector<cv::Point> >  label(const cv::Mat binary);
     cv::Mat skel (cv::Mat img);
@@ -55,11 +64,19 @@ private:
 
     int count;
 
+    bool pos_rcv;
+
     bool treated;
 
     int infl;
 
     int kernel;
+
+    string tf_pref;
+
+    int height, width;
+
+    float res, or_x, or_y;
 
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
 
@@ -82,33 +99,43 @@ public:
 
         nh_.param("kernel", kernel, 2);
 
+        nh_.param("tf_prefix", tf_pref, std::string("\\robot_0"));
+
         count=0;
 
         treated=false;
 
-        cv::namedWindow(M_WINDOW);
-        cv::namedWindow(E_WINDOW);
-        cv::namedWindow(C_WINDOW);
-        cv::namedWindow(ES_WINDOW);
-        cv::namedWindow(R_WINDOW);
-        cv::namedWindow(L_WINDOW);
+        pos_rcv=false;
 
+        if(debug){
+            cv::namedWindow(M_WINDOW);
+            cv::namedWindow(E_WINDOW);
+            cv::namedWindow(C_WINDOW);
+            cv::namedWindow(ES_WINDOW);
+            cv::namedWindow(R_WINDOW);
+            cv::namedWindow(L_WINDOW);
+        }
     }
 
     ~Reach_transf()
     {
-       cv::destroyWindow(M_WINDOW);
-       cv::destroyWindow(E_WINDOW);
-       cv::destroyWindow(C_WINDOW);
-       cv::destroyWindow(ES_WINDOW);
-       cv::destroyWindow(R_WINDOW);
-       cv::destroyWindow(L_WINDOW);
+        if(debug){
+           cv::destroyWindow(M_WINDOW);
+           cv::destroyWindow(E_WINDOW);
+           cv::destroyWindow(C_WINDOW);
+           cv::destroyWindow(ES_WINDOW);
+           cv::destroyWindow(R_WINDOW);
+           cv::destroyWindow(L_WINDOW);
+        }
     }
 
     void show(void);
     void publish(void);
     void transf(void);
     void spin(void);
+
+
+    void transf_pos(void);
 
 
     bool getTreated(void){return treated;}
@@ -211,6 +238,7 @@ void Reach_transf::show(void)
         cv::imshow(C_WINDOW,map_closeOp);
         cv::imshow(ES_WINDOW,map_eroded_skel);
         cv::imshow(R_WINDOW,map_reach);
+        if(pos_rcv) cv::imshow(L_WINDOW,map_label);
         cv::waitKey(3);
     }
 }
@@ -462,12 +490,20 @@ nav_msgs::OccupancyGrid Reach_transf::Mat2RosMsg(cv::Mat map ,const nav_msgs::Oc
 void Reach_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
     //boost::mutex::scoped_lock lock(mux);
-    ROS_INFO("I heard: [%d]", msg->header.seq);
+    ROS_INFO("I heard map: [%d]", msg->header.seq);
 
     /////////////////////////////////
     //std::vector<std::vector<signed char> > GridMap(msg->info.height, std::vector<signed char>(msg->info.width, -1));
 
     cv_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
+
+
+    res= msg->info.resolution;
+    height= msg->info.height;
+    width= msg->info.width;
+
+    or_x= msg->info.origin.position.x;
+    or_y= msg->info.origin.position.y;
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
     signed char map_occ_thres = 90;
@@ -495,7 +531,10 @@ void Reach_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     treated=false;
 
     transf();
+
+
 }
+
 
 void Reach_transf::spin(void)
 {
@@ -541,7 +580,7 @@ void Reach_transf::transf(void)
                                                cv::Point( infl, infl ) );
 
 
-        cv::Mat or_map, er_map, cl_map, es_map, r_map, l_map, temp;
+        cv::Mat or_map, er_map, cl_map, es_map, r_map, temp;
 
         or_map=cv_map.clone();
         msg_rcv_pub=msg_rcv;
@@ -592,23 +631,104 @@ void Reach_transf::transf(void)
 
         //r_map= ( es_map | cl_map );
 
-        std::vector<std::vector<cv::Point> > labels=label(r_map.clone());
+        //std::vector<std::vector<cv::Point> > labels=label(r_map.clone());
 
         map_or=or_map;
         map_erosionOp=er_map;
         map_closeOp=cl_map;
         map_eroded_skel=es_map;
         map_reach=r_map;
-        map_label=l_map;
+
+
+        //trans_pos();
+
+        //map_label=l_map;
 
         //GridMap=close(GridMap,inf);
-        publish();
+        //publish();
 
         //lock.unlock();
     }
 
 
 }
+
+void Reach_transf::transf_pos(void)
+{
+
+
+
+
+
+    tf::StampedTransform transform;
+    try{
+        pos_listener.lookupTransform("/map", tf_pref+"/base_link", ros::Time(0), transform);
+    }
+    catch (tf::TransformException ex){
+      ROS_INFO("%s",ex.what());
+      return ;
+    }
+
+
+
+    if(count>0)
+    {
+        int pos_x=(int) round((transform.getOrigin().x()-or_x)/res);
+
+        int pos_y=(int) round((transform.getOrigin().y()-or_y)/res);
+
+        cv::Mat temp_labelling;
+        bitwise_not( map_reach.clone() , temp_labelling);
+
+        std::vector<std::vector<cv::Point> > labels=label(map_reach.clone()/255);
+
+
+        int label_pos=-1;
+
+
+        for (int i=0;i<labels.size();i++){
+            for(int j=0;j<labels[i].size();j++){
+                //ROS_INFO("%d-%d ; %d-%d",i+1, labels.size(),j+1,labels[i].size());
+
+                //ROS_INFO("%d %d",labels[i][j].x, labels[i][j].y);
+                if( pos_x==labels[i][j].x && pos_y==labels[i][j].y){
+
+                    label_pos=i;
+                    break;
+
+                }
+            }
+
+            if(label_pos>-1)
+                break;
+        }
+
+
+
+        cv::Mat l_map=map_reach.clone();
+
+
+        for (int i=0;i<labels.size();i++){
+            for(int j=0;j<labels[i].size();j++){
+                if( i!=label_pos ){
+
+                    l_map.at<uchar>(labels[i][j].x,labels[i][j].y)=0;
+
+                }
+            }
+         }
+
+
+        map_label=l_map;
+        pos_rcv=true;
+
+    }
+    else
+        return;
+
+
+}
+
 
 void Reach_transf::publish(void)
 {
@@ -631,17 +751,21 @@ void Reach_transf::publish(void)
         n_msg=Mat2RosMsg(map_reach , msg_rcv_pub);
         pub4.publish(n_msg);
 
-        //n_msg=Mat2RosMsg(map_erosionOp , msg);
-        //pub5.publish(n_msg);
+        if(pos_rcv)
+        {
+            n_msg=Mat2RosMsg(map_label , msg_rcv_pub);
+            pub5.publish(n_msg);
+        }
 
 
         std::stringstream ss;
-        ss << "Message sent " << count;
+        ss << tf_pref+"-> Message sent: " << count;
         //msg.data = ss.str();
-        ROS_INFO("%s", ss.str().c_str());
+        //ROS_INFO("%s", ss.str().c_str());
 
 
 }
+
 
 std::vector<std::vector<cv::Point> >  Reach_transf::label(const cv::Mat binary)
 {
@@ -652,11 +776,23 @@ std::vector<std::vector<cv::Point> >  Reach_transf::label(const cv::Mat binary)
     cv::Mat label_image;
     binary.convertTo(label_image, CV_32FC1);
 
+    //ROS_INFO("%f %f %f %f", label_image.at<float>(0,0), label_image.at<float>(100,100), label_image.at<float>(100,150), label_image.at<float>(150,50) );
+
+
+    //cv::imshow("test",label_image);
+
     int label_count = 2; // starts at 2 because 0,1 are used already
+
+    //if(pos_rcv)
+    //    ROS_INFO("%f %f %f %f", label_image.at<float>(0,0), label_image.at<float>(50,50), label_image.at<float>(100,150), label_image.at<float>(150,50) );
+        //ROS_INFO("label %d", label_count);
+
+
+
 
     for(int y=0; y < binary.rows; y++) {
         for(int x=0; x < binary.cols; x++) {
-            if((int)label_image.at<float>(y,x) != 1) {
+            if((int)label_image.at<float>(y,x) != 1 ) {
                 continue;
             }
 
@@ -671,11 +807,20 @@ std::vector<std::vector<cv::Point> >  Reach_transf::label(const cv::Mat binary)
                         continue;
                     }
 
-                    blob.push_back(cv::Point(j,i));
+                    blob.push_back(cv::Point(i,j));
                 }
             }
 
             blobs.push_back(blob);
+
+            //ROS_INFO("size %d", blob.size());
+
+            //if(pos_rcv)
+            //    ROS_INFO("%f %f %f %f", label_image.at<float>(0,0), label_image.at<float>(50,50), label_image.at<float>(100,150), label_image.at<float>(150,50) );
+                //ROS_INFO("label %d", label_count);
+
+
+
 
             label_count++;
         }
@@ -684,10 +829,17 @@ std::vector<std::vector<cv::Point> >  Reach_transf::label(const cv::Mat binary)
     return blobs;
 }
 
+
+
 int main(int argc, char **argv)
 {
+    ros::init(argc, argv, "reach");
+    debug=true;
+    if(argc==2)
+        if(string(argv[1])==string("0"))
+            debug=false;
   
-  ros::init(argc, argv, "reach");
+
   ros::NodeHandle nh("~");
 
 
@@ -711,7 +863,12 @@ int main(int argc, char **argv)
         //t.start_thread();
         //t=boost::thread::Thread(&Reach_transf::transf, &reach);
 
-    reach.show();
+    reach.transf_pos();
+
+    if(debug)
+        reach.show();
+
+    reach.publish();
 
     //reach.publish();
 
