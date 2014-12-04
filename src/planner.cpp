@@ -52,6 +52,64 @@ public:
     }
 };
 
+class node
+{
+    // current position
+    int xPos;
+    int yPos;
+    // total distance already travelled to reach the node
+    int level;
+    // priority=level+remaining distance estimate
+    int priority;  // smaller: higher priority
+
+    public:
+        node(int xp, int yp, int d, int p)
+            {xPos=xp; yPos=yp; level=d; priority=p;}
+
+        int getxPos() const {return xPos;}
+        int getyPos() const {return yPos;}
+        int getLevel() const {return level;}
+        int getPriority() const {return priority;}
+
+        void updatePriority(const int & xDest, const int & yDest)
+        {
+             priority=level+estimate(xDest, yDest)*10; //A*
+        }
+
+        // give better priority to going strait instead of diagonally
+        void nextLevel(const int & i) // i: direction
+        {
+             level+=(dir==8?(i%2==0?10:14):10);
+        }
+
+        // Estimation function for the remaining distance to the goal.
+        const int & estimate(const int & xDest, const int & yDest) const
+        {
+            static int xd, yd, d;
+            xd=xDest-xPos;
+            yd=yDest-yPos;
+
+            // Euclidian Distance
+            d=static_cast<int>(sqrt(xd*xd+yd*yd));
+
+            // Manhattan distance
+            //d=abs(xd)+abs(yd);
+
+            // Chebyshev distance
+            //d=max(abs(xd), abs(yd));
+
+            return(d);
+        }
+
+        // Determine priority (in the priority queue)
+
+};
+
+bool operator<(const node & a, const node & b)
+{
+  return a.getPriority() > b.getPriority();
+}
+
 
 class Planner{
 private:
@@ -107,6 +165,8 @@ private:
     geometry_msgs::Point convertI2W(PointI p);
 
     Apath Astar(PointI p0, PointI p1, int r);
+
+    double distance2Path(vector<PointI> path, PointI goal, int r);
 
 
 public:
@@ -293,65 +353,6 @@ geometry_msgs::Point Planner::convertI2W(PointI p)
     return pf;
 }
 
-class node
-{
-    // current position
-    int xPos;
-    int yPos;
-    // total distance already travelled to reach the node
-    int level;
-    // priority=level+remaining distance estimate
-    int priority;  // smaller: higher priority
-
-    public:
-        node(int xp, int yp, int d, int p)
-            {xPos=xp; yPos=yp; level=d; priority=p;}
-
-        int getxPos() const {return xPos;}
-        int getyPos() const {return yPos;}
-        int getLevel() const {return level;}
-        int getPriority() const {return priority;}
-
-        void updatePriority(const int & xDest, const int & yDest)
-        {
-             priority=level+estimate(xDest, yDest)*10; //A*
-        }
-
-        // give better priority to going strait instead of diagonally
-        void nextLevel(const int & i) // i: direction
-        {
-             level+=(dir==8?(i%2==0?10:14):10);
-        }
-
-        // Estimation function for the remaining distance to the goal.
-        const int & estimate(const int & xDest, const int & yDest) const
-        {
-            static int xd, yd, d;
-            xd=xDest-xPos;
-            yd=yDest-yPos;
-
-            // Euclidian Distance
-            d=static_cast<int>(sqrt(xd*xd+yd*yd));
-
-            // Manhattan distance
-            //d=abs(xd)+abs(yd);
-
-            // Chebyshev distance
-            //d=max(abs(xd), abs(yd));
-
-            return(d);
-        }
-
-        // Determine priority (in the priority queue)
-
-};
-
-bool operator<(const node & a, const node & b)
-{
-  return a.getPriority() > b.getPriority();
-}
-
-
 Apath Planner::Astar(PointI p0, PointI p1, int r)
 {
     // Astar.cpp
@@ -509,7 +510,52 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
     return path; // no route found
 }
 
+double Planner::distance2Path(vector<PointI> path, PointI goal, int r)
+{
+    vector<double> heuristic(0);
+    vector<int> pos(0);
 
+    for(int p=0;p<path.size();p++)
+    {
+        double heur=(double) (path[p].i-goal.i)*(path[p].i-goal.i)+(path[p].j-goal.j)*(path[p].j-goal.j);
+
+        vector<double>::iterator heurIt = heuristic.begin();
+        vector<int>::iterator posIt = pos.begin();
+
+        while(heurIt!=heuristic.end())
+        {
+            if(heur<*heurIt)
+                break;
+            heurIt++;
+            posIt++;
+        }
+
+        heuristic.insert(heurIt,heur);
+        pos.insert(posIt,p);
+    }
+
+    double min_real;
+    Apath pathT;
+
+    for(int h=0;h<(heuristic.size());h++)
+    {
+        pathT=Astar(path[pos[h]], goal,r);
+        if(h==0)
+            min_real=pathT.cost;
+        else
+        {
+            if(pathT.cost<min_real)
+                min_real=pathT.cost;
+
+            if( (min_real*min_real)<heuristic[h+1])
+                return min_real;
+            else
+                continue;
+        }
+    }
+
+    return pathT.cost;
+}
 
 void Planner::plan(void)
 {
@@ -517,13 +563,16 @@ void Planner::plan(void)
     {
         nav_msgs::Path path_0,path_1;
 
-        vector<PointI> p0,p1;
+        vector<vector<PointI> > pr(2,vector<PointI>(0));
 
-        vector<int> p0g,p1g,g0,g1,gb,gn;
+        vector< vector<int> > pg(2,vector<int>(0)), gr(4,vector<int>(0));
 
         vector<PointI> g;
 
-        p0.clear();p1.clear();
+        vector<double> pc(2,0.0);
+
+
+        //p0.clear();p1.clear();
 
         path_0.poses.clear();
         path_0.header.frame_id = "/map";
@@ -546,9 +595,9 @@ void Planner::plan(void)
           return ;
         }
 
-        int x_0=(int) round((transform.getOrigin().x())/res);
+        //int x_0=(int) round((transform.getOrigin().x())/res);
 
-        int y_0=(int) round((transform.getOrigin().y())/res);
+        //int y_0=(int) round((transform.getOrigin().y())/res);
 
         PointI pi_temp( (int) round((transform.getOrigin().x())/res), (int) round((transform.getOrigin().y())/res) );
 
@@ -556,7 +605,9 @@ void Planner::plan(void)
 
         path_0.poses.push_back(p_temp);
 
-        p0.push_back(pi_temp);
+        pr[0].push_back(pi_temp);
+
+        g.push_back(pr[0].back());
 
 
         try{
@@ -573,7 +624,9 @@ void Planner::plan(void)
 
         path_1.poses.push_back(p_temp);
 
-        p1.push_back(pi_temp);
+        pr[1].push_back(pi_temp);
+
+        g.push_back(pr[1].back());
 
 
         for(int i=0;i<goals.size();i++)
@@ -587,64 +640,121 @@ void Planner::plan(void)
             g.push_back(pi_temp);
 
             if( msg_rcv[0][pi_temp.i][pi_temp.j] && !msg_rcv[1][pi_temp.i][pi_temp.j] )
-                g0.push_back(i);
+                gr[0].push_back(2+i);
             else if ( msg_rcv[1][pi_temp.i][pi_temp.j] && !msg_rcv[0][pi_temp.i][pi_temp.j] )
-                g1.push_back(i);
+                gr[1].push_back(2+i);
             else if ( msg_rcv[1][pi_temp.i][pi_temp.j] && msg_rcv[0][pi_temp.i][pi_temp.j] )
-                gb.push_back(i);
+                gr[2].push_back(2+i);
             else
-                gn.push_back(i);
+                gr[3].push_back(2+i);
 
         }
 
-        int g0s=g0.size(), g1s=g1.size(),gbs=gb.size();
+        vector<bool> gt(g.size(),false);
 
-        vector<vector<Apath> > mat(2+g.size(),vector<Apath>(2+g.size(),Apath()));
+        int g0s=gr[0].size(), g1s=gr[1].size(),gbs=gr[2].size();
+
+        vector<vector<Apath> > mat(g.size(),vector<Apath>(g.size(),Apath()));
 
 
         Apath path;
+
+        pg[0].push_back(0);
+        pg[1].push_back(1);
+
         if(g0s>0)
         {
-            int max_cost=g0[0];
+
+            int max_cost=gr[0][0];
             //cout<<g0s<<endl;
-            for(int i=0;i<g0.size();i++)
+            for(int i=0;i<gr[0].size();i++)
             {
-                path=Astar(p0.front(), g[g0[i]],0);
+                path=Astar(pr[0].front(), g[gr[0][i]],0);
 
-                mat[0][2+g0[i]]=path;
-                mat[2+g0[i]][0]=path;
+                mat[0][gr[0][i]]=path;
+                mat[gr[0][i]][0]=path;
 
-                if(path.cost>mat[0][2+max_cost].cost)
-                    max_cost=g0[i];
+                if(path.cost>mat[0][max_cost].cost)
+                    max_cost=gr[0][i];
 
             }
 
-            p0g.push_back(max_cost);
+            pg[0].push_back(max_cost);
+            gt[max_cost]=true;
+            pc[0]+=mat[0][max_cost].cost;
             //cout<<p0g.size()<<endl;
         }
 
         if(g1s>0)
         {
-            int max_cost=g1[0];
+            int max_cost=gr[1][0];
             //cout<<g1s<<endl;
-            for(int i=0;i<g1.size();i++)
+            for(int i=0;i<gr[1].size();i++)
             {
-                path=Astar(p1.front(), g[g1[i]],1);
+                path=Astar(pr[1].front(), g[gr[1][i]],1);
 
                 //cout<<path.points.size()<<"  "<<g1[i]<<endl;
 
-                mat[1][2+g1[i]]=path;
-                mat[2+g1[i]][1]=path;
+                mat[1][gr[1][i]]=path;
+                mat[gr[1][i]][1]=path;
 
-                if(path.cost>mat[1][2+max_cost].cost)
-                    max_cost=g1[i];
+                if(path.cost>mat[1][max_cost].cost)
+                    max_cost=gr[1][i];
 
             }
 
-            p1g.push_back(max_cost);
+            pg[1].push_back(max_cost);
+            gt[max_cost]=true;
+            pc[1]+=mat[1][max_cost].cost;
+
             //cout<<"bla bla"<<p1g.size()<<endl;
             //cout<<max_cost<<" "<<mat[1][2+max_cost].points.size()<<endl;
 
+        }
+
+        vector<vector<vector<double> > > matC(g.size(),vector<vector<double> >(g.size(), vector<double>(g.size(),-1)));
+
+        if(gbs>0)
+        {
+            for(int r=0;r<2;r++)
+            {
+                if (pg[r].size()>0)
+                    continue;
+
+                int r_o=(r+1)%2;
+
+                int max_cost=gb[0];
+                //cout<<g1s<<endl;
+                double cost=0;
+                for(int i=0;i<gb.size();i++)
+                {
+                    if (pg[r_o].size()==1)
+                    {
+                        path=Astar(g[pg[r_0][0]], g[gb[i]],r_0);
+                        cost+=path.cost;
+                    }
+                    else
+                        cost+=distance2Path(mat[pg[r_0][0]][pg[r_0][1]].points, g[gb[i]], r_0);
+
+                    path=Astar(pg[r].front(), g[gb[i]],r);
+                    cost+=path.cost
+
+
+
+                    //cout<<path.points.size()<<"  "<<g1[i]<<endl;
+
+                    mat[1][gb[i]]=path;
+                    mat[gb[i]][1]=path;
+
+                    if(path.cost>mat[1][max_cost].cost)
+                        max_cost=g1[i];
+
+                }
+
+                p1g.push_back(max_cost);
+                //cout<<"bla bla"<<p1g.size()<<endl;
+                //cout<<max_cost<<" "<<mat[1][2+max_cost].points.size()<<endl;
+            }
         }
 
 
@@ -700,26 +810,26 @@ void Planner::plan(void)
 
         //cout<<"DONEEEEEEEEEEE!!!!"<<endl;
 
-        for(int p_i=0;p_i<p0g.size();p_i++)
+        for(int p_i=1;p_i<pg[0].size();p_i++)
         {
             if(p_i==0)
-                p0.insert(p0.end(), mat[0][p0g[p_i]].points.begin(), mat[0][p0g[p_i]].points.end());
+                pr[0].insert(pr[0].end(), mat[0][pg[0][p_i]].points.begin(), mat[0][pg[0][p_i]].points.end());
             else
-                p0.insert(p0.end(), mat[p0g[p_i-1]][p0g[p_i]].points.begin(), mat[p0g[p_i-1]][p0g[p_i]].points.end());
+                pr[0].insert(pr[0].end(), mat[pg[0][p_i-1]][pg[0][p_i]].points.begin(), mat[pg[0][p_i-1]][pg[0][p_i]].points.end());
 
         }
 
-        for(int p_i=0;p_i<p1g.size();p_i++)
+        for(int p_i=1;p_i<pg[1].size();p_i++)
         {
             //cout<<"bla bla"<<p1g.size()<<endl;
             if(p_i==0)
             {
-                p1.insert(p1.end(), mat[1][2+p1g[p_i]].points.begin(), mat[1][2+p1g[p_i]].points.end());
+                pr[1].insert(pr[1].end(), mat[1][pg[1][p_i]].points.begin(), mat[1][pg[1][p_i]].points.end());
                 //cout<<"bla bla"<<p1.size()<<endl;
             }
             else
             {
-                p1.insert(p1.end(), mat[2+p1g[p_i-1]][2+p1g[p_i]].points.begin(), mat[2+p1g[p_i-1]][2+p1g[p_i]].points.end());
+                pr[1].insert(pr[1].end(), mat[pg[1][p_i-1]][pg[1][p_i]].points.begin(), mat[pg[1][p_i-1]][pg[1][p_i]].points.end());
                 //cout<<"bla bla"<<p1.size()<<endl;
 
             }
@@ -728,17 +838,17 @@ void Planner::plan(void)
 
 
         path_0.poses.clear();
-        for(int p_i=0;p_i<p0.size();p_i++)
+        for(int p_i=0;p_i<pr[0].size();p_i++)
         {
-            p_temp.pose.position=convertI2W(p0[p_i]);
+            p_temp.pose.position=convertI2W(pr[0][p_i]);
 
             path_0.poses.push_back(p_temp);
         }
 
         path_1.poses.clear();
-        for(int p_i=0;p_i<p1.size();p_i++)
+        for(int p_i=0;p_i<pr[1].size();p_i++)
         {
-            p_temp.pose.position=convertI2W(p1[p_i]);
+            p_temp.pose.position=convertI2W(pr[1][p_i]);
 
             path_1.poses.push_back(p_temp);
         }
