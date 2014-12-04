@@ -6,11 +6,20 @@
 #include "visualization_msgs/MarkerArray.h"
 #include "tf/transform_listener.h"
 
+#include <queue>
 #include "std_msgs/String.h"
 
 #include "std_srvs/Empty.h"
 
 using namespace std;
+
+const int dir=8; // number of possible directions to go at any position
+//if dir==4
+//static int dx[dir]={1, 0, -1, 0};
+//static int dy[dir]={0, 1, 0, -1};
+//if dir==8
+static int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
+static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
 
 class PointI{
 
@@ -26,6 +35,20 @@ public:
     {
         i=0;
         j=0;
+    }
+
+
+};
+
+class Apath{
+public:
+    vector<PointI> points;
+    double cost;
+
+    Apath()
+    {
+        cost=0;
+        points.clear();
     }
 };
 
@@ -45,6 +68,8 @@ private:
 
     ros::ServiceServer service;
 
+    ros::ServiceServer service2;
+
     ros::Subscriber sub_goals;
 
     tf::TransformListener pos_listener;
@@ -54,6 +79,8 @@ private:
     void rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
     bool ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res);
+
+    bool clear(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res);
 
     void rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg);
 
@@ -65,7 +92,7 @@ private:
 
     bool pl;
 
-    unsigned char getMapValue(int n, int i, int j);
+    bool getMapValue(int n, int i, int j);
 
     vector<geometry_msgs::Point> goals;
 
@@ -73,9 +100,13 @@ private:
 
     float res;
 
+    int width,height;
+
     PointI convertW2I(geometry_msgs::Point p);
 
     geometry_msgs::Point convertI2W(PointI p);
+
+    Apath Astar(PointI p0, PointI p1, int r);
 
 
 public:
@@ -96,6 +127,8 @@ public:
 
 
         service = nh_.advertiseService("plan", &Planner::ask_plan, this);
+
+        service2 = nh_.advertiseService("clear", &Planner::clear, this);
 
         sub_goals = nh_.subscribe("/move_base_simple/goal", 1, &Planner::rcv_goal, this);
 
@@ -160,6 +193,8 @@ void Planner::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     count[0]=count[0]+1;
 
     res=msg->info.resolution;
+    width=msg->info.width;
+    height=msg->info.height;
 
 }
 
@@ -194,7 +229,7 @@ void Planner::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 }
 
 
-unsigned char Planner::getMapValue(int n, int i, int j)
+bool Planner::getMapValue(int n, int i, int j)
 {
     //int width= msg_rcv[n].info.width;
 
@@ -211,6 +246,28 @@ unsigned char Planner::getMapValue(int n, int i, int j)
 bool Planner::ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res)
 {
     pl=true;
+    return true;
+}
+
+
+bool Planner::clear(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res)
+{
+    pl=false;
+    goals.clear();
+
+    nav_msgs::Path path_0,path_1;
+    path_0.poses.clear();
+    path_0.header.frame_id = "/map";
+    path_0.header.stamp =  ros::Time::now();
+    path_0.poses.clear();
+    path_1=path_0;
+
+
+
+    pub1.publish(path_0);
+
+    pub2.publish(path_1);
+
     return true;
 }
 
@@ -236,6 +293,224 @@ geometry_msgs::Point Planner::convertI2W(PointI p)
     return pf;
 }
 
+class node
+{
+    // current position
+    int xPos;
+    int yPos;
+    // total distance already travelled to reach the node
+    int level;
+    // priority=level+remaining distance estimate
+    int priority;  // smaller: higher priority
+
+    public:
+        node(int xp, int yp, int d, int p)
+            {xPos=xp; yPos=yp; level=d; priority=p;}
+
+        int getxPos() const {return xPos;}
+        int getyPos() const {return yPos;}
+        int getLevel() const {return level;}
+        int getPriority() const {return priority;}
+
+        void updatePriority(const int & xDest, const int & yDest)
+        {
+             priority=level+estimate(xDest, yDest)*10; //A*
+        }
+
+        // give better priority to going strait instead of diagonally
+        void nextLevel(const int & i) // i: direction
+        {
+             level+=(dir==8?(i%2==0?10:14):10);
+        }
+
+        // Estimation function for the remaining distance to the goal.
+        const int & estimate(const int & xDest, const int & yDest) const
+        {
+            static int xd, yd, d;
+            xd=xDest-xPos;
+            yd=yDest-yPos;
+
+            // Euclidian Distance
+            d=static_cast<int>(sqrt(xd*xd+yd*yd));
+
+            // Manhattan distance
+            //d=abs(xd)+abs(yd);
+
+            // Chebyshev distance
+            //d=max(abs(xd), abs(yd));
+
+            return(d);
+        }
+
+        // Determine priority (in the priority queue)
+
+};
+
+bool operator<(const node & a, const node & b)
+{
+  return a.getPriority() > b.getPriority();
+}
+
+
+Apath Planner::Astar(PointI p0, PointI p1, int r)
+{
+    // Astar.cpp
+    // http://en.wikipedia.org/wiki/A*
+    // Compiler: Dev-C++ 4.9.9.2
+    // FB - 201012256
+    //#include <iostream>
+    //#include <iomanip>
+    //#include <queue>
+    //#include <string>
+    //#include <math.h>
+    //#include <ctime>
+    //using namespace std;
+
+    Apath path; path.points.clear();
+
+    const int n=width; // horizontal size of the map
+    const int m=height; // vertical size size of the map
+    //static int map[n][m];
+    vector<vector<int> > closed_nodes_map;closed_nodes_map.resize(n,vector<int>(m,0)); // map of closed (tried-out) nodes
+    vector<vector<int> > open_nodes_map;open_nodes_map.resize(n,vector<int>(m,0)); // map of open (not-yet-tried) nodes
+    vector<vector<int> > dir_map;dir_map.resize(n,vector<int>(m,0)); // map of directions
+
+
+
+
+
+// A-star algorithm.
+// The route returned is a string of direction digits.
+
+    static priority_queue<node> pq[2]; // list of open (not-yet-tried) nodes
+    static int pqi; // pq index
+    static node* n0;
+    static node* m0;
+    static int i, j, x, y, xdx, ydy;
+    pqi=0;
+
+    // reset the node maps
+    //for(y=0;y<m;y++)
+    //{
+    //    for(x=0;x<n;x++)
+    //    {
+    //       closed_nodes_map[x][y]=0;
+    //        open_nodes_map[x][y]=0;
+    //    }
+    //}
+
+    // create the start node and push into list of open nodes
+    n0=new node(p0.i, p0.j, 0, 0);
+    n0->updatePriority(p1.i, p1.j);
+    pq[pqi].push(*n0);
+    //open_nodes_map[x][y]=n0->getPriority(); // mark it on the open nodes map
+
+    // A* search
+    while(!pq[pqi].empty())
+    {
+        // get the current node w/ the highest priority
+        // from the list of open nodes
+        n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+                     pq[pqi].top().getLevel(), pq[pqi].top().getPriority());
+
+        x=n0->getxPos(); y=n0->getyPos();
+
+        pq[pqi].pop(); // remove the node from the open list
+        open_nodes_map[x][y]=0;
+        // mark it on the closed nodes map
+        closed_nodes_map[x][y]=1;
+
+        // quit searching when the goal state is reached
+        //if((*n0).estimate(xFinish, yFinish) == 0)
+        if(x==p1.i && y==p1.j)
+        {
+            // generate the path from finish to start
+            // by following the directions
+            //string path="";
+            while(!(x==p0.i && y==p0.j))
+            {
+                j=dir_map[x][y];
+                //c='0'+(j+dir/2)%dir;
+                //path=c+path;
+                if(j%2==0)
+                    path.cost=path.cost+1;
+                else
+                    path.cost=path.cost+1.41421356237;
+                path.points.insert(path.points.begin(),PointI(x,y));
+                x+=dx[j];
+                y+=dy[j];
+            }
+
+            // garbage collection
+            delete n0;
+            // empty the leftover nodes
+            while(!pq[pqi].empty()) pq[pqi].pop();
+            return path;
+        }
+
+        // generate moves (child nodes) in all possible directions
+        for(i=0;i<dir;i++)
+        {
+            xdx=x+dx[i]; ydy=y+dy[i];
+
+            if(!(xdx<0 || xdx>n-1 || ydy<0 || ydy>m-1 || !msg_rcv[r][xdx][ydy]
+                || closed_nodes_map[xdx][ydy]==1 || ( (dir==1 || dir==3 || dir==5 || dir==7)
+                                                      && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
+                                                      && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]]) ))
+            {
+                // generate a child node
+                m0=new node( xdx, ydy, n0->getLevel(),
+                             n0->getPriority());
+                m0->nextLevel(i);
+                m0->updatePriority(p1.i, p1.j);
+
+                // if it is not in the open list then add into that
+                if(open_nodes_map[xdx][ydy]==0)
+                {
+                    open_nodes_map[xdx][ydy]=m0->getPriority();
+                    pq[pqi].push(*m0);
+                    // mark its parent node direction
+                    dir_map[xdx][ydy]=(i+dir/2)%dir;
+                }
+                else if(open_nodes_map[xdx][ydy]>m0->getPriority())
+                {
+                    // update the priority info
+                    open_nodes_map[xdx][ydy]=m0->getPriority();
+                    // update the parent direction info
+                    dir_map[xdx][ydy]=(i+dir/2)%dir;
+
+                    // replace the node
+                    // by emptying one pq to the other one
+                    // except the node to be replaced will be ignored
+                    // and the new node will be pushed in instead
+                    while(!(pq[pqi].top().getxPos()==xdx &&
+                           pq[pqi].top().getyPos()==ydy))
+                    {
+                        pq[1-pqi].push(pq[pqi].top());
+                        pq[pqi].pop();
+                    }
+                    pq[pqi].pop(); // remove the wanted node
+
+                    // empty the larger size pq to the smaller one
+                    if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
+                    while(!pq[pqi].empty())
+                    {
+                        pq[1-pqi].push(pq[pqi].top());
+                        pq[pqi].pop();
+                    }
+                    pqi=1-pqi;
+                    pq[pqi].push(*m0); // add the better node instead
+                }
+                else delete m0; // garbage collection
+            }
+        }
+        delete n0; // garbage collection
+    }
+    return path; // no route found
+}
+
+
+
 void Planner::plan(void)
 {
     if(map_rcv[0] && map_rcv[1] && pl && (goals.size()>0) )
@@ -244,7 +519,9 @@ void Planner::plan(void)
 
         vector<PointI> p0,p1;
 
-        vector<PointI> g,g0,g1,gb,gn;
+        vector<int> p0g,p1g,g0,g1,gb,gn;
+
+        vector<PointI> g;
 
         p0.clear();p1.clear();
 
@@ -310,40 +587,134 @@ void Planner::plan(void)
             g.push_back(pi_temp);
 
             if( msg_rcv[0][pi_temp.i][pi_temp.j] && !msg_rcv[1][pi_temp.i][pi_temp.j] )
-                g0.push_back(pi_temp);
+                g0.push_back(i);
             else if ( msg_rcv[1][pi_temp.i][pi_temp.j] && !msg_rcv[0][pi_temp.i][pi_temp.j] )
-                g1.push_back(pi_temp);
+                g1.push_back(i);
             else if ( msg_rcv[1][pi_temp.i][pi_temp.j] && msg_rcv[0][pi_temp.i][pi_temp.j] )
-                gb.push_back(pi_temp);
+                gb.push_back(i);
             else
-                gn.push_back(pi_temp);
+                gn.push_back(i);
 
         }
-        cout<<"TEest!!!!"<<endl;
-        for(int i=0;i<g0.size();i++)
-        {
-            cout<<g0[i].i<<" "<<g0[i].j<<endl;
 
-            p_temp.pose.position=convertI2W(g0[i]);
+        int g0s=g0.size(), g1s=g1.size(),gbs=gb.size();
+
+        vector<vector<Apath> > mat(2+g.size(),vector<Apath>(2+g.size(),Apath()));
+
+
+        Apath path;
+        if(g0s>0)
+        {
+            double max_cost=g0[0];
+            for(int i=0;i<g0.size();i++)
+            {
+                path=Astar(p0.front(), g0[i],0);
+
+                mat[0][2+i]=path;
+                mat[2+i][0]=path;
+
+                if(path.cost>mat[0][2+g[max_cost]])
+                    max_cost=i;
+
+            }
+
+            p0g.push_back(g[max_cost]);
+        }
+
+        if(g1s>0)
+        {
+            double max_cost=g1[0];
+            for(int i=0;i<g1.size();i++)
+            {
+                path=Astar(p1.front(), g1[i],0);
+
+                mat[1][2+i]=path;
+                mat[2+i][1]=path;
+
+                if(path.cost>mat[1][2+g[max_cost]])
+                    max_cost=i;
+
+            }
+
+            p1g.push_back(g[max_cost]);
+        }
+
+
+        //<<"TEest!!!!"<<endl;
+        //vector<PointI> path;
+
+//        for(int i=0;i<g0.size();i++)
+//        {
+//            //cout<<g0[i].i<<" "<<g0[i].j<<endl;
+//            path=Astar(p0.back(), g[g0[i]],0);
+//            //cout<<path.size();
+//            for(int p_i=0;p_i<path.points.size();p_i++)
+//            {
+
+
+//                p0.push_back(path.points[p_i]);
+//            }
+
+
+
+//        }
+//        for(int i=0;i<g1.size();i++)
+//        {
+//            //cout<<g1[i].i<<" "<<g1[i].j<<endl;
+//            path=Astar(p1.back(), g[g1[i]],1);
+//            //cout<<path.size();
+//            for(int p_i=0;p_i<path.points.size();p_i++)
+//            {
+
+
+//                p1.push_back(path.points[p_i]);
+//            }
+
+//            //p_temp.pose.position=convertI2W(g1[i]);
+//            //path_1.poses.push_back(p_temp);
+
+//        }
+
+//        for(int i=0;i<gb.size();i++)
+//        {
+//            path=Astar(p0.back(), g[gb[i]],0);
+//            //cout<<path.size();
+//            for(int p_i=0;p_i<path.points.size();p_i++)
+//            {
+//                p0.push_back(path.points[p_i]);
+//            }
+//            //cout<<gb[i].i<<" "<<gb[i].j<<endl;
+//            //p_temp.pose.position=convertI2W(gb[i]);
+//            //path_0.poses.push_back(p_temp);
+
+//        }
+
+
+        //cout<<"DONEEEEEEEEEEE!!!!"<<endl;
+
+        for(int p_i=0;p_i<p0g.size();p_i++)
+        {
+            p0.push_back();
+
             path_0.poses.push_back(p_temp);
-
         }
-        for(int i=0;i<g1.size();i++)
+
+
+        path_0.poses.clear();
+        for(int p_i=0;p_i<p0.size();p_i++)
         {
-            cout<<g1[i].i<<" "<<g1[i].j<<endl;
-            p_temp.pose.position=convertI2W(g1[i]);
+            p_temp.pose.position=convertI2W(p0[p_i]);
+
+            path_0.poses.push_back(p_temp);
+        }
+
+        path_1.poses.clear();
+        for(int p_i=0;p_i<p1.size();p_i++)
+        {
+            p_temp.pose.position=convertI2W(p1[p_i]);
+
             path_1.poses.push_back(p_temp);
-
         }
-
-        for(int i=0;i<gb.size();i++)
-        {
-            cout<<gb[i].i<<" "<<gb[i].j<<endl;
-            p_temp.pose.position=convertI2W(gb[i]);
-            path_0.poses.push_back(p_temp);
-
-        }
-        cout<<"DONEEEEEEEEEEE!!!!"<<endl;
 
 
 
@@ -382,7 +753,7 @@ void Planner::publish(void)
         point.color.g = 1.0f;
         point.color.a = 1.0;
 
-        point.lifetime = ros::Duration(0.1);
+        point.lifetime = ros::Duration(2);
 
 
         for (uint32_t i = 0; i < goals.size(); ++i)
