@@ -47,7 +47,7 @@ public:
 
     Apath()
     {
-        cost=0;
+        cost=-1;
         points.clear();
     }
 };
@@ -366,7 +366,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
     //#include <ctime>
     //using namespace std;
 
-    Apath path; path.points.clear();
+    Apath path; path.points.clear();path.cost=0;
 
     const int n=width; // horizontal size of the map
     const int m=height; // vertical size size of the map
@@ -605,38 +605,46 @@ void Planner::plan(void)
         Apath path;
         if(g0s>0)
         {
-            double max_cost=g0[0];
+            int max_cost=g0[0];
+            //cout<<g0s<<endl;
             for(int i=0;i<g0.size();i++)
             {
-                path=Astar(p0.front(), g0[i],0);
+                path=Astar(p0.front(), g[g0[i]],0);
 
-                mat[0][2+i]=path;
-                mat[2+i][0]=path;
+                mat[0][2+g0[i]]=path;
+                mat[2+g0[i]][0]=path;
 
-                if(path.cost>mat[0][2+g[max_cost]])
-                    max_cost=i;
+                if(path.cost>mat[0][2+max_cost].cost)
+                    max_cost=g0[i];
 
             }
 
-            p0g.push_back(g[max_cost]);
+            p0g.push_back(max_cost);
+            //cout<<p0g.size()<<endl;
         }
 
         if(g1s>0)
         {
-            double max_cost=g1[0];
+            int max_cost=g1[0];
+            //cout<<g1s<<endl;
             for(int i=0;i<g1.size();i++)
             {
-                path=Astar(p1.front(), g1[i],0);
+                path=Astar(p1.front(), g[g1[i]],1);
 
-                mat[1][2+i]=path;
-                mat[2+i][1]=path;
+                //cout<<path.points.size()<<"  "<<g1[i]<<endl;
 
-                if(path.cost>mat[1][2+g[max_cost]])
-                    max_cost=i;
+                mat[1][2+g1[i]]=path;
+                mat[2+g1[i]][1]=path;
+
+                if(path.cost>mat[1][2+max_cost].cost)
+                    max_cost=g1[i];
 
             }
 
-            p1g.push_back(g[max_cost]);
+            p1g.push_back(max_cost);
+            //cout<<"bla bla"<<p1g.size()<<endl;
+            //cout<<max_cost<<" "<<mat[1][2+max_cost].points.size()<<endl;
+
         }
 
 
@@ -694,9 +702,28 @@ void Planner::plan(void)
 
         for(int p_i=0;p_i<p0g.size();p_i++)
         {
-            p0.push_back();
+            if(p_i==0)
+                p0.insert(p0.end(), mat[0][p0g[p_i]].points.begin(), mat[0][p0g[p_i]].points.end());
+            else
+                p0.insert(p0.end(), mat[p0g[p_i-1]][p0g[p_i]].points.begin(), mat[p0g[p_i-1]][p0g[p_i]].points.end());
 
-            path_0.poses.push_back(p_temp);
+        }
+
+        for(int p_i=0;p_i<p1g.size();p_i++)
+        {
+            //cout<<"bla bla"<<p1g.size()<<endl;
+            if(p_i==0)
+            {
+                p1.insert(p1.end(), mat[1][2+p1g[p_i]].points.begin(), mat[1][2+p1g[p_i]].points.end());
+                //cout<<"bla bla"<<p1.size()<<endl;
+            }
+            else
+            {
+                p1.insert(p1.end(), mat[2+p1g[p_i-1]][2+p1g[p_i]].points.begin(), mat[2+p1g[p_i-1]][2+p1g[p_i]].points.end());
+                //cout<<"bla bla"<<p1.size()<<endl;
+
+            }
+
         }
 
 
