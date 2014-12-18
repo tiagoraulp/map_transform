@@ -4,3 +4,4 @@ bin/*
 build/*
 qtcreator-build/*
 build-map_transform-Desktop-Default/*
+*.autosave
