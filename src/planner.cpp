@@ -477,6 +477,9 @@ double Planner::distance2Path(vector<PointI> path, PointI goal, int r)
 
     for(int p=0;p<path.size();p++)
     {
+        if (!msg_rcv[r][path[p].i][path[p].j])
+            continue;
+
         double heur=(double) (path[p].i-goal.i)*(path[p].i-goal.i)+(path[p].j-goal.j)*(path[p].j-goal.j);
 
         vector<double>::iterator heurIt = heuristic.begin();
@@ -675,67 +678,6 @@ void Planner::plan(void)
 
         //vector<vector<vector<double> > > matC(g.size(),vector<vector<double> >(g.size(), vector<double>(g.size(),-1)));
 
-        if(gbs>0)
-        {
-            for(int r=0;r<2;r++)
-            {
-                if (pg[r].size()>1)
-                    continue;
-
-                //cout<<r<<endl;
-
-                int r_o=(r+1)%2;
-
-                //cout<<r_o<<endl;
-
-                int max_cost;
-                //cout<<g1s<<endl;
-                double max_c;
-                for(int i=0;i<gr[2].size();i++)
-                {
-                    double cost=0;
-                    if (pg[r_o].size()==1)
-                    {
-                        path=Astar(g[pg[r_o][0]], g[gr[2][i]],r_o);
-                        mat[pg[r_o][0]][gr[2][i]]=path;
-                        //mat[gr[2][i]][pg[r_o][0]]=path;
-                        cost+=path.cost;
-                    }
-                    else
-                        cost+=distance2Path(mat[pg[r_o][0]][pg[r_o][1]].points, g[gr[2][i]], r_o);
-
-                    path=Astar(g[pg[r].front()], g[gr[2][i]],r);
-
-                    mat[pg[r].front()][gr[2][i]]=path;
-                    //mat[gr[2][i]][pg[r].front()]=path;
-
-                    cost+=path.cost;
-
-                    //cout<<cost<<endl;
-
-                    if(i==0)
-                    {
-                        max_c=cost;
-                        max_cost=gr[2][i];
-                    }
-                    else
-                        if(cost>max_c)
-                        {
-                            max_c=cost;
-                            max_cost=gr[2][i];
-                            //cout<<"max"<<max_cost<<endl;
-                        }
-                }
-
-                //cout<<max_cost<<endl;
-
-                pg[r].push_back(max_cost);
-                gt[max_cost]=true;
-                pc[r]+=mat[r][max_cost].cost;
-                //cout<<"bla bla"<<p1g.size()<<endl;
-                //cout<<max_cost<<" "<<mat[1][2+max_cost].points.size()<<endl;
-            }
-        }
 
         if(g0s>0)
         {
@@ -958,6 +900,70 @@ void Planner::plan(void)
 //                cout<<endl;
 
                 //cout<<p0g.size()<<endl;
+            }
+        }
+
+
+
+        if(gbs>0)
+        {
+            for(int r=0;r<2;r++)
+            {
+                if (pg[r].size()>1)
+                    continue;
+
+                //cout<<r<<endl;
+
+                int r_o=(r+1)%2;
+
+                //cout<<r_o<<endl;
+
+                int max_cost;
+                //cout<<g1s<<endl;
+                double max_c;
+                for(int i=0;i<gr[2].size();i++)
+                {
+                    double cost=0;
+                    if (pg[r_o].size()==1)
+                    {
+                        path=Astar(g[pg[r_o][0]], g[gr[2][i]],r_o);
+                        mat[pg[r_o][0]][gr[2][i]]=path;
+                        //mat[gr[2][i]][pg[r_o][0]]=path;
+                        cost+=path.cost;
+                    }
+                    else
+                        cost+=distance2Path(mat[pg[r_o][0]][pg[r_o][1]].points, g[gr[2][i]], r_o);
+
+                    path=Astar(g[pg[r].front()], g[gr[2][i]],r);
+
+                    mat[pg[r].front()][gr[2][i]]=path;
+                    //mat[gr[2][i]][pg[r].front()]=path;
+
+                    cost+=path.cost;
+
+                    //cout<<cost<<endl;
+
+                    if(i==0)
+                    {
+                        max_c=cost;
+                        max_cost=gr[2][i];
+                    }
+                    else
+                        if(cost>max_c)
+                        {
+                            max_c=cost;
+                            max_cost=gr[2][i];
+                            //cout<<"max"<<max_cost<<endl;
+                        }
+                }
+
+                //cout<<max_cost<<endl;
+
+                pg[r].push_back(max_cost);
+                gt[max_cost]=true;
+                pc[r]+=mat[r][max_cost].cost;
+                //cout<<"bla bla"<<p1g.size()<<endl;
+                //cout<<max_cost<<" "<<mat[1][2+max_cost].points.size()<<endl;
             }
         }
 
