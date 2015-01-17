@@ -467,10 +467,61 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
         }
         delete n0;
     }
+    path.cost=-2;
     return path;
 }
 
 double Planner::distance2Path(vector<PointI> path, PointI goal, int r)
+{
+    vector<double> heuristic(0);
+    vector<int> pos(0);
+
+    for(int p=0;p<path.size();p++)
+    {
+        if (!msg_rcv[r][path[p].i][path[p].j])
+            continue;
+
+        double heur=(double) (path[p].i-goal.i)*(path[p].i-goal.i)+(path[p].j-goal.j)*(path[p].j-goal.j);
+
+        vector<double>::iterator heurIt = heuristic.begin();
+        vector<int>::iterator posIt = pos.begin();
+
+        while(heurIt!=heuristic.end())
+        {
+            if(heur<*heurIt)
+                break;
+            heurIt++;
+            posIt++;
+        }
+
+        heuristic.insert(heurIt,heur);
+        pos.insert(posIt,p);
+    }
+
+    double min_real;
+    Apath pathT;
+
+    for(int h=0;h<(heuristic.size());h++)
+    {
+        pathT=Astar(path[pos[h]], goal,r);
+        if(h==0)
+            min_real=pathT.cost;
+        else
+        {
+            if(pathT.cost<min_real)
+                min_real=pathT.cost;
+
+            if( (min_real*min_real)<heuristic[h+1])
+                return min_real;
+            else
+                continue;
+        }
+    }
+
+    return pathT.cost;
+}
+
+PointI Planner::minDistanceGoal2Path(vector<PointI> path, vector<PointI> goal, int r)
 {
     vector<double> heuristic(0);
     vector<int> pos(0);
@@ -659,6 +710,11 @@ Sequence combine(vector<int> g1, vector<int> g2, vector<int> gc)
     }
 
     return ret;
+}
+
+double cost_function(double a, double b)
+{
+    return max(a,b);
 }
 
 void Planner::plan(void)
@@ -1081,7 +1137,9 @@ void Planner::plan(void)
                         cost+=path.cost;
                     }
                     else
+                    {
                         cost+=distance2Path(mat[pg[r_o][0]][pg[r_o][1]][r_o].points, g[gr[2][i]], r_o);
+                    }
 
                     path=Astar(g[pg[r].front()], g[gr[2][i]],r);
 
@@ -1467,15 +1525,194 @@ void Planner::plan(void)
 
         cout<<"----> Method 2:"<<endl;
 
+        ros::Time t02=ros::Time::now();
+
         for(int i=0;i<gr[0].size();i++)
         {
-           //path=Astar(g[pg[r_o][0]], g[gr[2][i]],0);
+           path=Astar(g[pg[0][0]], g[gr[0][i]],0);
 
-           //mat[pg[r].front()][gr[2][i]]=path;
+           mat[pg[0].front()][gr[0][i]][0]=path;
         }
 
+        for(int i=0;i<gr[1].size();i++)
+        {
+           path=Astar(g[pg[1][0]], g[gr[1][i]],1);
+
+           mat[pg[1].front()][gr[1][i]][1]=path;
+        }
+
+        for(int i=0;i<gr[2].size();i++)
+        {
+           path=Astar(g[pg[0][0]], g[gr[2][i]],0);
+
+           mat[pg[0].front()][gr[2][i]][0]=path;
+
+           path=Astar(g[pg[1][0]], g[gr[2][i]],1);
+
+           mat[pg[1].front()][gr[2][i]][1]=path;
+        }
+
+        for(int i=0;i<gr[0].size();i++)
+        {
+            for(int j=0;j<gr[0].size();j++)
+            {
+                path=Astar(g[gr[0][i]], g[gr[0][j]],0);
+
+                mat[gr[0][i]][gr[0][j]][0]=path;
+            }
+
+            for(int j=0;j<gr[2].size();j++)
+            {
+                path=Astar(g[gr[0][i]], g[gr[2][j]],0);
+
+                mat[gr[0][i]][gr[2][j]][0]=path;
+            }
+        }
+
+        for(int i=0;i<gr[1].size();i++)
+        {
+            for(int j=0;j<gr[1].size();j++)
+            {
+                path=Astar(g[gr[1][i]], g[gr[1][j]],1);
+
+                mat[gr[1][i]][gr[1][j]][1]=path;
+            }
+
+            for(int j=0;j<gr[2].size();j++)
+            {
+                path=Astar(g[gr[1][i]], g[gr[2][j]],1);
+
+                mat[gr[1][i]][gr[2][j]][1]=path;
+            }
+        }
+
+        for(int i=0;i<gr[2].size();i++)
+        {
+            for(int j=0;j<gr[2].size();j++)
+            {
+                path=Astar(g[gr[2][i]], g[gr[2][j]],0);
+
+                mat[gr[2][i]][gr[2][j]][0]=path;
+
+                path=Astar(g[gr[2][i]], g[gr[2][j]],1);
+
+                mat[gr[2][i]][gr[2][j]][1]=path;
+            }
+
+            for(int j=0;j<gr[0].size();j++)
+            {
+                path=Astar(g[gr[2][i]], g[gr[0][j]],0);
+
+                mat[gr[2][i]][gr[0][j]][0]=path;
+            }
+
+            for(int j=0;j<gr[1].size();j++)
+            {
+                path=Astar(g[gr[2][i]], g[gr[1][j]],1);
+
+                mat[gr[2][i]][gr[1][j]][1]=path;
+            }
+        }
+
+        Sequence perm=combine(gr[0],gr[1],gr[2]);
+
+        vector<int> goal_opt1, goal_opt2;
+
+        double cost_1max, cost_2max, cost_max;
 
 
+        for(int i=0;i<perm.seq.size();i++)
+        {
+            double cost=0;
+            for(int j=0;j<perm.seq[i].size();j++)
+            {
+                if(j==0)
+                {
+                    if(mat[pg[0][0]][perm.seq[i][j]][0].cost<0)
+                    {
+                        cost=-2; break;
+                    }
+                    cost+=mat[pg[0][0]][perm.seq[i][j]][0].cost;
+                }
+                else
+                {
+                    if(mat[perm.seq[i][j-1]][perm.seq[i][j]][0].cost<0)
+                    {
+                        cost=-2; break;
+                    }
+                    cost+=mat[perm.seq[i][j-1]][perm.seq[i][j]][0].cost;
+                }
+            }
+
+            if(cost==-2)
+                continue;
+
+            double cost2=0;
+            for(int j=0;j<perm.rem[i].size();j++)
+            {
+                if(j==0)
+                {
+                    if(mat[pg[1][0]][perm.rem[i][j]][1].cost<0)
+                    {
+                        cost2=-2; break;
+                    }
+                    cost2+=mat[pg[1][0]][perm.rem[i][j]][1].cost;
+                }
+                else
+                {
+                    if(mat[perm.rem[i][j-1]][perm.rem[i][j]][1].cost<0)
+                    {
+                        cost2=-2; break;
+                    }
+                    cost2+=mat[perm.rem[i][j-1]][perm.rem[i][j]][1].cost;
+                }
+            }
+
+            if(cost2==-2)
+                continue;
+
+            if(i==0)
+            {
+                cost_1max=cost;
+                cost_2max=cost2;
+                cost_max=cost_function(cost_1max,cost_2max);
+                goal_opt1=perm.seq[i];
+                goal_opt2=perm.rem[i];
+
+            }
+            else
+            {
+                if( cost_function(cost,cost2)<cost_max )
+                {
+                    cost_1max=cost;
+                    cost_2max=cost2;
+                    cost_max=cost_function(cost_1max,cost_2max);
+                    goal_opt1=perm.seq[i];
+                    goal_opt2=perm.rem[i];
+                }
+            }
+        }
+
+        cout<<"Robo 0: 0 ";
+        for(int i=0;i<goal_opt1.size();i++)
+        {
+            cout<<goal_opt1[i]<<" ";
+        }
+        cout<<endl;
+
+        cout<<"Robo 1: 1 ";
+        for(int i=0;i<goal_opt2.size();i++)
+        {
+            cout<<goal_opt2[i]<<" ";
+        }
+        cout<<endl;
+
+        cout<<"Robot 0 cost: "<<cost_1max <<endl;
+        cout<<"Robot 1 cost: "<<cost_2max <<endl;
+
+        diff = ros::Time::now() - t02;
+
+        cout<<diff<<endl;
 
 
 
