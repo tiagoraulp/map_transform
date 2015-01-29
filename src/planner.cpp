@@ -168,6 +168,7 @@ private:
 
     double distance2Path(vector<PointI> path, PointI goal, int r);
 
+    PointI minDistanceGoal2Path(vector<PointI> path, vector<PointI> goal, int r);
 
 public:
 
@@ -523,52 +524,52 @@ double Planner::distance2Path(vector<PointI> path, PointI goal, int r)
 
 PointI Planner::minDistanceGoal2Path(vector<PointI> path, vector<PointI> goal, int r)
 {
-    vector<double> heuristic(0);
-    vector<int> pos(0);
+//    vector<double> heuristic(0);
+//    vector<int> pos(0);
 
-    for(int p=0;p<path.size();p++)
-    {
-        if (!msg_rcv[r][path[p].i][path[p].j])
-            continue;
+//    for(int p=0;p<path.size();p++)
+//    {
+//        if (!msg_rcv[r][path[p].i][path[p].j])
+//            continue;
 
-        double heur=(double) (path[p].i-goal.i)*(path[p].i-goal.i)+(path[p].j-goal.j)*(path[p].j-goal.j);
+//        double heur=(double) (path[p].i-goal.i)*(path[p].i-goal.i)+(path[p].j-goal.j)*(path[p].j-goal.j);
 
-        vector<double>::iterator heurIt = heuristic.begin();
-        vector<int>::iterator posIt = pos.begin();
+//        vector<double>::iterator heurIt = heuristic.begin();
+//        vector<int>::iterator posIt = pos.begin();
 
-        while(heurIt!=heuristic.end())
-        {
-            if(heur<*heurIt)
-                break;
-            heurIt++;
-            posIt++;
-        }
+//        while(heurIt!=heuristic.end())
+//        {
+//            if(heur<*heurIt)
+//                break;
+//            heurIt++;
+//            posIt++;
+//        }
 
-        heuristic.insert(heurIt,heur);
-        pos.insert(posIt,p);
-    }
+//        heuristic.insert(heurIt,heur);
+//        pos.insert(posIt,p);
+//    }
 
-    double min_real;
-    Apath pathT;
+//    double min_real;
+//    Apath pathT;
 
-    for(int h=0;h<(heuristic.size());h++)
-    {
-        pathT=Astar(path[pos[h]], goal,r);
-        if(h==0)
-            min_real=pathT.cost;
-        else
-        {
-            if(pathT.cost<min_real)
-                min_real=pathT.cost;
+//    for(int h=0;h<(heuristic.size());h++)
+//    {
+//        pathT=Astar(path[pos[h]], goal,r);
+//        if(h==0)
+//            min_real=pathT.cost;
+//        else
+//        {
+//            if(pathT.cost<min_real)
+//                min_real=pathT.cost;
 
-            if( (min_real*min_real)<heuristic[h+1])
-                return min_real;
-            else
-                continue;
-        }
-    }
+//            if( (min_real*min_real)<heuristic[h+1])
+//                return min_real;
+//            else
+//                continue;
+//        }
+//    }
 
-    return pathT.cost;
+    return goal[0];//pathT.cost;
 }
 
 
@@ -1621,9 +1622,12 @@ void Planner::plan(void)
         double cost_1max, cost_2max, cost_max;
 
 
+        int counter_opt=0;
         for(int i=0;i<perm.seq.size();i++)
         {
             double cost=0;
+            double cost2=0;
+
             for(int j=0;j<perm.seq[i].size();j++)
             {
                 if(j==0)
@@ -1642,12 +1646,19 @@ void Planner::plan(void)
                     }
                     cost+=mat[perm.seq[i][j-1]][perm.seq[i][j]][0].cost;
                 }
+
+                if( cost_function(cost,cost2)>cost_max && i>0)
+                {
+                    cost=-2; counter_opt++; break;
+                }
             }
 
             if(cost==-2)
                 continue;
 
-            double cost2=0;
+
+
+
             for(int j=0;j<perm.rem[i].size();j++)
             {
                 if(j==0)
@@ -1665,6 +1676,11 @@ void Planner::plan(void)
                         cost2=-2; break;
                     }
                     cost2+=mat[perm.rem[i][j-1]][perm.rem[i][j]][1].cost;
+                }
+
+                if( cost_function(cost,cost2)>cost_max && i>0 )
+                {
+                    cost2=-2; counter_opt++; break;
                 }
             }
 
@@ -1712,7 +1728,50 @@ void Planner::plan(void)
 
         diff = ros::Time::now() - t02;
 
+        cout<<"Number of optimizations: "<<counter_opt<<endl;
+
         cout<<diff<<endl;
+
+
+
+        cout<<"----> Testing time impossible A*"<<endl;
+
+        ros::Time t03=ros::Time::now();
+
+        int counter=0;
+        for(int i=0;i<gr[0].size();i++)
+        {
+           path=Astar(g[pg[1][0]], g[gr[0][i]],1);
+           if(path.cost==-2)
+               counter++;
+        }
+        cout<<counter<<"/"<<gr[0].size()<<endl;
+
+        counter=0;
+        for(int i=0;i<gr[1].size();i++)
+        {
+           path=Astar(g[pg[0][0]], g[gr[1][i]],0);
+           if(path.cost==-2)
+               counter++;
+        }
+        cout<<counter<<"/"<<gr[1].size()<<endl;
+
+        counter=0;
+        for(int i=0;i<gr[3].size();i++)
+        {
+           path=Astar(g[pg[0][0]], g[gr[3][i]],0);
+           if(path.cost==-2)
+               counter++;
+
+           path=Astar(g[pg[1][0]], g[gr[3][i]],1);
+           if(path.cost==-2)
+               counter++;
+        }
+        cout<<counter<<"/"<<2*gr[3].size()<<endl;
+
+        diff = ros::Time::now() - t03;
+
+        cout<<"Time to fail all impossible goals with A*:"<<diff<<endl;
 
 
 

@@ -552,6 +552,9 @@ void Reach_transf::transf(void)
 
     if (count>0 && !treated)
     {
+
+        ros::Time t01=ros::Time::now();
+
         treated=true;
         cv::Mat element1 = cv::getStructuringElement( cv::MORPH_ELLIPSE,
                                                cv::Size( 2*infl + 1, 2*infl+1 ),
@@ -648,6 +651,12 @@ void Reach_transf::transf(void)
         //publish();
 
         //lock.unlock();
+
+
+        ros::Duration diff = ros::Time::now() - t01;
+
+        cout<<tf_pref<<" - Time for reach: "<<diff<<endl;
+
     }
 
 
@@ -673,6 +682,8 @@ void Reach_transf::transf_pos(void)
 
     if(count>0)
     {
+        ros::Time t01=ros::Time::now();
+
         int pos_x=(int) round((transform.getOrigin().x()-or_x)/res);
 
         int pos_y=(int) round((transform.getOrigin().y()-or_y)/res);
@@ -721,6 +732,12 @@ void Reach_transf::transf_pos(void)
 
         map_label=l_map;
         pos_rcv=true;
+
+        ros::Duration diff = ros::Time::now() - t01;
+
+        //cout<<tf_pref<<" - Time for label: "<<diff<<endl;
+
+
 
     }
     else
