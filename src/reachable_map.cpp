@@ -99,7 +99,7 @@ public:
 
         nh_.param("kernel", kernel, 2);
 
-        nh_.param("tf_prefix", tf_pref, std::string("\\robot_0"));
+        nh_.param("tf_prefix", tf_pref, std::string(""));
 
         count=0;
 
@@ -689,9 +689,9 @@ void Reach_transf::transf_pos(void)
         int pos_y=(int) round((transform.getOrigin().y()-or_y)/res);
 
         cv::Mat temp_labelling;
-        bitwise_not( map_reach.clone() , temp_labelling);
+        bitwise_not( map_erosionOp.clone() , temp_labelling);
 
-        std::vector<std::vector<cv::Point> > labels=label(map_reach.clone()/255);
+        std::vector<std::vector<cv::Point> > labels=label(map_erosionOp.clone()/255);
 
 
         int label_pos=-1;
@@ -716,7 +716,7 @@ void Reach_transf::transf_pos(void)
 
 
 
-        cv::Mat l_map=map_reach.clone();
+        cv::Mat l_map=map_erosionOp.clone();
 
 
         for (int i=0;i<labels.size();i++){
@@ -730,8 +730,60 @@ void Reach_transf::transf_pos(void)
          }
 
 
+        cv::Mat element1 = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+                                               cv::Size( 2*infl + 1, 2*infl+1 ),
+                                               cv::Point( infl, infl ) );
+
+
+        cv::Mat element2 = cv::getStructuringElement( cv::MORPH_ERODE,
+                                               cv::Size( 2*infl + 1, 2*infl+1 ),
+                                               cv::Point( infl, infl ) );
+
+        cv::Mat element3 = cv::getStructuringElement( cv::MORPH_DILATE,
+                                               cv::Size( 2*infl + 1, 2*infl+1 ),
+                                               cv::Point( infl, infl ) );
+
+        //cv::Mat element4 = cv::getStructuringElement( cv::MORPH_CLOSE,
+        //                                       cv::Size( 2*infl + 1, 2*infl+1 ),
+        //                                         cv::Point( infl, infl ) );
+
+
+        cv::Mat element5 = cv::getStructuringElement( cv::MORPH_CROSS,
+                                               cv::Size( 2*infl + 1, 2*infl+1 ),
+                                               cv::Point( infl, infl ) );
+
+        cv::Mat element6 = cv::getStructuringElement( cv::MORPH_RECT,
+                                               cv::Size( 2*infl + 1, 2*infl+1 ),
+                                               cv::Point( infl, infl ) );
+
+
+
+
+        /// Apply the erosion operation
+        ///
+        ///
+
+        switch (kernel) {
+        case 1:
+            //erode( or_map, er_map, element1);
+            dilate( l_map, l_map, element1 );
+            break;
+        case 3:
+            //erode( or_map, er_map, element5);
+            dilate( l_map, l_map,  element5 );
+            break;
+        default:
+            //erode( or_map, er_map, element6);
+            dilate( l_map, l_map,  element6 );
+            break;
+        }
+
+
+
+
         map_label=l_map;
         pos_rcv=true;
+
 
         ros::Duration diff = ros::Time::now() - t01;
 
