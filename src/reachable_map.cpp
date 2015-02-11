@@ -806,7 +806,7 @@ void Reach_transf::transf_pos(void)
 
         //int k=label_pos;
 
-        for (int k=0;k<labels_unreach.size();k++){//8;k++){//
+        for (int k=0;k<labels_unreach.size();k++){//4;k++){//
             vector<cv::Point> frontier;
             int min_x=l_map.rows, min_y=l_map.cols, max_x=-1, max_y=-1;
             for(int j=0;j<labels_unreach[k].size();j++){
@@ -1235,23 +1235,23 @@ void Reach_transf::transf_pos(void)
 
                 //// TODO: only one point; neighbor points
 
-                for(int rowx=max((opt_x-infl-infl),0);rowx<=min((opt_x+infl+infl),regions.rows-1);rowx++)
+                for(int rowx=max((opt_x-infl-5*infl),0);rowx<=min((opt_x+infl+5*infl),regions.rows-1);rowx++)
                 {
-                    for(int coly=max((opt_y-infl-infl),0);coly<=min((opt_y+infl+infl),regions.cols-1);coly++)
+                    for(int coly=max((opt_y-infl-5*infl),0);coly<=min((opt_y+infl+5*infl),regions.cols-1);coly++)
                     {
                         float angle=atan2(coly-opt_y,rowx-opt_x);
                         float dist=(rowx-opt_x)*(rowx-opt_x)+(coly-opt_y)*(coly-opt_y);
 
                         if(obt_angle==1)
                         {
-                            if(angle<extremes[1] && angle>extremes[0] && (dist<=(4*infl*infl)) && regions.at<uchar>(rowx,coly)==k+2)
+                            if(angle<extremes[1] && angle>extremes[0] && (dist<=(36*infl*infl)) && regions.at<uchar>(rowx,coly)==k+2)
                             {
                                 l_map.at<uchar>(rowx,coly)=255;
                             }
                         }
                         else
                         {
-                            if( (angle<extremes[0] || angle>extremes[1]) && (dist<=(4*infl*infl)) && regions.at<uchar>(rowx,coly)==k+2)
+                            if( (angle<extremes[0] || angle>extremes[1]) && (dist<=(36*infl*infl)) && regions.at<uchar>(rowx,coly)==k+2)
                             {
                                 l_map.at<uchar>(rowx,coly)=255;
                             }
