@@ -806,7 +806,7 @@ void Reach_transf::transf_pos(void)
 
         //int k=label_pos;
 
-        for (int k=1;k<2;k++){//labels_unreach.size();k++){
+        for (int k=0;k<labels_unreach.size();k++){//8;k++){//
             vector<cv::Point> frontier;
             int min_x=l_map.rows, min_y=l_map.cols, max_x=-1, max_y=-1;
             for(int j=0;j<labels_unreach[k].size();j++){
@@ -928,8 +928,8 @@ void Reach_transf::transf_pos(void)
                     if(angles.size()==0)
                     {
                         angles.push_back(angle);
-                        angles_x.push_back(opt_x);
-                        angles_y.push_back(opt_y);
+                        angles_x.push_back(frontier[l].x);
+                        angles_y.push_back(frontier[l].y);
                     }
                     else
                     {
@@ -938,8 +938,8 @@ void Reach_transf::transf_pos(void)
                             if(angle<angles[a])
                             {
                                 angles.insert(it,angle);
-                                angles_x.insert(itx,opt_x);
-                                angles_y.insert(ity,opt_y);
+                                angles_x.insert(itx,frontier[l].x);
+                                angles_y.insert(ity,frontier[l].y);
 
 
                                 if(angles.size()==2)
@@ -980,7 +980,7 @@ void Reach_transf::transf_pos(void)
                                         }
 
                                     }
-                                    if( a==0 && (obt_angle+1)==angles.size() )
+                                    else if( a==0 && (obt_angle+1)==(angles.size()-1) )
                                     {
 
                                         if( ( (angles[a]+PI)+(PI-angles[obt_angle+1]) )>PI  )
@@ -1023,8 +1023,8 @@ void Reach_transf::transf_pos(void)
                         if(angle>=angles[angles.size()-1])
                         {
                             angles.insert(angles.end(),angle);
-                            angles_x.insert(angles_x.end(),opt_x);
-                            angles_y.insert(angles_y.end(),opt_y);
+                            angles_x.insert(angles_x.end(),frontier[l].x);
+                            angles_y.insert(angles_y.end(),frontier[l].y);
 
 
                             if(angles.size()==2)
@@ -1067,13 +1067,20 @@ void Reach_transf::transf_pos(void)
                             }
                         }
                     }
+
+                    for(int jp=0;jp<angles.size();jp++)
+                    {
+                        cout<<angles[jp]<<" ";
+                    }
+                    cout<<endl;
+                    cout<<"Obt_angle: "<<obt_angle<<endl;
                 }
 
-                vector<float> extremes(2,0);
+                vector<float> extremes;extremes.clear();
 
                 if(angles.size()==1)
                 {
-
+                    //// TODO: only one point; neighbor points
                 }
                 else if(angles.size()>1)
                 {
@@ -1107,7 +1114,7 @@ void Reach_transf::transf_pos(void)
                                 }
                             }
                         }
-                        extremes[1]=atan2(min_y-opt_y,min_x-opt_x);
+                        extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
 
                         min_dist=-1;
                         for(int rowx=max((angles_x[0]-1),0);rowx<=min((angles_x[0]+1),regions.rows-1);rowx++)
@@ -1136,9 +1143,16 @@ void Reach_transf::transf_pos(void)
                                 }
                             }
                         }
-                        extremes[0]=atan2(min_y-opt_y,min_x-opt_x);
 
-                        obt_angle=1;
+                        if( atan2(min_y-opt_y,min_x-opt_x)<extremes[0] )
+                            extremes.insert(extremes.begin(),atan2(min_y-opt_y,min_x-opt_x));
+                        else
+                            extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
+
+                        if( (extremes[1]-extremes[0])>PI )
+                            obt_angle=0;
+                        else
+                            obt_angle=1;
                     }
                     else
                     {
@@ -1170,7 +1184,7 @@ void Reach_transf::transf_pos(void)
                                 }
                             }
                         }
-                        extremes[0]=atan2(min_y-opt_y,min_x-opt_x);
+                        extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
 
                         min_dist=-1;
                         for(int rowx=max((angles_x[obt_angle+1]-1),0);rowx<=min((angles_x[obt_angle+1]+1),regions.rows-1);rowx++)
@@ -1199,11 +1213,25 @@ void Reach_transf::transf_pos(void)
                                 }
                             }
                         }
-                        extremes[1]=atan2(min_y-opt_y,min_x-opt_x);
 
-                        obt_angle=0;
+                        if( atan2(min_y-opt_y,min_x-opt_x)<extremes[0] )
+                            extremes.insert(extremes.begin(),atan2(min_y-opt_y,min_x-opt_x));
+                        else
+                            extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
+
+                        if( (extremes[1]-extremes[0])>PI )
+                            obt_angle=0;
+                        else
+                            obt_angle=1;
                     }
                 }
+
+//                for(int jp=0;jp<angles.size();jp++)
+//                {
+//                    cout<<angles[jp]<<" ";
+//                }
+//                cout<<endl;
+//                cout<<"Obt_angle: "<<obt_angle<<endl;
 
                 //// TODO: only one point; neighbor points
 
