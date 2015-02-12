@@ -586,6 +586,32 @@ void Reach_transf::transf(void)
                                                cv::Size( 2*infl + 1, 2*infl+1 ),
                                                cv::Point( infl, infl ) );
 
+        cv::Mat element11 = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+                                               cv::Size( 2*defl + 1, 2*defl+1 ),
+                                               cv::Point( defl, defl ) );
+
+
+        cv::Mat element12 = cv::getStructuringElement( cv::MORPH_ERODE,
+                                               cv::Size( 2*defl + 1, 2*defl+1 ),
+                                               cv::Point( defl, defl ) );
+
+        cv::Mat element13 = cv::getStructuringElement( cv::MORPH_DILATE,
+                                               cv::Size( 2*defl + 1, 2*defl+1 ),
+                                               cv::Point( defl, defl ) );
+
+        //cv::Mat element4 = cv::getStructuringElement( cv::MORPH_CLOSE,
+        //                                       cv::Size( 2*infl + 1, 2*infl+1 ),
+        //                                         cv::Point( infl, infl ) );
+
+
+        cv::Mat element15 = cv::getStructuringElement( cv::MORPH_CROSS,
+                                               cv::Size( 2*defl + 1, 2*defl+1 ),
+                                               cv::Point( defl, defl ) );
+
+        cv::Mat element16 = cv::getStructuringElement( cv::MORPH_RECT,
+                                               cv::Size( 2*defl + 1, 2*defl+1 ),
+                                               cv::Point( defl, defl ) );
+
 
         cv::Mat or_map, er_map, cl_map, es_map, r_map, temp;
 
@@ -600,15 +626,15 @@ void Reach_transf::transf(void)
         switch (kernel) {
         case 1:
             erode( or_map, er_map, element1);
-            dilate( er_map, cl_map, element1 );
+            dilate( er_map, cl_map, element11 );
             break;
         case 3:
             erode( or_map, er_map, element5);
-            dilate( er_map, cl_map, element5 );
+            dilate( er_map, cl_map, element15 );
             break;
         default:
             erode( or_map, er_map, element6);
-            dilate( er_map, cl_map, element6 );
+            dilate( er_map, cl_map, element16 );
             break;
         }
 
@@ -691,6 +717,8 @@ void Reach_transf::transf_pos(void)
         int pos_x=(int) round((transform.getOrigin().x()-or_x)/res);
 
         int pos_y=(int) round((transform.getOrigin().y()-or_y)/res);
+
+        //cout<<pos_x<<" ; "<<pos_y<<endl;
 
         cv::Mat temp_labelling, temp;
         //bitwise_not( map_erosionOp.clone() , temp_labelling);
