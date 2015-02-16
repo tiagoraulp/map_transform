@@ -35,6 +35,9 @@ static const std::string C_WINDOW = "Close";
 static const std::string ES_WINDOW = "Erosion+Skeleton";
 static const std::string R_WINDOW = "Reachable";
 static const std::string L_WINDOW = "Labelled";
+static const std::string A_WINDOW = "Actuation";
+static const std::string V_WINDOW = "Visibility";
+static const std::string D_WINDOW = "Debug";
 
 using namespace std;
 
@@ -49,12 +52,14 @@ private:
     ros::Publisher pub3;
     ros::Publisher pub4;
     ros::Publisher pub5;
+    ros::Publisher pub6;
+    ros::Publisher pub7;
     
     ros::Subscriber sub;
 
     tf::TransformListener pos_listener;
 
-    std::vector<std::vector<cv::Point> >  label(const cv::Mat binary);
+    std::vector<std::vector<cv::Point> >  label(const cv::Mat binary, int conn);
     cv::Mat skel (cv::Mat img);
     cv::Mat skel2 (cv::Mat img);
     cv::Mat skel3 (cv::Mat img);
@@ -83,7 +88,7 @@ private:
 
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
 
-    cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label;
+    cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label , map_act, map_vis, map_debug;
 
 public:
 
@@ -94,7 +99,9 @@ public:
         pub2 = nh_.advertise<nav_msgs::OccupancyGrid>("c_map", 1,true);
         pub3 = nh_.advertise<nav_msgs::OccupancyGrid>("es_map", 1,true);
         pub4 = nh_.advertise<nav_msgs::OccupancyGrid>("r_map", 1,true);
-        pub5 = nh_.advertise<nav_msgs::OccupancyGrid>("l_map", 1,true);
+        pub5 = nh_.advertise<nav_msgs::OccupancyGrid>("vis_map", 1,true);
+        pub6 = nh_.advertise<nav_msgs::OccupancyGrid>("a_map", 1,true);
+        pub7 = nh_.advertise<nav_msgs::OccupancyGrid>("v_map", 1,true);
 
         sub = nh_.subscribe("map", 1, &Reach_transf::rcv_map, this);
 
@@ -118,6 +125,9 @@ public:
             cv::namedWindow(ES_WINDOW);
             cv::namedWindow(R_WINDOW);
             cv::namedWindow(L_WINDOW);
+            cv::namedWindow(A_WINDOW);
+            cv::namedWindow(D_WINDOW);
+            cv::namedWindow(V_WINDOW);
         }
     }
 
@@ -130,6 +140,9 @@ public:
            cv::destroyWindow(ES_WINDOW);
            cv::destroyWindow(R_WINDOW);
            cv::destroyWindow(L_WINDOW);
+           cv::destroyWindow(A_WINDOW);
+           cv::destroyWindow(D_WINDOW);
+           cv::destroyWindow(V_WINDOW);
         }
     }
 
@@ -242,7 +255,13 @@ void Reach_transf::show(void)
         cv::imshow(C_WINDOW,map_closeOp);
         cv::imshow(ES_WINDOW,map_eroded_skel);
         cv::imshow(R_WINDOW,map_reach);
-        if(pos_rcv) cv::imshow(L_WINDOW,map_label);
+        if(pos_rcv)
+        {
+            cv::imshow(L_WINDOW,map_label);
+            cv::imshow(A_WINDOW,map_act);
+            cv::imshow(V_WINDOW,map_vis);
+            cv::imshow(D_WINDOW,map_debug);
+        }
         cv::waitKey(3);
     }
 }
@@ -675,7 +694,7 @@ void Reach_transf::transf(void)
 
         //trans_pos();
 
-        //map_label=l_map;
+        //=vis_map;
 
         //GridMap=close(GridMap,inf);
         //publish();
@@ -691,6 +710,85 @@ void Reach_transf::transf(void)
 
 
 }
+
+class Clustering {
+public:
+    vector<cv::Point> frontier;
+    vector<cv::Point> rest;
+
+    Clustering()
+    {
+        frontier.clear();
+        rest.clear();
+    }
+
+    void append(Clustering b)
+    {
+        frontier.insert(frontier.end(),b.frontier.begin(),b.frontier.end());
+        rest.insert(rest.end(),b.rest.begin(),b.rest.end());
+    }
+
+//    Sequence & operator= (const Sequence & other)
+//    {
+//            if (this != &other) // protect against invalid self-assignment
+//            {
+//                seq=other.seq;
+//                rem=other.rem;
+//            }
+//            // by convention, always return *this
+//            return *this;
+//    }
+
+    void print(void)
+    {
+        for (int i=0;i<frontier.size();i++)
+        {
+            cout<<frontier[i].x<<" "<<frontier[i].y<<"; ";
+        }
+        cout<<endl;
+
+        for (int i=0;i<rest.size();i++)
+        {
+            cout<<rest[i].x<<" "<<rest[i].y<<"; ";
+        }
+        cout<<endl;
+    }
+};
+
+
+Clustering Reach_transf::separate_frontiers(Clustering clust, int index)
+{
+
+
+    if(clust.rest.size()==0 || index>=clust.rest.size())
+    {
+        return clust;
+    }
+
+    Clustering comp=clust;
+
+    Clustering temp;
+
+    for(int i=0;i<clust.rest.size();i++)
+    {
+        if( (i!=index) && (clust.rest[i].x==(clust.rest[index].x+1)|| clust.rest[i].x==clust.rest[index].x || clust.rest[i].x==(clust.rest[index].x-1) ) && ( clust.rest[i].y==(clust.rest[index].y+1) || clust.rest[i].y==clust.rest[index].y || clust.rest[i].y==(clust.rest[index].y-1) ) )
+        {
+            temp=clust;
+            temp.erase(temp.begin()+index);
+            vector<cv::Point> tempL;
+            if(index>i)
+                tempL=separate_frontiers(temp,i);
+            else
+                tempL=separate_frontiers(temp,i-1);
+
+            comp.insert(comp.end(),tempL.begin(),tempL.end());
+
+            break;
+
+        }
+    }
+}
+
 
 void Reach_transf::transf_pos(void)
 {
@@ -723,7 +821,7 @@ void Reach_transf::transf_pos(void)
         cv::Mat temp_labelling, temp;
         //bitwise_not( map_erosionOp.clone() , temp_labelling);
 
-        std::vector<std::vector<cv::Point> > labels=label(map_erosionOp.clone()/255);
+        std::vector<std::vector<cv::Point> > labels=label(map_erosionOp.clone()/255,8);
 
 
         int label_pos=-1;
@@ -823,30 +921,39 @@ void Reach_transf::transf_pos(void)
         /// Apply the erosion operation
         ///
         ///
+        ///
+        ///
+        ///
+        ///
+
+        cv::Mat act_map=l_map.clone();
+
 
         switch (kernel) {
         case 1:
             //erode( or_map, er_map, element1);
-            dilate( l_map, l_map, element11 );
+            dilate( act_map, act_map, element11 );
             break;
         case 3:
             //erode( or_map, er_map, element5);
-            dilate( l_map, l_map,  element15 );
+            dilate( act_map, act_map,  element15 );
             break;
         default:
             //erode( or_map, er_map, element6);
-            dilate( l_map, l_map,  element16 );
+            dilate( act_map, act_map,  element16 );
             break;
         }
+
+        cv::Mat vis_map=act_map.clone();
 
 
         bitwise_not(map_or,temp);
 
-        unreach_map=l_map|temp;
+        unreach_map=vis_map|temp;
 
         bitwise_not( unreach_map.clone() , temp_labelling);
 
-        std::vector<std::vector<cv::Point> > labels_unreach=label(temp_labelling/255);
+        std::vector<std::vector<cv::Point> > labels_unreach=label(temp_labelling/255,4);
 
 
         //label_pos=2;
@@ -868,15 +975,15 @@ void Reach_transf::transf_pos(void)
 
         if(infl<defl)
         {
-            for (int k=0;k<labels_unreach.size();k++){//4;k++){//
+            for (int k=0;k<labels_unreach.size();k++){//2;k++){//
                 vector<cv::Point> frontier;
-                int min_x=l_map.rows, min_y=l_map.cols, max_x=-1, max_y=-1;
+                int min_x=vis_map.rows, min_y=vis_map.cols, max_x=-1, max_y=-1;
                 for(int j=0;j<labels_unreach[k].size();j++){
 
-                    if ((labels_unreach[k][j].x+1)<l_map.rows)
-                        if(l_map.at<uchar>(labels_unreach[k][j].x+1,labels_unreach[k][j].y)==255)
+                    if ((labels_unreach[k][j].x+1)<vis_map.rows)
+                        if(vis_map.at<uchar>(labels_unreach[k][j].x+1,labels_unreach[k][j].y)==255)
                         {
-                            //l_map.at<uchar>(labels_unreach[k][j].x,labels_unreach[k][j].y)=255;
+                            //vis_map.at<uchar>(labels_unreach[k][j].x,labels_unreach[k][j].y)=255;
                             frontier.push_back(cv::Point(labels_unreach[k][j].x,labels_unreach[k][j].y));
                             if(labels_unreach[k][j].x>max_x)
                                 max_x=labels_unreach[k][j].x;
@@ -888,8 +995,8 @@ void Reach_transf::transf_pos(void)
                                 min_y=labels_unreach[k][j].y;
                             continue;
                         }
-                    if ((labels_unreach[k][j].y+1)<l_map.cols)
-                        if(l_map.at<uchar>(labels_unreach[k][j].x,labels_unreach[k][j].y+1)==255)
+                    if ((labels_unreach[k][j].y+1)<vis_map.cols)
+                        if(vis_map.at<uchar>(labels_unreach[k][j].x,labels_unreach[k][j].y+1)==255)
                         {
                             frontier.push_back(cv::Point(labels_unreach[k][j].x,labels_unreach[k][j].y));
                             if(labels_unreach[k][j].x>max_x)
@@ -903,7 +1010,7 @@ void Reach_transf::transf_pos(void)
                             continue;
                         }
                     if ((labels_unreach[k][j].x-1)>=0)
-                        if(l_map.at<uchar>(labels_unreach[k][j].x-1,labels_unreach[k][j].y)==255)
+                        if(vis_map.at<uchar>(labels_unreach[k][j].x-1,labels_unreach[k][j].y)==255)
                         {
                             frontier.push_back(cv::Point(labels_unreach[k][j].x,labels_unreach[k][j].y));
                             if(labels_unreach[k][j].x>max_x)
@@ -917,7 +1024,7 @@ void Reach_transf::transf_pos(void)
                             continue;
                         }
                     if ((labels_unreach[k][j].y-1)>=0)
-                        if(l_map.at<uchar>(labels_unreach[k][j].x,labels_unreach[k][j].y-1)==255)
+                        if(vis_map.at<uchar>(labels_unreach[k][j].x,labels_unreach[k][j].y-1)==255)
                         {
                             frontier.push_back(cv::Point(labels_unreach[k][j].x,labels_unreach[k][j].y));
                             if(labels_unreach[k][j].x>max_x)
@@ -940,11 +1047,11 @@ void Reach_transf::transf_pos(void)
 
                     double min_sum=-1; int opt_x, opt_y;
 
-                    for(int x=max(min_x-infl,0);x<min(max_x+infl,l_map.rows);x++)
+                    for(int x=max(min_x-infl,0);x<min(max_x+infl,vis_map.rows);x++)
                     {
-                        for(int y=max(min_y-infl,0);y<min(max_y+infl,l_map.cols);y++)
+                        for(int y=max(min_y-infl,0);y<min(max_y+infl,vis_map.cols);y++)
                         {
-                            if(l_map.at<uchar>(x,y)==255 && map_erosionOp.at<uchar>(x,y)==255)
+                            if(l_map.at<uchar>(x,y)==255)
                             {
                                 double sum=0;
                                 for(int l=0;l<frontier.size();l++){
@@ -971,7 +1078,7 @@ void Reach_transf::transf_pos(void)
                         }
                     }
 
-                    unreach_map.at<uchar>(opt_x,opt_y)=0;
+                    //unreach_map.at<uchar>(opt_x,opt_y)=0;
 
 
 
@@ -1027,17 +1134,50 @@ void Reach_transf::transf_pos(void)
                                             }
                                             else
                                             {
+                                                bool found=false;
+
+                                                float anglediff;
+
                                                 for(int aa=0;aa<(angles.size()-1);aa++)
                                                 {
-                                                    bool found=false;
-                                                    if((angles[aa+1]-angles[aa])>PI)
-                                                    {
-                                                        obt_angle=aa;
-                                                        found=true;
-                                                        break;
-                                                    }
+
+                                                    //if((angles[aa+1]-angles[aa])>PI)
+                                                    //{
                                                     if(!found)
-                                                        obt_angle=angles.size()-1;
+                                                    {
+                                                        anglediff=angles[aa+1]-angles[aa];
+                                                        obt_angle=0;
+                                                        found=true;
+                                                    }
+                                                    else
+                                                    {
+                                                        if( (angles[aa+1]-angles[aa])>anglediff )
+                                                        {
+                                                            anglediff=angles[aa+1]-angles[aa];
+                                                            obt_angle=aa;
+                                                        }
+                                                    }
+
+                                                    //}
+
+
+    //                                                    bool found=false;
+    //                                                    if((angles[aa+1]-angles[aa])>PI)
+    //                                                    {
+    //                                                        obt_angle=aa;
+    //                                                        found=true;
+    //                                                        break;
+    //                                                    }
+    //                                                    if(!found)
+    //                                                        obt_angle=angles.size()-1;
+                                                }
+
+                                                //if(!found)
+                                                //    obt_angle=angles.size()-1;
+
+                                                if( ((angles[0]+PI)+(PI-angles[angles.size()-1]))>anglediff )
+                                                {
+                                                    obt_angle=angles.size()-1;
                                                 }
                                             }
 
@@ -1055,17 +1195,50 @@ void Reach_transf::transf_pos(void)
                                             }
                                             else
                                             {
+                                                bool found=false;
+
+                                                float anglediff;
+
                                                 for(int aa=0;aa<(angles.size()-1);aa++)
                                                 {
-                                                    bool found=false;
-                                                    if((angles[aa+1]-angles[aa])>PI)
-                                                    {
-                                                        obt_angle=aa;
-                                                        found=true;
-                                                        break;
-                                                    }
+
+                                                    //if((angles[aa+1]-angles[aa])>PI)
+                                                    //{
                                                     if(!found)
-                                                        obt_angle=angles.size()-1;
+                                                    {
+                                                        anglediff=angles[aa+1]-angles[aa];
+                                                        obt_angle=0;
+                                                        found=true;
+                                                    }
+                                                    else
+                                                    {
+                                                        if( (angles[aa+1]-angles[aa])>anglediff )
+                                                        {
+                                                            anglediff=angles[aa+1]-angles[aa];
+                                                            obt_angle=aa;
+                                                        }
+                                                    }
+
+                                                    //}
+
+
+    //                                                    bool found=false;
+    //                                                    if((angles[aa+1]-angles[aa])>PI)
+    //                                                    {
+    //                                                        obt_angle=aa;
+    //                                                        found=true;
+    //                                                        break;
+    //                                                    }
+    //                                                    if(!found)
+    //                                                        obt_angle=angles.size()-1;
+                                                }
+
+                                                //if(!found)
+                                                //    obt_angle=angles.size()-1;
+
+                                                if( ((angles[0]+PI)+(PI-angles[angles.size()-1]))>anglediff )
+                                                {
+                                                    obt_angle=angles.size()-1;
                                                 }
                                             }
 
@@ -1112,17 +1285,50 @@ void Reach_transf::transf_pos(void)
                                         }
                                         else
                                         {
+                                            bool found=false;
+
+                                            float anglediff;
+
                                             for(int aa=0;aa<(angles.size()-1);aa++)
                                             {
-                                                bool found=false;
-                                                if((angles[aa+1]-angles[aa])>PI)
-                                                {
-                                                    obt_angle=aa;
-                                                    found=true;
-                                                    break;
-                                                }
+
+                                                //if((angles[aa+1]-angles[aa])>PI)
+                                                //{
                                                 if(!found)
-                                                    obt_angle=angles.size()-1;
+                                                {
+                                                    anglediff=angles[aa+1]-angles[aa];
+                                                    obt_angle=0;
+                                                    found=true;
+                                                }
+                                                else
+                                                {
+                                                    if( (angles[aa+1]-angles[aa])>anglediff )
+                                                    {
+                                                        anglediff=angles[aa+1]-angles[aa];
+                                                        obt_angle=aa;
+                                                    }
+                                                }
+
+                                                //}
+
+
+//                                                    bool found=false;
+//                                                    if((angles[aa+1]-angles[aa])>PI)
+//                                                    {
+//                                                        obt_angle=aa;
+//                                                        found=true;
+//                                                        break;
+//                                                    }
+//                                                    if(!found)
+//                                                        obt_angle=angles.size()-1;
+                                            }
+
+                                            //if(!found)
+                                            //    obt_angle=angles.size()-1;
+
+                                            if( ((angles[0]+PI)+(PI-angles[angles.size()-1]))>anglediff )
+                                            {
+                                                obt_angle=angles.size()-1;
                                             }
                                         }
                                     }
@@ -1308,21 +1514,21 @@ void Reach_transf::transf_pos(void)
                             {
                                 if(angle<extremes[1] && angle>extremes[0] && (dist<=(1*defl*defl)) && regions.at<uchar>(rowx,coly)==k+2)
                                 {
-                                    l_map.at<uchar>(rowx,coly)=255;
+                                    vis_map.at<uchar>(rowx,coly)=255;
                                 }
                             }
                             else
                             {
                                 if( (angle<extremes[0] || angle>extremes[1]) && (dist<=(1*defl*defl)) && regions.at<uchar>(rowx,coly)==k+2)
                                 {
-                                    l_map.at<uchar>(rowx,coly)=255;
+                                    vis_map.at<uchar>(rowx,coly)=255;
                                 }
                             }
 
                         }
                     }
 
-                    //l_map.at<uchar>(opt_x,opt_y)=0;
+                    act_map.at<uchar>(opt_x,opt_y)=0;
 
                     cout<<extremes[0]<<" "<<extremes[1]<<" "<<obt_angle<<" "<<endl;
 
@@ -1334,8 +1540,13 @@ void Reach_transf::transf_pos(void)
 
 
 
-        //map_label=unreach_map;
+        //=unreach_map;
+
         map_label=l_map;
+        map_act=act_map;
+        map_vis=vis_map;
+
+        map_debug=unreach_map;
 
         pos_rcv=true;
 
@@ -1377,8 +1588,12 @@ void Reach_transf::publish(void)
 
         if(pos_rcv)
         {
-            n_msg=Mat2RosMsg(map_label , msg_rcv_pub);
+            n_msg=Mat2RosMsg( map_label , msg_rcv_pub);
             pub5.publish(n_msg);
+            n_msg=Mat2RosMsg( map_act , msg_rcv_pub);
+            pub6.publish(n_msg);
+            n_msg=Mat2RosMsg( map_vis , msg_rcv_pub);
+            pub7.publish(n_msg);
         }
 
 
@@ -1391,7 +1606,7 @@ void Reach_transf::publish(void)
 }
 
 
-std::vector<std::vector<cv::Point> >  Reach_transf::label(const cv::Mat binary)
+std::vector<std::vector<cv::Point> >  Reach_transf::label(const cv::Mat binary, int conn)
 {
     std::vector<std::vector<cv::Point> > blobs;
     blobs.clear();
@@ -1421,7 +1636,7 @@ std::vector<std::vector<cv::Point> >  Reach_transf::label(const cv::Mat binary)
             }
 
             cv::Rect rect;
-            cv::floodFill(label_image, cv::Point(x,y), cv::Scalar(label_count), &rect, cv::Scalar(0), cv::Scalar(0), 4);
+            cv::floodFill(label_image, cv::Point(x,y), cv::Scalar(label_count), &rect, cv::Scalar(0), cv::Scalar(0), conn);
 
             std::vector<cv::Point>  blob;
 
