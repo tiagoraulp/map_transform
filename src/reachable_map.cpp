@@ -977,7 +977,7 @@ void Reach_transf::transf_pos(void)
             break;
         }
 
-        cv::Mat vis_map=act_map.clone();
+        cv::Mat vis_map=act_map.clone(), vis_map_temp;
 
 
         bitwise_not(map_or,temp);
@@ -1399,7 +1399,86 @@ void Reach_transf::transf_pos(void)
 
                         if(angles.size()==1)
                         {
-                            //// TODO: only one point; neighbor points
+                            float min_dist=-1;
+                            int min_x, min_y;
+
+                            for(int rowx=max((angles_x[0]-1),0);rowx<=min((angles_x[0]+1),regions.rows-1);rowx++)
+                            {
+                                for(int coly=max((angles_y[0]-1),0);coly<=min((angles_y[0]+1),regions.cols-1);coly++)
+                                {
+                                    //float angle=atan2(coly-opt_y,rowx-opt_x);
+                                    if( map_or.at<uchar>(rowx,coly)==0)
+                                    {
+                                        float dist=(rowx-opt_x)*(rowx-opt_x)+(coly-opt_y)*(coly-opt_y);
+                                        if(min_dist==-1)
+                                        {
+                                            min_dist=dist;
+                                            min_x=rowx;
+                                            min_y=coly;
+                                        }
+                                        else
+                                        {
+                                            if(dist<min_dist)
+                                            {
+                                                min_dist=dist;
+                                                min_x=rowx;
+                                                min_y=coly;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
+
+                            min_dist=-1;
+                            for(int rowx=max((angles_x[0]-1),0);rowx<=min((angles_x[0]+1),regions.rows-1);rowx++)
+                            {
+                                for(int coly=max((angles_y[0]-1),0);coly<=min((angles_y[0]+1),regions.cols-1);coly++)
+                                {
+                                    float angle=atan2(coly-opt_y,rowx-opt_x);
+                                    if(map_or.at<uchar>(rowx,coly)==0)
+                                    {
+
+                                        if (
+                                             ( (extremes[0]>angles[0]) && (angle<angles[0]) && ( (extremes[0]-angle)<PI ) ) ||
+                                             ( (extremes[0]<angle) && (angle<angles[0]) && ( (extremes[0]+2*PI-angle)<PI ) ) ||
+                                             ( (extremes[0]>angles[0]) && (angle>extremes[0]) && ( (extremes[0]+2*PI-angle)<PI ) ) ||
+                                             ( (angle>angles[0]) && (extremes[0]<angles[0]) && ( (angle-extremes[0])<PI ) ) ||
+                                             ( (angle<extremes[0]) && (extremes[0]<angles[0]) && ( (angle+2*PI-extremes[0])<PI ) ) ||
+                                             ( (angle>angles[0]) && (extremes[0]>angle) && ( (angle+2*PI-extremes[0])<PI ) )
+                                           )
+                                        {
+                                            float dist=(rowx-opt_x)*(rowx-opt_x)+(coly-opt_y)*(coly-opt_y);
+                                            if(min_dist==-1)
+                                            {
+                                                min_dist=dist;
+                                                min_x=rowx;
+                                                min_y=coly;
+                                            }
+                                            else
+                                            {
+                                                if(dist<min_dist)
+                                                {
+                                                    min_dist=dist;
+                                                    min_x=rowx;
+                                                    min_y=coly;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if( atan2(min_y-opt_y,min_x-opt_x)<extremes[0] )
+                                extremes.insert(extremes.begin(),atan2(min_y-opt_y,min_x-opt_x));
+                            else
+                                extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
+
+                            if( (extremes[1]-extremes[0])>PI )
+                                obt_angle=0;
+                            else
+                                obt_angle=1;
+
                         }
                         else if(angles.size()>1)
                         {
@@ -1552,7 +1631,11 @@ void Reach_transf::transf_pos(void)
         //                cout<<endl;
         //                cout<<"Obt_angle: "<<obt_angle<<endl;
 
-                        //// TODO: only one point; neighbor points
+                        //// TODO:neighbor points
+
+                        vis_map_temp=vis_map.clone();
+
+                        vector<cv::Point> occ;
 
                         for(int rowx=max((opt_x-defl),0);rowx<=min((opt_x+defl),regions.rows-1);rowx++)
                         {
@@ -1563,17 +1646,62 @@ void Reach_transf::transf_pos(void)
 
                                 if(obt_angle==1)
                                 {
-                                    if(angle<extremes[1] && angle>extremes[0] && (dist<=(1*defl*defl)) && regions.at<uchar>(rowx,coly)==k+2)
+                                    if(angle<extremes[1] && angle>extremes[0] && (dist<=(1*defl*defl)) && (regions.at<uchar>(rowx,coly)==(k+2) ) )
                                     {
-                                        vis_map.at<uchar>(rowx,coly)=255;
+                                        vis_map_temp.at<uchar>(rowx,coly)=255;
+                                    }
+                                    else if (angle<extremes[1] && angle>extremes[0] && (dist<=(1*defl*defl)) && (map_or.at<uchar>(rowx,coly)==0) )
+                                    {
+                                        bool stop=false;
+                                        for(int vx=-1;vx<=1;vx++)
+                                        {
+                                            for(int vy=-1;vy<=1;vy++)
+                                            {
+                                                if( (rowx+vx)>=0 && (rowx+vx)<regions.rows && (coly+vy)>=0 && (coly+vy)<regions.cols )
+                                                {
+                                                    if( regions.at<uchar>(rowx+vx,coly+vy)==(k+2)  )
+                                                    {
+                                                        occ.push_back(cv::Point(rowx,coly));
+                                                        map_closeOp.at<uchar>(rowx,coly)=0;
+                                                        stop=true;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if(stop)
+                                                break;
+                                        }
                                     }
                                 }
                                 else
                                 {
-                                    if( (angle<extremes[0] || angle>extremes[1]) && (dist<=(1*defl*defl)) && regions.at<uchar>(rowx,coly)==k+2)
+                                    if( (angle<extremes[0] || angle>extremes[1]) && (dist<=(1*defl*defl)) && (regions.at<uchar>(rowx,coly)==(k+2) ) )
                                     {
-                                        vis_map.at<uchar>(rowx,coly)=255;
+                                        vis_map_temp.at<uchar>(rowx,coly)=255;
                                     }
+                                    else if ( (angle<extremes[0] || angle>extremes[1]) && (dist<=(1*defl*defl)) && (map_or.at<uchar>(rowx,coly)==0) )
+                                    {
+                                        bool stop=false;
+                                        for(int vx=-1;vx<=1;vx++)
+                                        {
+                                            for(int vy=-1;vy<=1;vy++)
+                                            {
+                                                if( (rowx+vx)>=0 && (rowx+vx)<regions.rows && (coly+vy)>=0 && (coly+vy)<regions.cols )
+                                                {
+                                                    if( regions.at<uchar>(rowx+vx,coly+vy)==(k+2)  )
+                                                    {
+                                                        occ.push_back(cv::Point(rowx,coly));
+                                                        map_closeOp.at<uchar>(rowx,coly)=0;
+                                                        stop=true;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if(stop)
+                                                break;
+                                        }
+                                    }
+
                                 }
 
                             }
@@ -1590,7 +1718,7 @@ void Reach_transf::transf_pos(void)
             }
         }
 
-
+        vis_map=vis_map_temp;
 
         //=unreach_map;
 
@@ -1599,6 +1727,8 @@ void Reach_transf::transf_pos(void)
         map_vis=vis_map;
 
         map_debug=unreach_map;
+        //map_debug=map_closeOp;
+
 
         pos_rcv=true;
 
