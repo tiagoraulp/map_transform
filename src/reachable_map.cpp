@@ -822,6 +822,29 @@ vector<vector<cv::Point> > cluster_points(vector<cv::Point> frontiers)
     return result;
 }
 
+class Chain{
+public:
+    int x;
+    int y;
+    int d;
+
+    Chain(int x_,int y_,int d_):x(x_),y(y_),d(d_)
+    {
+    }
+
+    bool operator==(Chain const & C)
+    {
+        return (this->x == C.x &&
+                this->y == C.y &&
+                this->d == C.d);
+    }
+
+    bool operator!=(Chain const & C)
+    {
+        return !(*this == C);
+    }
+};
+
 
 void Reach_transf::transf_pos(void)
 {
@@ -977,7 +1000,7 @@ void Reach_transf::transf_pos(void)
             break;
         }
 
-        cv::Mat vis_map=act_map.clone(), vis_map_temp;
+        cv::Mat vis_map=act_map.clone(), vis_map_temp=vis_map.clone();;
 
 
         bitwise_not(map_or,temp);
@@ -1008,7 +1031,7 @@ void Reach_transf::transf_pos(void)
 
         if(infl<defl)
         {
-            for (int k=0;k<labels_unreach.size();k++){//2;k++){//
+            for (int k=1;k<2;k++){//labels_unreach.size();k++){//
                 vector<cv::Point> frontiers;
                 //int min_x=vis_map.rows, min_y=vis_map.cols, max_x=-1, max_y=-1;
                 for(int j=0;j<labels_unreach[k].size();j++){
@@ -1387,12 +1410,12 @@ void Reach_transf::transf_pos(void)
                                 }
                             }
 
-                            for(int jp=0;jp<angles.size();jp++)
-                            {
-                                cout<<angles[jp]<<" ";
-                            }
-                            cout<<endl;
-                            cout<<"Obt_angle: "<<obt_angle<<endl;
+//                            for(int jp=0;jp<angles.size();jp++)
+//                            {
+//                                cout<<angles[jp]<<" ";
+//                            }
+//                            cout<<endl;
+//                            cout<<"Obt_angle: "<<obt_angle<<endl;
                         }
 
                         vector<float> extremes;extremes.clear();
@@ -1631,9 +1654,13 @@ void Reach_transf::transf_pos(void)
         //                cout<<endl;
         //                cout<<"Obt_angle: "<<obt_angle<<endl;
 
+
+                        cout<<"Extremes: "<<extremes[0]<<" "<<extremes[1]<<endl;
+                              cout<<"Obt angle: "<<obt_angle<<endl;
+
                         //// TODO:neighbor points
 
-                        vis_map_temp=vis_map.clone();
+
 
                         vector<cv::Point> occ;
 
@@ -1707,9 +1734,207 @@ void Reach_transf::transf_pos(void)
                             }
                         }
 
+                        cv::Mat contours = cv::Mat::ones(regions.rows, regions.cols, CV_8UC1)*255;
+
+                        for(int occ_p=0;occ_p<occ.size();occ_p++)
+                        {
+                            contours.at<uchar>(occ[occ_p].x,occ[occ_p].y)=0;
+                        }
+
+                        vector<vector<cv::Point> > occ_clust=cluster_points(occ);
+
+                        vector<cv::Point> occ_critP;
+
+                        cout<<"Numbe of obstacles; "<<occ_clust.size()<<endl;
+
+
+
+                        for(int ind=0;ind<occ_clust.size();ind++)
+                        {
+                            cout<<"Size of obstacle "<<ind+1<<": "<<occ_clust[ind].size()<<endl;
+
+                            if(occ_clust[ind].size()==1)
+                            {
+                                occ_critP.push_back(cv::Point(occ_clust[ind][0].x,occ_clust[ind][0].y));
+                            }
+                            else
+                            {
+
+                                bool stop=false;
+                                int pos_x,pos_y;
+                                for(int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
+                                {
+
+                                    for(int vx=-1;vx<=1;vx++)
+                                    {
+                                        for(int vy=-1;vy<=1;vy++)
+                                        {
+                                            if( (occ_clust[ind][occ_p].x+vx)>=0 && (occ_clust[ind][occ_p].x+vx)<regions.rows && (occ_clust[ind][occ_p].y+vy)>=0 && (occ_clust[ind][occ_p].x+vy)<regions.cols )
+                                            {
+                                                if( (abs(vx)+abs(vy))==1 && regions.at<uchar>(occ_clust[ind][occ_p].x+vx,occ_clust[ind][occ_p].y+vy)==(k+2)  )
+                                                {
+                                                    pos_x=occ_clust[ind][occ_p].x;
+                                                    pos_y=occ_clust[ind][occ_p].y;
+                                                    stop=true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if(stop)
+                                            break;
+                                    }
+                                    if(stop)
+                                        break;
+                                }
+
+                                if(stop)
+                                {
+
+                                    const int dir=8; // number of possible directions to go at any position
+                                    //if dir==4
+                                    //static int dx[dir]={1, 0, -1, 0};
+                                    //static int dy[dir]={0, 1, 0, -1};
+                                    //if dir==8
+                                    int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
+                                    int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
+
+                                    vector<Chain> chain;
+                                    chain.clear();
+
+                                    int prev_d;
+
+                                    bool cont_cond=true;
+
+                                    while(cont_cond)
+                                    {
+
+                                        if(chain.size()!=0)
+                                        {
+                                            int act_dir;
+                                            for(int d=1;d<=dir;d++)
+                                            {
+                                                act_dir=(prev_d+d)%dir;
+                                                if( (pos_x+dx[act_dir])>=0 && (pos_x+dx[act_dir])<regions.rows && (pos_y+dy[act_dir])>=0 && (pos_y+dy[act_dir])<regions.cols )
+                                                {
+                                                    if( contours.at<uchar>(pos_x+dx[act_dir],pos_y+dy[act_dir])==0)
+                                                    {
+                                                        Chain c(pos_x,pos_y,act_dir);
+                                                        prev_d=(act_dir+dir/2)%dir;
+                                                        pos_x=pos_x+dx[act_dir];
+                                                        pos_y=pos_y+dy[act_dir];
+                                                        chain.push_back(c);
+                                                        if(chain[0]==c)
+                                                        {
+                                                            cont_cond=false;
+                                                        }
+
+                                                        break;
+                                                    }
+                                                }
+                                            }
+
+                                        }
+                                        else
+                                        {
+                                            for(int d=0;d<dir;d++)
+                                            {
+                                                if( (pos_x+dx[d])>=0 && (pos_x+dx[d])<regions.rows && (pos_y+dy[d])>=0 && (pos_y+dy[d])<regions.cols )
+                                                {
+                                                    if( (abs(dx[d])+abs(dy[d]))==1 &&  contours.at<uchar>(pos_x+dx[d],pos_y+dy[d])==0)
+                                                    {
+                                                        Chain c(pos_x,pos_y,d);
+                                                        prev_d=(d+dir/2)%dir;
+                                                        pos_x=pos_x+dx[d];
+                                                        pos_y=pos_y+dy[d];
+                                                        chain.push_back(c);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    float prev_angle, act_angle;
+
+                                    vector<float> diffs;
+                                    diffs.clear();
+
+                                    for(int c=0;c<chain.size();c++)
+                                    {
+                                        act_angle=atan2(chain[c].y-opt_y,chain[c].x-opt_x);
+                                        if(c>0)
+                                        {
+                                            float diff_angle=act_angle-prev_angle;
+
+                                            if(diff_angle<-PI)
+                                                diff_angle+=2*PI;
+                                            else if (diff_angle>PI)
+                                                diff_angle-=2*PI;
+
+                                            diffs.push_back(diff_angle);
+                                        }
+                                        prev_angle=act_angle;
+
+                                        cout<<chain[c].x<<" "<<chain[c].y<<" "<<chain[c].d<<endl;
+                                    }
+
+
+                                    float prev_diff;
+                                    for(int c=0;c<diffs.size();c++)
+                                    {
+
+                                        if(c>0)
+                                        {
+                                            if( diffs[c]*prev_diff<0)
+                                            {
+                                                occ_critP.push_back(cv::Point(chain[c].x,chain[c].y));
+                                                prev_diff=diffs[c];
+                                            }
+                                        }
+                                        else
+                                            prev_diff=diffs[c];
+
+                                        cout<<diffs[c]<<" ";
+                                    }
+                                     cout<<endl;
+
+                                    for(int c=0;c<diffs.size();c++)
+                                    {
+                                        if( diffs[c]*prev_diff<0)
+                                        {
+                                            occ_critP.push_back(cv::Point(chain[c].x,chain[c].y));
+                                            prev_diff=diffs[c];
+                                            break;
+                                        }
+                                        else if(diffs[c]*prev_diff>0)
+                                        {
+                                            break;
+                                        }
+                                    }
+
+
+                                }
+
+                                if(occ_critP.size()==0)
+                                {
+                                    occ_critP.push_back(cv::Point(occ_clust[ind][0].x,occ_clust[ind][0].y));
+                                }
+                            }
+
+
+                        }
+
+                        for(int c=0;c<occ_critP.size();c++)
+                        {
+                            map_closeOp.at<uchar>(occ_critP[c].x,occ_critP[c].y)=255;
+
+                        }
+
+
+
                         act_map.at<uchar>(opt_x,opt_y)=0;
 
-                        cout<<extremes[0]<<" "<<extremes[1]<<" "<<obt_angle<<" "<<endl;
+                        //cout<<extremes[0]<<" "<<extremes[1]<<" "<<obt_angle<<" "<<endl;
 
 
 
