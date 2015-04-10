@@ -38,6 +38,7 @@ static const std::string L_WINDOW = "Labelled";
 static const std::string A_WINDOW = "Actuation";
 static const std::string V_WINDOW = "Visibility";
 static const std::string D_WINDOW = "Debug";
+static const std::string G_WINDOW = "Ground_Truth";
 
 using namespace std;
 
@@ -54,6 +55,7 @@ private:
     ros::Publisher pub5;
     ros::Publisher pub6;
     ros::Publisher pub7;
+    ros::Publisher pub8;
     
     ros::Subscriber sub;
 
@@ -91,7 +93,7 @@ private:
 
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
 
-    cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label , map_act, map_vis, map_debug;
+    cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label , map_act, map_vis, map_debug, map_truth;
 
 public:
 
@@ -105,6 +107,7 @@ public:
         pub5 = nh_.advertise<nav_msgs::OccupancyGrid>("vis_map", 1,true);
         pub6 = nh_.advertise<nav_msgs::OccupancyGrid>("a_map", 1,true);
         pub7 = nh_.advertise<nav_msgs::OccupancyGrid>("v_map", 1,true);
+        pub8 = nh_.advertise<nav_msgs::OccupancyGrid>("g_map", 1,true);
 
         sub = nh_.subscribe("map", 1, &Reach_transf::rcv_map, this);
 
@@ -132,6 +135,7 @@ public:
             cv::namedWindow(A_WINDOW);
             cv::namedWindow(D_WINDOW);
             cv::namedWindow(V_WINDOW);
+            cv::namedWindow(G_WINDOW);
         }
     }
 
@@ -147,6 +151,7 @@ public:
            cv::destroyWindow(A_WINDOW);
            cv::destroyWindow(D_WINDOW);
            cv::destroyWindow(V_WINDOW);
+           cv::destroyWindow(G_WINDOW);
         }
     }
 
@@ -265,6 +270,7 @@ void Reach_transf::show(void)
             cv::imshow(A_WINDOW,map_act);
             cv::imshow(V_WINDOW,map_vis);
             cv::imshow(D_WINDOW,map_debug);
+            cv::imshow(G_WINDOW,map_truth);
         }
         cv::waitKey(3);
     }
@@ -865,6 +871,202 @@ public:
     }
 };
 
+bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
+{
+    bool debug=false;
+
+    if(opt_x==0 && opt_y==145)
+        debug=true;
+
+    float dist_t=sqrt( (dest_x-opt_x)*(dest_x-opt_x)+(dest_y-opt_y)*(dest_y-opt_y) );
+    float angle=atan2(dest_y-opt_y, dest_x-opt_x);
+
+    float cos_ang=cos(angle);
+    float sin_ang=sin(angle);
+
+    float sign_x=0; if(cos_ang!=0) sign_x=cos_ang/abs(cos_ang);
+    float sign_y=0; if(sin_ang!=0) sign_y=sin_ang/abs(sin_ang);
+
+
+    int p_x=opt_x;
+    int p_y=opt_y;
+
+    if(debug)
+        cout<<"Test!!!!!!!!!!!!!!!!!"<<endl<<p_x<<" "<<p_y<<endl;
+    if(debug)
+        cout<<angle<<" "<<cos_ang<<" "<<sin_ang<<endl;
+    if(debug)
+        cout<<dist_t<<endl;
+
+    float temp, tempx=opt_x, tempy=opt_y, temp_tx, temp_ty;
+
+    if(cos_ang!=0)
+    {
+        temp_tx=sign_x*0.5/cos_ang;
+        if(sin_ang!=0)
+        {
+            temp_ty=sign_y*0.5/sin_ang;
+            if(temp_tx<temp_ty)
+                temp=temp_tx;
+            else
+                temp=temp_ty;
+        }
+        else
+            temp=temp_tx;
+
+    }
+    else
+        temp=sign_y*0.5/sin_ang;
+
+    int prev_px=p_x;
+
+    int prev_py=p_y;
+
+    if(sign_x==0)
+        p_x=p_x;
+    else
+        p_x=sign_x*((int)round(sign_x*(tempx+temp*cos_ang)+p_x)-p_x);
+
+    if(sign_y==0)
+        p_y=p_y;
+    else
+        p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
+
+    float dist=0;
+
+    //                                bool count_free=false;
+
+    //cout<<p_x<<" "<<p_y<<" "<<sign_x*(tempx+temp*cos_ang)<<" "<<sign_y*(tempy+temp*sin_ang)<<" "<<tempx<<" "<<tempy<<" "<<dist+temp<<" "<<dist<<endl;
+
+    int n=1;
+
+    while( (dist+temp)<=dist_t && p_x>=0 && p_x<map.rows && p_y>=0 && p_y<map.cols )
+    {
+        n++;
+
+        dist=dist+temp;
+
+        if(debug)
+            cout<<p_x<<" "<<p_y<<endl;
+
+        if( map.at<uchar>(p_x,p_y)==0 )
+            return false;
+
+        if( (abs(prev_px-p_x)+abs(prev_py-p_y))==2 )
+        {
+            if( map.at<uchar>(prev_px,p_y)==0 )
+                return false;
+
+            if( map.at<uchar>(p_x,prev_py)==0 )
+                return false;
+        }
+
+        tempx=tempx+temp*cos_ang;
+        tempy=tempy+temp*sin_ang;
+
+        if(cos_ang!=0)
+        {
+            temp_tx=(p_x+sign_x*0.5-tempx)/cos_ang;
+            if(temp_tx==0)
+                temp_tx=sign_x*1/cos_ang;
+            if(sin_ang!=0)
+            {
+                temp_ty=(p_y+sign_y*0.5-tempy)/sin_ang;
+                if(temp_ty==0)
+                    temp_ty=sign_y*1/sin_ang;
+
+                if(temp_tx<temp_ty)
+                    temp=temp_tx;
+                else
+                    temp=temp_ty;
+            }
+            else
+                temp=temp_tx;
+        }
+        else
+        {
+            temp=(p_y+sign_y*0.5-tempy)/sin_ang;
+            if(temp==0)
+                temp=sign_y*1/sin_ang;
+        }
+
+
+        //if(n<50)
+            //cout<<p_x<<" "<<p_y<<" "<<sign_x*(tempx+temp*cos_ang)+p_x<<" "<<sign_y*(tempy+temp*sin_ang)+p_y<<" "<<tempx<<" "<<tempy<<" "<<dist+temp<<" "<<dist<<endl;
+
+        prev_px=p_x;
+
+        prev_py=p_y;
+
+        if(sign_x==0)
+            p_x=p_x;
+        else
+            p_x=sign_x*((int)round(sign_x*(tempx+temp*cos_ang)+p_x)-p_x);
+
+        if(sign_y==0)
+            p_y=p_y;
+        else
+            p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
+
+
+
+
+
+
+    }
+
+    if(debug)
+        cout<<"Found!!!!!"<<endl;
+
+    return true;
+}
+
+cv::Mat brute_force(cv::Mat map, cv::Mat reach, int defl)
+{
+    cv::Mat result=map.clone();
+
+    for(int i=0;i<map.rows;i++)
+    {
+        for(int j=0;j<map.cols;j++)
+        {
+            if(map.at<uchar>(i,j)==0)
+                continue;
+
+            bool stop=false;
+
+            for(int ii=0;ii<reach.rows;ii++)
+            {
+                for(int jj=0;jj<reach.cols;jj++)
+                {
+                    if(reach.at<uchar>(ii,jj)==0)
+                        continue;
+
+                    if( ( (i-ii)*(i-ii)+(j-jj)*(j-jj) )>defl*defl )
+                        continue;
+
+                    if( raytracing(map,i,j,ii,jj) )
+                    {
+                        stop=true;
+                        break;
+                    }
+
+                }
+
+                if(stop)
+                    break;
+            }
+
+            if(stop)
+                continue;
+
+            result.at<uchar>(i,j)=0;
+
+
+        }
+    }
+
+    return result;
+}
 
 void Reach_transf::transf_pos(void)
 {
@@ -2240,9 +2442,19 @@ void Reach_transf::transf_pos(void)
                                 else
                                     temp=sign_y*0.5/sin_ang;
 
+                                if(sign_x==0)
+                                    p_x=p_x;
+                                else
+                                    p_x=sign_x*((int)round(sign_x*(tempx+temp*cos_ang)+p_x)-p_x);
 
-                                p_x=sign_x*((int)round(sign_x*(tempx+temp*cos_ang)+p_x)-p_x);
-                                p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
+                                if(sign_y==0)
+                                    p_y=p_y;
+                                else
+                                    p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
+
+
+                                //p_x=sign_x*((int)round(sign_x*(tempx+temp*cos_ang)+p_x)-p_x);
+                                //p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
 
 //                                bool count_free=false;
 
@@ -2307,8 +2519,18 @@ void Reach_transf::transf_pos(void)
                                         //cout<<p_x<<" "<<p_y<<" "<<sign_x*(tempx+temp*cos_ang)+p_x<<" "<<sign_y*(tempy+temp*sin_ang)+p_y<<" "<<tempx<<" "<<tempy<<" "<<dist+temp<<" "<<dist<<endl;
 
 
-                                    p_x=sign_x*((int)round(sign_x*(tempx+temp*cos_ang)+p_x)-p_x);
-                                    p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
+                                    if(sign_x==0)
+                                        p_x=p_x;
+                                    else
+                                        p_x=sign_x*((int)round(sign_x*(tempx+temp*cos_ang)+p_x)-p_x);
+
+                                    if(sign_y==0)
+                                        p_y=p_y;
+                                    else
+                                        p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
+
+                                    //p_x=sign_x*((int)round(sign_x*(tempx+temp*cos_ang)+p_x)-p_x);
+                                    //p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
 
 
 
@@ -2376,16 +2598,24 @@ void Reach_transf::transf_pos(void)
             //map_debug=contours;
 
 
-
-
             ros::Duration diff = ros::Time::now() - t01;
 
             cout<<tf_pref<<" - Time for label: "<<diff<<endl;
 
 
+            ros::Time t2=ros::Time::now();
+
+            map_truth=brute_force(map_or, map_label, defl);
 
 
+            diff = ros::Time::now() - t2;
+
+            cout<<tf_pref<<" - Time for brute force: "<<diff<<endl;
+
+            map_truth.at<uchar>(pos_x,pos_y)=0;
         }
+
+
 
         pos_rcv=true;
 
@@ -2431,6 +2661,8 @@ void Reach_transf::publish(void)
             pub6.publish(n_msg);
             n_msg=Mat2RosMsg( map_vis , msg_rcv_pub);
             pub7.publish(n_msg);
+            n_msg=Mat2RosMsg( map_truth , msg_rcv_pub);
+            pub8.publish(n_msg);
         }
 
 
