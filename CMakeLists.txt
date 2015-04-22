@@ -39,8 +39,14 @@ rosbuild_add_boost_directories()
 
 rosbuild_add_executable(reach_tr src/reachable_map.cpp)
 
+rosbuild_add_executable(morph src/test_morph.cpp)
+
 rosbuild_add_executable(planner src/planner.cpp)
 
 target_link_libraries(reach_tr ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 
+target_link_libraries(morph ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
+
 rosbuild_link_boost(reach_tr thread signals system)
+
+rosbuild_link_boost(morph thread signals system)

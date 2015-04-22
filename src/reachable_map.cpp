@@ -671,15 +671,15 @@ void Reach_transf::transf(void)
         switch (kernel) {
         case 1:
             erode( or_map, er_map, element1);
-            dilate( er_map, cl_map, element11 );
+            dilate( er_map, cl_map, element1 );
             break;
         case 3:
             erode( or_map, er_map, element5);
-            dilate( er_map, cl_map, element15 );
+            dilate( er_map, cl_map, element5 );
             break;
         default:
             erode( or_map, er_map, element6);
-            dilate( er_map, cl_map, element16 );
+            dilate( er_map, cl_map, element6 );
             break;
         }
 
@@ -876,7 +876,7 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
     bool debug=false;
 
     if(opt_x==0 && opt_y==145)
-        debug=true;
+        debug=false;
 
     float dist_t=sqrt( (dest_x-opt_x)*(dest_x-opt_x)+(dest_y-opt_y)*(dest_y-opt_y) );
     float angle=atan2(dest_y-opt_y, dest_x-opt_x);
@@ -1044,7 +1044,7 @@ cv::Mat brute_force(cv::Mat map, cv::Mat reach, int defl)
                     if( ( (i-ii)*(i-ii)+(j-jj)*(j-jj) )>defl*defl )
                         continue;
 
-                    if( raytracing(map,i,j,ii,jj) )
+                    if( raytracing(map,ii,jj,i,j) )
                     {
                         stop=true;
                         break;
@@ -1067,6 +1067,271 @@ cv::Mat brute_force(cv::Mat map, cv::Mat reach, int defl)
 
     return result;
 }
+
+
+cv::Mat brute_force_opt_act(cv::Mat map, cv::Mat reach, cv::Mat act, int defl)
+{
+    long int nn=0;
+
+    cv::Mat result=map.clone();
+
+    for(int i=0;i<map.rows;i++)
+    {
+        for(int j=0;j<map.cols;j++)
+        {
+            if(map.at<uchar>(i,j)==0)
+                continue;
+
+            if(act.at<uchar>(i,j)==255)
+            {
+                nn++;
+                continue;
+            }
+
+            bool stop=false;
+
+            for(int r=0; r<=defl; r++)
+            {
+                if(r==0)
+                {
+                    if(reach.at<uchar>(i,j)==0)
+                        ;
+                    else{
+                        stop=true;
+                        break;
+
+                    }
+                }
+                else
+                {
+                    for(int p=-r;p<r;p++)
+                    {
+                        int ii=i-r, jj=j+p;
+
+                        if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.rows &&  (jj)>=0 )
+                        {
+                            if(reach.at<uchar>(ii,jj)==0)
+                                ;
+                            else{
+                                if( ( (i-ii)*(i-ii)+(j-jj)*(j-jj) )>defl*defl )
+                                    ;
+                                else{
+                                    if( raytracing(map,ii,jj,i,j) )
+                                    {
+                                        stop=true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                        }
+
+                        ii=i+p, jj=j+r;
+
+                        if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.rows &&  (jj)>=0 )
+                        {
+                            if(reach.at<uchar>(ii,jj)==0)
+                                ;
+                            else{
+                                if( ( (i-ii)*(i-ii)+(j-jj)*(j-jj) )>defl*defl )
+                                    ;
+                                else{
+                                    if( raytracing(map,ii,jj,i,j) )
+                                    {
+                                        stop=true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                        }
+
+                        ii=i+r, jj=j-p;
+
+                        if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.rows &&  (jj)>=0 )
+                        {
+                            if(reach.at<uchar>(ii,jj)==0)
+                                ;
+                            else{
+                                if( ( (i-ii)*(i-ii)+(j-jj)*(j-jj) )>defl*defl )
+                                    ;
+                                else{
+                                    if( raytracing(map,ii,jj,i,j) )
+                                    {
+                                        stop=true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                        }
+
+                        ii=i-p, jj=j-r;
+
+                        if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.rows &&  (jj)>=0 )
+                        {
+                            if(reach.at<uchar>(ii,jj)==0)
+                                ;
+                            else{
+                                if( ( (i-ii)*(i-ii)+(j-jj)*(j-jj) )>defl*defl )
+                                    ;
+                                else{
+                                    if( raytracing(map,ii,jj,i,j) )
+                                    {
+                                        stop=true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                }
+
+                if(stop)
+                    break;
+            }
+
+            if(stop)
+                continue;
+
+            result.at<uchar>(i,j)=0;
+
+        }
+    }
+
+    //cout<<nn<<endl;
+
+    return result;
+}
+
+
+cv::Mat brute_force_opt(cv::Mat map, cv::Mat reach, int defl)
+{
+    cv::Mat result=map.clone();
+
+    for(int i=0;i<map.rows;i++)
+    {
+        for(int j=0;j<map.cols;j++)
+        {
+            if(map.at<uchar>(i,j)==0)
+                continue;
+
+            bool stop=false;
+
+            for(int r=0; r<=defl; r++)
+            {
+                if(r==0)
+                {
+                    if(reach.at<uchar>(i,j)==0)
+                        ;
+                    else{
+                        stop=true;
+                        break;
+
+                    }
+                }
+                else
+                {
+                    for(int p=-r;p<r;p++)
+                    {
+                        int ii=i-r, jj=j+p;
+
+                        if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.rows &&  (jj)>=0 )
+                        {
+                            if(reach.at<uchar>(ii,jj)==0)
+                                ;
+                            else{
+                                if( ( (i-ii)*(i-ii)+(j-jj)*(j-jj) )>defl*defl )
+                                    ;
+                                else{
+                                    if( raytracing(map,ii,jj,i,j) )
+                                    {
+                                        stop=true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                        }
+
+                        ii=i+p, jj=j+r;
+
+                        if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.rows &&  (jj)>=0 )
+                        {
+                            if(reach.at<uchar>(ii,jj)==0)
+                                ;
+                            else{
+                                if( ( (i-ii)*(i-ii)+(j-jj)*(j-jj) )>defl*defl )
+                                    ;
+                                else{
+                                    if( raytracing(map,ii,jj,i,j) )
+                                    {
+                                        stop=true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                        }
+
+                        ii=i+r, jj=j-p;
+
+                        if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.rows &&  (jj)>=0 )
+                        {
+                            if(reach.at<uchar>(ii,jj)==0)
+                                ;
+                            else{
+                                if( ( (i-ii)*(i-ii)+(j-jj)*(j-jj) )>defl*defl )
+                                    ;
+                                else{
+                                    if( raytracing(map,ii,jj,i,j) )
+                                    {
+                                        stop=true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                        }
+
+                        ii=i-p, jj=j-r;
+
+                        if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.rows &&  (jj)>=0 )
+                        {
+                            if(reach.at<uchar>(ii,jj)==0)
+                                ;
+                            else{
+                                if( ( (i-ii)*(i-ii)+(j-jj)*(j-jj) )>defl*defl )
+                                    ;
+                                else{
+                                    if( raytracing(map,ii,jj,i,j) )
+                                    {
+                                        stop=true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                }
+
+                if(stop)
+                    break;
+            }
+
+            if(stop)
+                continue;
+
+            result.at<uchar>(i,j)=0;
+
+        }
+    }
+
+    return result;
+}
+
 
 void Reach_transf::transf_pos(void)
 {
@@ -2575,7 +2840,7 @@ void Reach_transf::transf_pos(void)
 //                                }
 //                            }
 
-                            act_map.at<uchar>(opt_x,opt_y)=0;
+                            //act_map.at<uchar>(opt_x,opt_y)=0;
 
                             //cout<<extremes[0]<<" "<<extremes[1]<<" "<<obt_angle<<" "<<endl;
 
@@ -2603,16 +2868,33 @@ void Reach_transf::transf_pos(void)
             cout<<tf_pref<<" - Time for label: "<<diff<<endl;
 
 
-            ros::Time t2=ros::Time::now();
+//            ros::Time t2=ros::Time::now();
 
-            map_truth=brute_force(map_or, map_label, defl);
+//            map_truth=brute_force(map_or, map_label, defl);
+
+//            diff = ros::Time::now() - t2;
+
+//            cout<<tf_pref<<" - Time for brute force: "<<diff<<endl;
 
 
-            diff = ros::Time::now() - t2;
+            ros::Time t3=ros::Time::now();
 
-            cout<<tf_pref<<" - Time for brute force: "<<diff<<endl;
+            map_truth=brute_force_opt(map_or, map_label, defl);
 
-            map_truth.at<uchar>(pos_x,pos_y)=0;
+            diff = ros::Time::now() - t3;
+
+            cout<<tf_pref<<" - Time for Optimized brute force: "<<diff<<endl;
+
+//            ros::Time t4=ros::Time::now();
+
+//            map_truth=brute_force_opt_act(map_or, map_label, map_act, defl);
+
+//            diff = ros::Time::now() - t4;
+
+//            cout<<tf_pref<<" - Time for Optimized brute force with Actuation: "<<diff<<endl;
+
+
+            //map_truth.at<uchar>(pos_x,pos_y)=0;
         }
 
 
