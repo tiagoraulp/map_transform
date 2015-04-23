@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "string"
 #include "nav_msgs/OccupancyGrid.h"
+#include <unistd.h>
 
 //#include "opencv2/core/core_c.h"
 #include "opencv2/core/core.hpp"
@@ -53,7 +54,7 @@ private:
     ros::Publisher pub6;
     ros::Publisher pub7;
     ros::Publisher pub8;
-    
+
     ros::Subscriber sub;
 
     tf::TransformListener pos_listener;
@@ -526,15 +527,22 @@ void Reach_transf::transf(void)
 
         struct_elem=elem*255;
 
+        vector<int> compression_params;
+        compression_params.push_back(CV_IMWRITE_PNG_COMPRESSION);
+        compression_params.push_back(9);
 
-        //trans_pos();
+        cv::imshow("Test!!!!",map_debug);
+        cv::waitKey(30);
 
-        //=vis_map;
+        try {
+            cv::imwrite("/home/tiago/map_debug.png", map_debug, compression_params);
 
-        //GridMap=close(GridMap,inf);
-        //publish();
+        }
+        catch (exception& e)
+        {
+          cout  <<"Exception: "<< e.what() << '\n';
+        }
 
-        //lock.unlock();
 
 
         ros::Duration diff = ros::Time::now() - t01;
@@ -1239,12 +1247,15 @@ std::vector<cv::Point> Reach_transf::label_seed(const cv::Mat binary, int conn, 
 
 int main(int argc, char **argv)
 {
+
+
+
     ros::init(argc, argv, "reach");
     debug=true;
     if(argc==2)
         if(string(argv[1])==string("0"))
             debug=false;
-  
+
 
   ros::NodeHandle nh("~");
 

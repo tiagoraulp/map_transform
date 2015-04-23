@@ -31,6 +31,8 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 find_package(OpenCV)
 
+
+
 find_package(Boost REQUIRED COMPONENTS system thread)
 
 include_directories(${OpenCV_INCLUDE_DIRS})
