@@ -25,6 +25,10 @@
 
 #include <sstream>
 
+#include <dynamic_reconfigure/server.h>
+#include <map_transform/ParametersConfig.h>
+
+
 const double PI = 3.141592653589793;
 
 bool debug;
@@ -59,6 +63,11 @@ private:
     
     ros::Subscriber sub;
 
+
+    dynamic_reconfigure::Server<map_transform::ParametersConfig> server;
+    dynamic_reconfigure::Server<map_transform::ParametersConfig>::CallbackType func;
+
+
     tf::TransformListener pos_listener;
 
     std::vector<std::vector<cv::Point> >  label(const cv::Mat binary, int conn);
@@ -70,6 +79,8 @@ private:
     //std::vector<std::vector<signed char> > close (std::vector<std::vector<signed char> > map,float radius);
 
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+
+    void callbackParameters(map_transform::ParametersConfig &config, uint32_t level);
 
     int count;
 
@@ -91,13 +102,17 @@ private:
 
     float res, or_x, or_y;
 
+    bool _debug, gt, gt_c, changed;
+
+    double rxr,ryr;
+
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
 
-    cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label , map_act, map_vis, map_debug, map_truth;
+    cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label , map_act, map_vis, map_debug, map_truth, map_erosionOpPrintColor;
 
 public:
 
-    Reach_transf(ros::NodeHandle nh): nh_(nh)
+    Reach_transf(ros::NodeHandle nh, bool debug_): nh_(nh), _debug(debug_)
     {
 
         pub = nh_.advertise<nav_msgs::OccupancyGrid>("e_map", 1,true);
@@ -111,6 +126,7 @@ public:
 
         sub = nh_.subscribe("map", 1, &Reach_transf::rcv_map, this);
 
+
         nh_.param("infl", infl, 5);
         nh_.param("defl", defl, infl);
 
@@ -118,30 +134,46 @@ public:
 
         nh_.param("tf_prefix", tf_pref, std::string(""));
 
+        func = boost::bind(&Reach_transf::callbackParameters, this,_1, _2);
+        server.setCallback(func);
+
+
         count=0;
 
         treated=false;
 
         pos_rcv=false;
 
+        gt=false;
 
-        if(debug){
+        gt_c=false;
+
+        changed=false;
+
+        rxr=10;
+        ryr=10;
+
+        if(_debug){
             cv::namedWindow(M_WINDOW);
             cv::namedWindow(E_WINDOW);
             cv::namedWindow(C_WINDOW);
             cv::namedWindow(ES_WINDOW);
             cv::namedWindow(R_WINDOW);
-            cv::namedWindow(L_WINDOW);
-            cv::namedWindow(A_WINDOW);
-            cv::namedWindow(D_WINDOW);
-            cv::namedWindow(V_WINDOW);
-            cv::namedWindow(G_WINDOW);
+            if(pos_rcv)
+            {
+                cv::namedWindow(L_WINDOW);
+                cv::namedWindow(A_WINDOW);
+                cv::namedWindow(D_WINDOW);
+                cv::namedWindow(V_WINDOW);
+                if(gt && gt_c)
+                    cv::namedWindow(G_WINDOW);
+            }
         }
     }
 
     ~Reach_transf()
     {
-        if(debug){
+        if(_debug){
            cv::destroyWindow(M_WINDOW);
            cv::destroyWindow(E_WINDOW);
            cv::destroyWindow(C_WINDOW);
@@ -152,6 +184,7 @@ public:
            cv::destroyWindow(D_WINDOW);
            cv::destroyWindow(V_WINDOW);
            cv::destroyWindow(G_WINDOW);
+
         }
     }
 
@@ -169,6 +202,26 @@ public:
 
 };
 
+
+void Reach_transf::callbackParameters(map_transform::ParametersConfig &config, uint32_t level) {
+  //ROS_INFO("Reconfigure Request: %d %f %s %s %d",
+  //          config.defl, config.double_param,
+  //          config.str_param.c_str(),
+  //          config.bool_param?"True":"False",
+  //          config.size);
+
+    infl=config.infl;
+    defl=config.defl;
+    _debug=config.debug;
+    gt=config.ground_truth;
+    rxr=config.x;
+    ryr=config.y;
+
+    changed=true;
+    transf();
+    transf_pos();
+
+}
 
 //std::vector<std::vector<signed char> > Reach_transf::close (std::vector<std::vector<signed char> > map,float radius)
 //{
@@ -258,9 +311,9 @@ public:
 void Reach_transf::show(void)
 {
     //boost::mutex::scoped_lock lock(mux);
-    if(count>0){
+    if(count>0 && _debug){
         cv::imshow(M_WINDOW,map_or);
-        cv::imshow(E_WINDOW,map_erosionOp);
+        cv::imshow(E_WINDOW,map_erosionOpPrintColor);
         cv::imshow(C_WINDOW,map_closeOp);
         cv::imshow(ES_WINDOW,map_eroded_skel);
         cv::imshow(R_WINDOW,map_reach);
@@ -270,9 +323,37 @@ void Reach_transf::show(void)
             cv::imshow(A_WINDOW,map_act);
             cv::imshow(V_WINDOW,map_vis);
             cv::imshow(D_WINDOW,map_debug);
-            cv::imshow(G_WINDOW,map_truth);
+            if(gt && gt_c)
+            {
+                cv::imshow(G_WINDOW,map_truth);
+            }
         }
         cv::waitKey(3);
+    }
+
+    if(!_debug)
+    {
+       cv::waitKey(2);
+       cv::destroyWindow(M_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(E_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(C_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(ES_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(R_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(L_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(A_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(D_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(V_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(G_WINDOW);
+       cv::waitKey(2);
     }
 }
 
@@ -713,6 +794,7 @@ void Reach_transf::transf(void)
 
         map_or=or_map;
         map_erosionOp=er_map;
+        map_erosionOpPrintColor=er_map;
         map_closeOp=cl_map;
         map_eroded_skel=es_map;
         map_reach=r_map;
@@ -1340,20 +1422,32 @@ void Reach_transf::transf_pos(void)
 
     if(count>0)
     {
-        tf::StampedTransform transform;
-        try{
-            pos_listener.lookupTransform("/map", tf_pref+"/base_link", ros::Time(0), transform);
+        double xx,yy;
+
+        if(!_debug)
+        {
+            tf::StampedTransform transform;
+            try{
+                pos_listener.lookupTransform("/map", tf_pref+"/base_link", ros::Time(0), transform);
+            }
+            catch (tf::TransformException ex){
+              ROS_INFO("%s",ex.what());
+              return ;
+            }
+            xx=transform.getOrigin().x();
+            yy=transform.getOrigin().y();
         }
-        catch (tf::TransformException ex){
-          ROS_INFO("%s",ex.what());
-          return ;
+        else
+        {
+            xx=rxr;
+            yy=ryr;
         }
 
         ros::Time t01=ros::Time::now();
 
-        int pos_x=(int) round((transform.getOrigin().x()-or_x)/res);
+        int pos_x=(int) round((xx-or_x)/res);
 
-        int pos_y=(int) round((transform.getOrigin().y()-or_y)/res);
+        int pos_y=(int) round((yy-or_y)/res);
 
         if(map_erosionOp.at<uchar>(pos_x,pos_y)==0)
         {
@@ -1362,8 +1456,51 @@ void Reach_transf::transf_pos(void)
             prev_x=pos_x;
             prev_y=pos_y;
 
+
+            vector<cv::Mat> channels(3);
+
+            channels[0]=map_erosionOp.clone();
+            channels[1]=map_erosionOp.clone();
+            channels[2]=map_erosionOp.clone();
+
+            channels[2].at<uchar>(pos_x-1,pos_y-1)=255;
+            channels[2].at<uchar>(pos_x-1,pos_y)=255;
+            channels[2].at<uchar>(pos_x-1,pos_y+1)=255;
+            channels[2].at<uchar>(pos_x,pos_y-1)=255;
+            channels[2].at<uchar>(pos_x,pos_y)=255;
+            channels[2].at<uchar>(pos_x,pos_y+1)=255;
+            channels[2].at<uchar>(pos_x+1,pos_y-1)=255;
+            channels[2].at<uchar>(pos_x+1,pos_y)=255;
+            channels[2].at<uchar>(pos_x+1,pos_y+1)=255;
+
+            channels[1].at<uchar>(pos_x-1,pos_y-1)=0;
+            channels[1].at<uchar>(pos_x-1,pos_y)=0;
+            channels[1].at<uchar>(pos_x-1,pos_y+1)=0;
+            channels[1].at<uchar>(pos_x,pos_y-1)=0;
+            channels[1].at<uchar>(pos_x,pos_y)=0;
+            channels[1].at<uchar>(pos_x,pos_y+1)=0;
+            channels[1].at<uchar>(pos_x+1,pos_y-1)=0;
+            channels[1].at<uchar>(pos_x+1,pos_y)=0;
+            channels[1].at<uchar>(pos_x+1,pos_y+1)=0;
+
+            channels[0].at<uchar>(pos_x-1,pos_y-1)=0;
+            channels[0].at<uchar>(pos_x-1,pos_y)=0;
+            channels[0].at<uchar>(pos_x-1,pos_y+1)=0;
+            channels[0].at<uchar>(pos_x,pos_y-1)=0;
+            channels[0].at<uchar>(pos_x,pos_y)=0;
+            channels[0].at<uchar>(pos_x,pos_y+1)=0;
+            channels[0].at<uchar>(pos_x+1,pos_y-1)=0;
+            channels[0].at<uchar>(pos_x+1,pos_y)=0;
+            channels[0].at<uchar>(pos_x+1,pos_y+1)=0;
+
+
+            cv::merge(channels, map_erosionOpPrintColor);
+
+
             treated=false;
             return;
+
+            gt_c=false;
 
         }
 
@@ -1403,9 +1540,9 @@ void Reach_transf::transf_pos(void)
                 break;
         }
 
-        if( (prev_label!=label_pos) || ! treated)
+        if( (prev_label!=label_pos) || ! treated || changed)
         {
-
+            changed=false;
 
             cv::Mat l_map=map_erosionOp.clone(), unreach_map, regions;
 
@@ -2862,6 +2999,45 @@ void Reach_transf::transf_pos(void)
             map_debug=unreach_map;
             //map_debug=contours;
 
+            vector<cv::Mat> channels(3);
+
+            channels[0]=map_erosionOp.clone();
+            channels[1]=map_erosionOp.clone();
+            channels[2]=map_erosionOp.clone();
+
+            channels[1].at<uchar>(pos_x-1,pos_y-1)=255;
+            channels[1].at<uchar>(pos_x-1,pos_y)=255;
+            channels[1].at<uchar>(pos_x-1,pos_y+1)=255;
+            channels[1].at<uchar>(pos_x,pos_y-1)=255;
+            channels[1].at<uchar>(pos_x,pos_y)=255;
+            channels[1].at<uchar>(pos_x,pos_y+1)=255;
+            channels[1].at<uchar>(pos_x+1,pos_y-1)=255;
+            channels[1].at<uchar>(pos_x+1,pos_y)=255;
+            channels[1].at<uchar>(pos_x+1,pos_y+1)=255;
+
+            channels[2].at<uchar>(pos_x-1,pos_y-1)=0;
+            channels[2].at<uchar>(pos_x-1,pos_y)=0;
+            channels[2].at<uchar>(pos_x-1,pos_y+1)=0;
+            channels[2].at<uchar>(pos_x,pos_y-1)=0;
+            channels[2].at<uchar>(pos_x,pos_y)=0;
+            channels[2].at<uchar>(pos_x,pos_y+1)=0;
+            channels[2].at<uchar>(pos_x+1,pos_y-1)=0;
+            channels[2].at<uchar>(pos_x+1,pos_y)=0;
+            channels[2].at<uchar>(pos_x+1,pos_y+1)=0;
+
+            channels[0].at<uchar>(pos_x-1,pos_y-1)=0;
+            channels[0].at<uchar>(pos_x-1,pos_y)=0;
+            channels[0].at<uchar>(pos_x-1,pos_y+1)=0;
+            channels[0].at<uchar>(pos_x,pos_y-1)=0;
+            channels[0].at<uchar>(pos_x,pos_y)=0;
+            channels[0].at<uchar>(pos_x,pos_y+1)=0;
+            channels[0].at<uchar>(pos_x+1,pos_y-1)=0;
+            channels[0].at<uchar>(pos_x+1,pos_y)=0;
+            channels[0].at<uchar>(pos_x+1,pos_y+1)=0;
+
+            cv::merge(channels, map_erosionOpPrintColor);
+
+
 
             ros::Duration diff = ros::Time::now() - t01;
 
@@ -2877,13 +3053,19 @@ void Reach_transf::transf_pos(void)
 //            cout<<tf_pref<<" - Time for brute force: "<<diff<<endl;
 
 
-            ros::Time t3=ros::Time::now();
+            if(gt)
+            {
+                ros::Time t3=ros::Time::now();
 
-            map_truth=brute_force_opt(map_or, map_label, defl);
+                map_truth=brute_force_opt(map_or, map_label, defl);
 
-            diff = ros::Time::now() - t3;
+                diff = ros::Time::now() - t3;
 
-            cout<<tf_pref<<" - Time for Optimized brute force: "<<diff<<endl;
+                cout<<tf_pref<<" - Time for Optimized brute force: "<<diff<<endl;
+
+                gt_c=true;
+            }
+
 
 //            ros::Time t4=ros::Time::now();
 
@@ -2943,8 +3125,11 @@ void Reach_transf::publish(void)
             pub6.publish(n_msg);
             n_msg=Mat2RosMsg( map_vis , msg_rcv_pub);
             pub7.publish(n_msg);
-            n_msg=Mat2RosMsg( map_truth , msg_rcv_pub);
-            pub8.publish(n_msg);
+            if(gt  && gt_c)
+            {
+                n_msg=Mat2RosMsg( map_truth , msg_rcv_pub);
+                pub8.publish(n_msg);
+            }
         }
 
 
@@ -3123,7 +3308,7 @@ int main(int argc, char **argv)
 
 
 
-  Reach_transf reach(nh);
+  Reach_transf reach(nh, debug);
 
   //ros::Publisher pub = nh.advertise<nav_msgs::OccupancyGrid>("n_map", 1);
 
@@ -3145,7 +3330,7 @@ int main(int argc, char **argv)
 
     reach.transf_pos();
 
-    if(debug)
+    //if(debug)
         reach.show();
 
     reach.publish();

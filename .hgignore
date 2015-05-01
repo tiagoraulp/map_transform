@@ -7,3 +7,7 @@ build-map_transform-Desktop-Default/*
 *.autosave
 CMakeLists.txt.user
 1_t.png
+cfg/cpp/*
+cfg/Parameters.cfgc
+src/map_transform/__init__.py
+src/map_transform/cfg/*

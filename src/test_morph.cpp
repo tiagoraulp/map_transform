@@ -3,6 +3,9 @@
 #include "nav_msgs/OccupancyGrid.h"
 #include <unistd.h>
 
+#include <sstream>
+
+
 //#include "opencv2/core/core_c.h"
 #include "opencv2/core/core.hpp"
 #include "opencv2/flann/miniflann.hpp"
@@ -26,9 +29,13 @@
 
 #include <sstream>
 
+using namespace std;
+
 const double PI = 3.141592653589793;
 
 bool debug;
+
+string filename;
 
 static const std::string M_WINDOW = "Map";
 static const std::string E_WINDOW = "Erosion";
@@ -40,7 +47,7 @@ static const std::string D_WINDOW = "Debug";
 static const std::string G_WINDOW = "Ground_Truth";
 static const std::string S_WINDOW = "Structuring Element";
 
-using namespace std;
+
 
 //boost::mutex mux;
 
@@ -78,6 +85,8 @@ private:
 
     int kernel;
 
+    cv::Mat robot;
+
     int prev_x, prev_y;
 
     string tf_pref;
@@ -92,7 +101,7 @@ private:
 
 public:
 
-    Reach_transf(ros::NodeHandle nh): nh_(nh)
+    Reach_transf(ros::NodeHandle nh, cv::Mat rob): nh_(nh), robot(rob)
     {
 
         pub = nh_.advertise<nav_msgs::OccupancyGrid>("e_map", 1,true);
@@ -361,6 +370,95 @@ cv::Mat color_print3(cv::Mat img1, cv::Mat img2, cv::Mat img3, unsigned char* c_
     return result;
 }
 
+class Elem{
+public:
+    vector<cv::Mat> elems;
+    cv::Point pt;
+};
+
+Elem multiElem(cv::Mat elem, cv::Point2f pt)
+{
+    Elem result;
+
+    int pl,pr, pu, pb;
+
+    int max_r=max(pt.x,elem.cols-pt.x), max_c=max(pt.y,elem.rows-pt.y);
+
+    int max_d=(int)(sqrt(max_r*max_r+max_c*max_c));
+
+    pl=max_d-pt.x+1;
+    pr=max_d-elem.cols+pt.x+1;
+    pu=max_d-pt.y+1;
+    pb=max_d-elem.rows+pt.y+1;
+
+    copyMakeBorder(elem,elem,pu,pb,pl,pr,cv::BORDER_CONSTANT,cv::Scalar(0));
+
+    pt.x=pt.x+pl;
+    pt.y=pt.y+pu;
+
+    result.pt=cv::Point(pt.x,pt.y);
+
+
+
+    for(int i=0;i<32;i++)
+    {
+        cv::Mat elem_t;
+        cv::Mat r = cv::getRotationMatrix2D(pt, (360.0/32.0*i), 1.0);
+
+
+
+        cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols));
+
+        result.elems.push_back(elem_t);
+    }
+
+    return result;
+}
+
+vector<cv::Mat> multiErosion(cv::Mat map, Elem robot_or)
+{
+    vector<cv::Mat> result;
+
+    for(int i=0;i<robot_or.elems.size();i++)
+    {
+        cv::Mat temp;
+        cv::erode( map, temp, robot_or.elems[i], robot_or.pt );
+
+        result.push_back(temp);
+    }
+
+    return result;
+}
+
+
+vector<cv::Mat> multiDilation(vector<cv::Mat> map_er, Elem robot_or )
+{
+
+
+    vector<cv::Mat> result;
+
+    cv::Point pr;
+    pr.x=robot_or.elems[0].cols-1-robot_or.pt.x;
+    pr.y=robot_or.elems[0].rows-1-robot_or.pt.y;
+
+
+    for(int i=0;i<robot_or.elems.size();i++)
+    {
+        cv::Mat temp, elem_t;
+        flip(robot_or.elems[i], elem_t, -1);
+
+
+        cv::dilate(map_er[i], temp, elem_t, pr );
+
+        result.push_back(temp);
+
+
+    }
+
+    return result;
+
+
+}
 
 void Reach_transf::transf(void)
 {
@@ -452,22 +550,56 @@ void Reach_transf::transf(void)
                                  0,1,1,1,1,1,0,0,0,0,
                                  0,0,1,1,1,0,0,0,0,0,
                                  0,0,0,1,0,0,0,0,0,0};
-        cv::Mat elem = cv::Mat(10, 10, CV_8UC1, data);
+
+        cv::Mat elem = robot.clone();
+        //cv::Mat elem = cv::Mat(10, 10, CV_8UC1, data);
+
+        //cv::Point2f pt=cv::Point2f(6,3);
+        cv::Point2f pt=cv::Point2f(elem.cols/2,elem.rows/2);
+
+
+//        int pl,pr, pu, pb;
+
+//        int max_r=max(pt.x,elem.cols-pt.x), max_c=max(pt.y,elem.rows-pt.y);
+
+//        int max_d=(int)(sqrt(max_r*max_r+max_c*max_c));
+
+//        pl=max_d-pt.x+1;
+//        pr=max_d-elem.cols+pt.x+1;
+//        pu=max_d-pt.y+1;
+//        pb=max_d-elem.rows+pt.y+1;
+
+//        copyMakeBorder(elem,elem,pu,pb,pl,pr,cv::BORDER_CONSTANT,cv::Scalar(0));
+
+
+        //cv::imshow("Test!!!!",elem*255);
+        //cv::waitKey(3);
+
+        //cv::Mat r = cv::getRotationMatrix2D(cv::Point2f(pt.x+pl,pt.y+pu), 115, 1.0);
+
+        //cv::warpAffine(elem, elem, r, cv::Size(elem.rows, elem.cols));
+
+        //INTER_NEAREST
+        //INTER_LINEAR
+        //INTER_AREA
+        //INTER_CUBIC
+        //INTER_LANCZOS4
+
 //cv::Mat elem = cv::Mat::ones(10,10,CV_8U);
-        switch (kernel) {
-        case 1:
-            //erode( or_map, er_map, element1);
-            //dilate( er_map, cl_map, element1 );
-            break;
-        case 3:
-            //erode( or_map, er_map, element5);
-            //dilate( er_map, cl_map, element5 );
-            break;
-        default:
-            //erode( or_map, er_map, element6);
-            //dilate( er_map, cl_map, element6 );
-            break;
-        }
+//        switch (kernel) {
+//        case 1:
+//            //erode( or_map, er_map, element1);
+//            //dilate( er_map, cl_map, element1 );
+//            break;
+//        case 3:
+//            //erode( or_map, er_map, element5);
+//            //dilate( er_map, cl_map, element5 );
+//            break;
+//        default:
+//            //erode( or_map, er_map, element6);
+//            //dilate( er_map, cl_map, element6 );
+//            break;
+//        }
 
         //erode( or_map, er_map, element1);
         //erode( cv_map, map_erosionOp, element );
@@ -476,16 +608,26 @@ void Reach_transf::transf(void)
 
         //cv::morphologyEx(or_map,cl_map,cv::MORPH_CLOSE, element1);
 
+        Elem robot_or=multiElem(elem, pt);
 
-        cv::erode( or_map, er_map, elem, cv::Point(6,3) );
+
+        vector<cv::Mat> mer_map=multiErosion(or_map, robot_or);
+
+
+        //cv::erode( or_map, er_map, elem, cv::Point(pt.x+pl,pt.y+pu) );
+
+
 
         //cv::dilate( ~or_map, er_map, elem, cv::Point(3,6) );
 
-        cv::Mat elem2;
+        //cv::Mat elem2;
 
-        flip(elem, elem2, -1);
+        //flip(elem, elem2, -1);
 
-        cv::dilate( er_map, cl_map, elem2, cv::Point(9-6,9-3) );
+        //cv::dilate( er_map, cl_map, elem2, cv::Point(elem2.cols-1-(pt.x+pl),elem2.rows-1-(pt.y+pu) ));
+
+        vector<cv::Mat> mcl_map=multiDilation(mer_map, robot_or);
+
 
 
         //map_debug = cv::Mat(or_map.rows, or_map.cols, CV_8UC3);
@@ -509,30 +651,62 @@ void Reach_transf::transf(void)
         unsigned char color_2[3]={0,255,0};
 
         unsigned char c123[3]={0,0,255};
-        unsigned char c12[3]={0,0,0};
-        unsigned char c13[3]={0,0,0};
+        unsigned char c12[3]={255,255,0};
+        unsigned char c13[3]={255,0,255};
         unsigned char c23[3]={0,255,255};
-        unsigned char c1[3]={0,0,0};
-        unsigned char c2[3]={0,0,0};
+        unsigned char c1[3]={0,255,0};
+        unsigned char c2[3]={255,255,255};
         unsigned char c3[3]={255,0,0};
         unsigned char c0[3]={0,0,0};
 
         //map_debug=color_print(er_map, cl_map, color_b , color_n , color_1 , color_2 );
 
-        map_debug=color_print3(er_map, cl_map, or_map, c123, c12, c13, c23, c1, c2, c3, c0 );
+        cv::Mat temp_color;
 
-        map_or=or_map;
-        map_erosionOp=er_map;
-        map_closeOp=cl_map;
 
-        struct_elem=elem*255;
+        ostringstream text(ostringstream::ate);
+
+        for(int i=0;i<mcl_map.size();i++)
+        {
+            if(i==0)
+            {
+
+                er_map=mer_map[0];
+                cl_map=mcl_map[0];
+                map_debug=color_print3(er_map, cl_map, or_map, c123, c12, c13, c23, c1, c2, c3, c0 );
+
+                map_or=or_map;
+                map_erosionOp=er_map;
+                map_closeOp=cl_map;
+
+                struct_elem=robot_or.elems[0]*255;
+
+            }
+
+
+            temp_color=color_print3(mer_map[i], mcl_map[i], or_map, c123, c12, c13, c23, c1, c2, c3, c0 );
+
+
+            text.str("Test ");
+            text << i;
+            cv::imshow(text.str(), temp_color);
+            cv::waitKey(3);
+
+        }
+
+//        map_debug=color_print3(er_map, cl_map, or_map, c123, c12, c13, c23, c1, c2, c3, c0 );
+
+//        map_or=or_map;
+//        map_erosionOp=er_map;
+//        map_closeOp=cl_map;
+
+//        struct_elem=elem*255;
 
         vector<int> compression_params;
         compression_params.push_back(CV_IMWRITE_PNG_COMPRESSION);
         compression_params.push_back(9);
 
-        cv::imshow("Test!!!!",map_debug);
-        cv::waitKey(30);
+
 
         try {
             cv::imwrite("/home/tiago/map_debug.png", map_debug, compression_params);
@@ -542,7 +716,6 @@ void Reach_transf::transf(void)
         {
           cout  <<"Exception: "<< e.what() << '\n';
         }
-
 
 
         ros::Duration diff = ros::Time::now() - t01;
@@ -1249,12 +1422,40 @@ int main(int argc, char **argv)
 {
 
 
-
     ros::init(argc, argv, "reach");
     debug=true;
     if(argc==2)
-        if(string(argv[1])==string("0"))
+    {
+        filename=string(argv[1]);
+
+    }
+    else if (argc==3)
+    {
+        filename=string(argv[1]);
+        if(string(argv[2])==string("0"))
             debug=false;
+    }
+    else
+        return -1;
+
+
+    cv::Mat robot=cv::imread(filename, CV_LOAD_IMAGE_GRAYSCALE);
+
+    if(robot.empty())
+        return -2;
+
+    for(int i=0;i<robot.rows;i++)
+    {
+        for(int j=0;j<robot.cols;j++)
+        {
+            if (robot.at<uchar>(i,j)>128)
+                robot.at<uchar>(i,j)=255;
+            else
+                robot.at<uchar>(i,j)=0;
+        }
+    }
+
+
 
 
   ros::NodeHandle nh("~");
@@ -1294,7 +1495,7 @@ int main(int argc, char **argv)
 
 
 
-  Reach_transf reach(nh);
+  Reach_transf reach(nh,robot);
 
   //ros::Publisher pub = nh.advertise<nav_msgs::OccupancyGrid>("n_map", 1);
 
