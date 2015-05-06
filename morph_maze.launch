@@ -8,7 +8,7 @@
     <remap from="map" to="/morph/map" />
  </node>
 
- <node pkg="map_transform" type="morph" name="morph" output="screen" args="$(find map_transform)/maps/robot.png 0">    
+ <node pkg="map_transform" type="morph" name="morph" output="screen" args="$(find map_transform)/maps/robot2.png 0">    
     <param name="defl" value="$(arg d)" />
     <param name="infl" value="$(arg i)" />
     <param name="kernel" value="$(arg k)" />

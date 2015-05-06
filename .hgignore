@@ -11,3 +11,6 @@ cfg/cpp/*
 cfg/Parameters.cfgc
 src/map_transform/__init__.py
 src/map_transform/cfg/*
+.morph_maze.launch.swn
+.morph_maze.launch.swp
+.morph_maze.launch.swo

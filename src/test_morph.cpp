@@ -1,33 +1,15 @@
 #include "ros/ros.h"
-#include "string"
 #include "nav_msgs/OccupancyGrid.h"
-#include <unistd.h>
+#include <tf/transform_listener.h>
 
 #include <sstream>
+#include <string>
 
-
-//#include "opencv2/core/core_c.h"
 #include "opencv2/core/core.hpp"
-#include "opencv2/flann/miniflann.hpp"
-//#include "opencv2/imgproc/imgproc_c.h"
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/video/video.hpp"
-#include "opencv2/features2d/features2d.hpp"
-#include "opencv2/objdetect/objdetect.hpp"
-#include "opencv2/calib3d/calib3d.hpp"
-#include "opencv2/ml/ml.hpp"
-//#include "opencv2/highgui/highgui_c.h"
 #include "opencv2/highgui/highgui.hpp"
-#include "opencv2/contrib/contrib.hpp"
-
-#include "boost/thread/thread.hpp"
-#include "boost/thread/mutex.hpp"
-#include "boost/bind.hpp"
-
- #include <tf/transform_listener.h>
+#include "opencv2/imgproc/imgproc.hpp"
 
 
-#include <sstream>
 
 using namespace std;
 
@@ -48,8 +30,6 @@ static const std::string G_WINDOW = "Ground_Truth";
 static const std::string S_WINDOW = "Structuring Element";
 
 
-
-//boost::mutex mux;
 
 class Reach_transf{
 private:
@@ -234,7 +214,6 @@ nav_msgs::OccupancyGrid Reach_transf::Mat2RosMsg(cv::Mat map ,const nav_msgs::Oc
     }
 
     return n_msg;
-
 }
 
 void Reach_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
@@ -1173,15 +1152,15 @@ void Reach_transf::transf_pos(void)
             switch (kernel) {
             case 1:
                 //erode( or_map, er_map, element1);
-                dilate( act_map, act_map, element11 );
+                cv::dilate( act_map, act_map, element11 );
                 break;
             case 3:
                 //erode( or_map, er_map, element5);
-                dilate( act_map, act_map,  element15 );
+                cv::dilate( act_map, act_map,  element15 );
                 break;
             default:
                 //erode( or_map, er_map, element6);
-                dilate( act_map, act_map,  element16 );
+                cv::dilate( act_map, act_map,  element16 );
                 break;
             }
 
