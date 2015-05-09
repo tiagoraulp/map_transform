@@ -1,0 +1,17 @@
+\subsubsection parameters ROS parameters
+
+Reads and maintains the following parameters on the ROS server
+
+- \b "~infl" : \b [double] Robot size (scale %) min: 5.0, default: 100.0, max: 500.0
+- \b "~defl" : \b [double] Sensing radius (scale %) min: 5.0, default: 100.0, max: 500.0
+- \b "~rx" : \b [double] Robot center x (%) min: 0.0, default: 50.0, max: 100.0
+- \b "~ry" : \b [double] Robot center y (%) min: 0.0, default: 50.0, max: 100.0
+- \b "~rt" : \b [double] Robot center theta min: -180.0, default: 0.0, max: 180.0
+- \b "~angle_res" : \b [int] Orientation resolution min: 4, default: 32, max: 256
+- \b "~debug" : \b [bool] Debugging with images min: False, default: True, max: True
+- \b "~ground_truth" : \b [bool] Ground Truth min: False, default: False, max: True
+- \b "~debug_angle" : \b [double] Debug of Infl+Defl for angle min: -180.0, default: 0.0, max: 180.0
+- \b "~x" : \b [double] X Position min: 0.0, default: 10.0, max: 20.0
+- \b "~y" : \b [double] Y Position min: 0.0, default: 10.0, max: 20.0
+- \b "~theta" : \b [double] Orientation min: -180.0, default: 0.0, max: 180.0
+

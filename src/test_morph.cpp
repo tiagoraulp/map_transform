@@ -1,13 +1,15 @@
-#include "ros/ros.h"
-#include "nav_msgs/OccupancyGrid.h"
+#include <ros/ros.h>
+#include <nav_msgs/OccupancyGrid.h>
 #include <tf/transform_listener.h>
+#include <dynamic_reconfigure/server.h>
+#include <map_transform/ParametersncConfig.h>
 
 #include <sstream>
 #include <string>
 
-#include "opencv2/core/core.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 
 
@@ -44,6 +46,10 @@ private:
 
     ros::Subscriber sub;
 
+    dynamic_reconfigure::Server<map_transform::ParametersncConfig> server;
+    dynamic_reconfigure::Server<map_transform::ParametersncConfig>::CallbackType func;
+
+
     tf::TransformListener pos_listener;
 
     std::vector<std::vector<cv::Point> >  label(const cv::Mat binary, int conn);
@@ -53,15 +59,18 @@ private:
 
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
+    void callbackParameters(map_transform::ParametersncConfig &config, uint32_t level);
+
+
     int count;
 
     bool pos_rcv;
 
     bool treated;
 
-    int infl;
+    double infl;
 
-    int defl;
+    double defl;
 
     int kernel;
 
@@ -75,30 +84,60 @@ private:
 
     float res, or_x, or_y;
 
+    bool _debug, gt, gt_c, changed;
+
+    double rxr,ryr, rtr, rcx, rcy, rct;
+
+    int angle_res;
+
+    double angle_debug;
+
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
 
     cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label , map_act, map_vis, map_debug, map_truth,struct_elem;
 
 public:
 
-    Reach_transf(ros::NodeHandle nh, cv::Mat rob): nh_(nh), robot(rob)
+    Reach_transf(ros::NodeHandle nh, cv::Mat rob, bool debug_): nh_(nh), robot(rob), _debug(debug_)
     {
 
         pub = nh_.advertise<nav_msgs::OccupancyGrid>("e_map", 1,true);
         pub2 = nh_.advertise<nav_msgs::OccupancyGrid>("c_map", 1,true);
-        pub5 = nh_.advertise<nav_msgs::OccupancyGrid>("vis_map", 1,true);
+        pub5 = nh_.advertise<nav_msgs::OccupancyGrid>("l_map", 1,true);
         pub6 = nh_.advertise<nav_msgs::OccupancyGrid>("a_map", 1,true);
         pub7 = nh_.advertise<nav_msgs::OccupancyGrid>("v_map", 1,true);
         pub8 = nh_.advertise<nav_msgs::OccupancyGrid>("g_map", 1,true);
 
         sub = nh_.subscribe("map", 1, &Reach_transf::rcv_map, this);
 
-        nh_.param("infl", infl, 5);
-        nh_.param("defl", defl, infl);
+
+        nh_.param("infl", infl, 100.0);
+        infl/=100;
+        nh_.param("defl", defl, 100.0);
+        defl/=100;
+        nh_.param("rx", rcx, 50.0);
+        rcx/=100;
+        nh_.param("ry", rcy, 50.0);
+        rcy/=100;
+        nh_.param("rt", rct, 0.0);
+
+        nh_.param("x", rxr, 10.0);
+        nh_.param("y", ryr, 10.0);
+        nh_.param("theta", rtr, 0.0);
+
+        nh_.param("ground_truth", gt, false);
+
+        nh_.param("angle_res", angle_res, 32);
+
+        nh_.param("debug_angle", angle_debug, 0.0);
 
         nh_.param("kernel", kernel, 2);
 
         nh_.param("tf_prefix", tf_pref, std::string(""));
+
+        func = boost::bind(&Reach_transf::callbackParameters, this,_1, _2);
+        server.setCallback(func);
+
 
         count=0;
 
@@ -106,37 +145,55 @@ public:
 
         pos_rcv=false;
 
+        //gt=false;
 
+        gt_c=false;
 
+        changed=false;
+
+        //rxr=10;
+        //ryr=10;
+        //rtr=0;
+
+        //rcx=0.5;
+        //rcy=0.5;
+        //rct=0;
+
+        //angle_res=32;
+
+        //angle_debug=0;
+
+        if(_debug){
             cv::namedWindow(M_WINDOW);
             cv::namedWindow(E_WINDOW);
             cv::namedWindow(C_WINDOW);
             cv::namedWindow(S_WINDOW);
             cv::namedWindow(D_WINDOW);
-
-         if(debug){
-            cv::namedWindow(L_WINDOW);
-            cv::namedWindow(A_WINDOW);
-            cv::namedWindow(V_WINDOW);
-            cv::namedWindow(G_WINDOW);
-
+            if(pos_rcv)
+            {
+                cv::namedWindow(L_WINDOW);
+                cv::namedWindow(A_WINDOW);
+                cv::namedWindow(V_WINDOW);
+                if(gt && gt_c)
+                    cv::namedWindow(G_WINDOW);
+            }
         }
+
     }
 
     ~Reach_transf()
     {
-
+        if(_debug){
            cv::destroyWindow(M_WINDOW);
            cv::destroyWindow(E_WINDOW);
            cv::destroyWindow(C_WINDOW);
            cv::destroyWindow(S_WINDOW);
            cv::destroyWindow(D_WINDOW);
-
-        if(debug){
            cv::destroyWindow(L_WINDOW);
            cv::destroyWindow(A_WINDOW);
            cv::destroyWindow(V_WINDOW);
            cv::destroyWindow(G_WINDOW);
+
         }
     }
 
@@ -154,13 +211,34 @@ public:
 
 };
 
+void Reach_transf::callbackParameters(map_transform::ParametersncConfig &config, uint32_t level) {
+
+    infl=config.infl/100;
+    defl=config.defl/100;
+    rcx=config.rx/100;
+    rcy=config.ry/100;
+    rct=config.rt;
+    angle_res=config.angle_res;
+    _debug=config.debug;
+    gt=config.ground_truth;
+    angle_debug=config.debug_angle;
+    rxr=config.x;
+    ryr=config.y;
+    rtr=config.theta;
+
+    changed=true;
+    transf();
+    transf_pos();
+
+}
+
 
 
 void Reach_transf::show(void)
 {
 
     //boost::mutex::scoped_lock lock(mux);
-    if(count>0){
+    if(count>0 && _debug){
 
 
         cv::imshow(M_WINDOW,map_or);
@@ -177,16 +255,41 @@ void Reach_transf::show(void)
             cv::imshow(L_WINDOW,map_label);
             cv::imshow(A_WINDOW,map_act);
             cv::imshow(V_WINDOW,map_vis);
-            cv::imshow(G_WINDOW,map_truth);
+            if(gt && gt_c)
+            {
+                cv::imshow(G_WINDOW,map_truth);
+            }
         }
         cv::waitKey(3);
+    }
+
+    if(!_debug)
+    {
+       cv::waitKey(2);
+       cv::destroyWindow(M_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(E_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(C_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(S_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(D_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(L_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(A_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(V_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(G_WINDOW);
+       cv::waitKey(2);
     }
 }
 
 
 nav_msgs::OccupancyGrid Reach_transf::Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg)
 {
-    //boost::mutex::scoped_lock lock(mux);
     nav_msgs::OccupancyGrid n_msg;
     n_msg.header.stamp = ros::Time::now();
     n_msg.header.frame_id = msg.header.frame_id;
@@ -218,11 +321,7 @@ nav_msgs::OccupancyGrid Reach_transf::Mat2RosMsg(cv::Mat map ,const nav_msgs::Oc
 
 void Reach_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
-    //boost::mutex::scoped_lock lock(mux);
     ROS_INFO("I heard map: [%d]", msg->header.seq);
-
-    /////////////////////////////////
-    //std::vector<std::vector<signed char> > GridMap(msg->info.height, std::vector<signed char>(msg->info.width, -1));
 
     cv::Mat prev_map=cv_map.clone();
 
@@ -273,9 +372,6 @@ void Reach_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 
     msg_rcv=*msg;
 
-    //treated=false;
-
-
 
     transf();
 
@@ -294,12 +390,7 @@ void Reach_transf::spin(void)
 
 cv::Mat color_print(cv::Mat img1, cv::Mat img2, unsigned char* c_b, unsigned char* c_n, unsigned char* c_1, unsigned char* c_2)
 {
-    cv::Mat result;// = cv::Mat(img1.rows, img1.cols, CV_8UC3), img1, img2;
-
-    //map_debug.at<uchar>();
-
-    //input1.convertTo(img1, CV_32FC1,1.0/255);
-    //input2.convertTo(img2, CV_32FC1),1.0/255;
+    cv::Mat result;
 
     vector<cv::Mat> channels(3);
 
@@ -307,27 +398,14 @@ cv::Mat color_print(cv::Mat img1, cv::Mat img2, unsigned char* c_b, unsigned cha
     channels[1]=(img1&img2/255*c_b[1])+((~img1)&(~img2)/255*c_n[1])+((~img1)&img2/255*c_2[1])+(img1&(~img2)/255*c_1[1]);
     channels[2]=(img1&img2/255*c_b[0])+((~img1)&(~img2)/255*c_n[0])+((~img1)&img2/255*c_2[0])+(img1&(~img2)/255*c_1[0]);
 
-    //channels[0]=img1&img2/255*125;
-    //channels[1]=(~img1)&(~img2)/255*125;
-    //channels[2]=(img1&img2/255*125)+((~img1)&(~img2)/255*125);
-
-    cout<<"Test 123: \n"<<+channels[0].at<uchar>(100,100)<<"; "<<(int)channels[1].at<uchar>(100,100)<<"; "<<(int)channels[2].at<uchar>(100,100)<<endl;
-
     cv::merge(channels, result);
-
-    //result.convertTo(result, CV_8UC3,1);
 
     return result;
 }
 
 cv::Mat color_print3(cv::Mat img1, cv::Mat img2, cv::Mat img3, unsigned char* c_123, unsigned char* c_12, unsigned char* c_13, unsigned char* c_23, unsigned char* c_1, unsigned char* c_2, unsigned char* c_3, unsigned char* c_0)
 {
-    cv::Mat result;// = cv::Mat(img1.rows, img1.cols, CV_8UC3), img1, img2;
-
-    //map_debug.at<uchar>();
-
-    //input1.convertTo(img1, CV_32FC1,1.0/255);
-    //input2.convertTo(img2, CV_32FC1),1.0/255;
+    cv::Mat result;
 
     vector<cv::Mat> channels(3);
 
@@ -335,25 +413,20 @@ cv::Mat color_print3(cv::Mat img1, cv::Mat img2, cv::Mat img3, unsigned char* c_
     channels[1]=(img1&img2&img3/255*c_123[1])+(img1&img2&(~img3)/255*c_12[1])+(img1&(~img2)&img3/255*c_13[1])+((~img1)&img2&img3/255*c_23[1])+(img1&(~img2)&(~img3)/255*c_1[1])+((~img1)&img2&(~img3)/255*c_2[1])+((~img1)&(~img2)&img3/255*c_3[1])+((~img1)&(~img2)&(~img3)/255*c_0[1]);
     channels[2]=(img1&img2&img3/255*c_123[0])+(img1&img2&(~img3)/255*c_12[0])+(img1&(~img2)&img3/255*c_13[0])+((~img1)&img2&img3/255*c_23[0])+(img1&(~img2)&(~img3)/255*c_1[0])+((~img1)&img2&(~img3)/255*c_2[0])+((~img1)&(~img2)&img3/255*c_3[0])+((~img1)&(~img2)&(~img3)/255*c_0[0]);
 
-
-    //channels[0]=img1&img2/255*125;
-    //channels[1]=(~img1)&(~img2)/255*125;
-    //channels[2]=(img1&img2/255*125)+((~img1)&(~img2)/255*125);
-
-    //cout<<"Test 123: \n"<<+channels[0].at<uchar>(100,100)<<"; "<<(int)channels[1].at<uchar>(100,100)<<"; "<<(int)channels[2].at<uchar>(100,100)<<endl;
-
     cv::merge(channels, result);
-
-    //result.convertTo(result, CV_8UC3,1);
 
     return result;
 }
+
+
 
 class Elem{
 public:
     vector<cv::Mat> elems;
     cv::Point pt;
 };
+
+
 
 Elem multiElem(cv::Mat elem, cv::Point2f pt)
 {
@@ -441,68 +514,9 @@ vector<cv::Mat> multiDilation(vector<cv::Mat> map_er, Elem robot_or )
 
 void Reach_transf::transf(void)
 {
-    //boost::mutex::scoped_lock lock(mux);
 
-
-
-    //if (count>0 )//&& !treated)
-    //{
 
         ros::Time t01=ros::Time::now();
-
-        //treated=true;
-        cv::Mat element1 = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                               cv::Size( 2*infl + 1, 2*infl+1 ),
-                                               cv::Point( infl, infl ) );
-
-
-        cv::Mat element2 = cv::getStructuringElement( cv::MORPH_ERODE,
-                                               cv::Size( 2*infl + 1, 2*infl+1 ),
-                                               cv::Point( infl, infl ) );
-
-        cv::Mat element3 = cv::getStructuringElement( cv::MORPH_DILATE,
-                                               cv::Size( 2*infl + 1, 2*infl+1 ),
-                                               cv::Point( infl, infl ) );
-
-        //cv::Mat element4 = cv::getStructuringElement( cv::MORPH_CLOSE,
-        //                                       cv::Size( 2*infl + 1, 2*infl+1 ),
-        //                                         cv::Point( infl, infl ) );
-
-
-        cv::Mat element5 = cv::getStructuringElement( cv::MORPH_CROSS,
-                                               cv::Size( 2*infl + 1, 2*infl+1 ),
-                                               cv::Point( infl, infl ) );
-
-        cv::Mat element6 = cv::getStructuringElement( cv::MORPH_RECT,
-                                               cv::Size( 2*infl + 1, 2*infl+1 ),
-                                               cv::Point( infl, infl ) );
-
-        cv::Mat element11 = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                               cv::Size( 2*defl + 1, 2*defl+1 ),
-                                               cv::Point( defl, defl ) );
-
-
-        cv::Mat element12 = cv::getStructuringElement( cv::MORPH_ERODE,
-                                               cv::Size( 2*defl + 1, 2*defl+1 ),
-                                               cv::Point( defl, defl ) );
-
-        cv::Mat element13 = cv::getStructuringElement( cv::MORPH_DILATE,
-                                               cv::Size( 2*defl + 1, 2*defl+1 ),
-                                               cv::Point( defl, defl ) );
-
-        //cv::Mat element4 = cv::getStructuringElement( cv::MORPH_CLOSE,
-        //                                       cv::Size( 2*infl + 1, 2*infl+1 ),
-        //                                         cv::Point( infl, infl ) );
-
-
-        cv::Mat element15 = cv::getStructuringElement( cv::MORPH_CROSS,
-                                               cv::Size( 2*defl + 1, 2*defl+1 ),
-                                               cv::Point( defl, defl ) );
-
-        cv::Mat element16 = cv::getStructuringElement( cv::MORPH_RECT,
-                                               cv::Size( 2*defl + 1, 2*defl+1 ),
-                                               cv::Point( defl, defl ) );
-
 
         cv::Mat or_map, er_map, cl_map, es_map, r_map, temp;
 
@@ -510,82 +524,11 @@ void Reach_transf::transf(void)
         msg_rcv_pub=msg_rcv;
 
 
-        /// Apply the erosion operation
-        ///
-        ///
-        ///
-        ///
-        /// c
-
-
-
-        unsigned char data[100]={0,0,0,0,0,0,1,0,0,0,
-                                 0,0,0,0,0,1,1,1,0,0,
-                                 0,0,0,0,1,1,1,1,1,0,
-                                 0,0,0,1,1,1,1,1,1,1,
-                                 0,0,1,1,1,1,1,1,1,0,
-                                 0,1,1,1,1,1,1,1,0,0,
-                                 1,1,1,1,1,1,1,0,0,0,
-                                 0,1,1,1,1,1,0,0,0,0,
-                                 0,0,1,1,1,0,0,0,0,0,
-                                 0,0,0,1,0,0,0,0,0,0};
-
         cv::Mat elem = robot.clone();
-        //cv::Mat elem = cv::Mat(10, 10, CV_8UC1, data);
 
-        //cv::Point2f pt=cv::Point2f(6,3);
+
         cv::Point2f pt=cv::Point2f(elem.cols/2,elem.rows/2);
 
-
-//        int pl,pr, pu, pb;
-
-//        int max_r=max(pt.x,elem.cols-pt.x), max_c=max(pt.y,elem.rows-pt.y);
-
-//        int max_d=(int)(sqrt(max_r*max_r+max_c*max_c));
-
-//        pl=max_d-pt.x+1;
-//        pr=max_d-elem.cols+pt.x+1;
-//        pu=max_d-pt.y+1;
-//        pb=max_d-elem.rows+pt.y+1;
-
-//        copyMakeBorder(elem,elem,pu,pb,pl,pr,cv::BORDER_CONSTANT,cv::Scalar(0));
-
-
-        //cv::imshow("Test!!!!",elem*255);
-        //cv::waitKey(3);
-
-        //cv::Mat r = cv::getRotationMatrix2D(cv::Point2f(pt.x+pl,pt.y+pu), 115, 1.0);
-
-        //cv::warpAffine(elem, elem, r, cv::Size(elem.rows, elem.cols));
-
-        //INTER_NEAREST
-        //INTER_LINEAR
-        //INTER_AREA
-        //INTER_CUBIC
-        //INTER_LANCZOS4
-
-//cv::Mat elem = cv::Mat::ones(10,10,CV_8U);
-//        switch (kernel) {
-//        case 1:
-//            //erode( or_map, er_map, element1);
-//            //dilate( er_map, cl_map, element1 );
-//            break;
-//        case 3:
-//            //erode( or_map, er_map, element5);
-//            //dilate( er_map, cl_map, element5 );
-//            break;
-//        default:
-//            //erode( or_map, er_map, element6);
-//            //dilate( er_map, cl_map, element6 );
-//            break;
-//        }
-
-        //erode( or_map, er_map, element1);
-        //erode( cv_map, map_erosionOp, element );
-        //dilate( er_map, cl_map, element3 );
-        //dilate( er_map, cl_map, element1 );
-
-        //cv::morphologyEx(or_map,cl_map,cv::MORPH_CLOSE, element1);
 
         Elem robot_or=multiElem(elem, pt);
 
@@ -593,41 +536,8 @@ void Reach_transf::transf(void)
         vector<cv::Mat> mer_map=multiErosion(or_map, robot_or);
 
 
-        //cv::erode( or_map, er_map, elem, cv::Point(pt.x+pl,pt.y+pu) );
-
-
-
-        //cv::dilate( ~or_map, er_map, elem, cv::Point(3,6) );
-
-        //cv::Mat elem2;
-
-        //flip(elem, elem2, -1);
-
-        //cv::dilate( er_map, cl_map, elem2, cv::Point(elem2.cols-1-(pt.x+pl),elem2.rows-1-(pt.y+pu) ));
 
         vector<cv::Mat> mcl_map=multiDilation(mer_map, robot_or);
-
-
-
-        //map_debug = cv::Mat(or_map.rows, or_map.cols, CV_8UC3);
-
-        //map_debug.at<uchar>();
-
-        //vector<cv::Mat> channels(3);
-
-        //channels[0]=er_map;
-        //channels[1]=er_map;
-        //channels[2]=cl_map;
-
-        //merge(channels, map_debug);
-
-
-        //erode( or_map, er_map, element1);
-
-        unsigned char color_b[3]={255,255,0};
-        unsigned char color_n[3]={0,0,255};
-        unsigned char color_1[3]={255,0,0};
-        unsigned char color_2[3]={0,255,0};
 
         unsigned char c123[3]={0,0,255};
         unsigned char c12[3]={255,255,0};
@@ -637,8 +547,6 @@ void Reach_transf::transf(void)
         unsigned char c2[3]={255,255,255};
         unsigned char c3[3]={255,0,0};
         unsigned char c0[3]={0,0,0};
-
-        //map_debug=color_print(er_map, cl_map, color_b , color_n , color_1 , color_2 );
 
         cv::Mat temp_color;
 
@@ -673,47 +581,28 @@ void Reach_transf::transf(void)
 
         }
 
-//        map_debug=color_print3(er_map, cl_map, or_map, c123, c12, c13, c23, c1, c2, c3, c0 );
 
-//        map_or=or_map;
-//        map_erosionOp=er_map;
-//        map_closeOp=cl_map;
-
-//        struct_elem=elem*255;
-
-        vector<int> compression_params;
-        compression_params.push_back(CV_IMWRITE_PNG_COMPRESSION);
-        compression_params.push_back(9);
-
-
-
-        try {
-            cv::imwrite("/home/tiago/map_debug.png", map_debug, compression_params);
-
-        }
-        catch (exception& e)
-        {
-          cout  <<"Exception: "<< e.what() << '\n';
-        }
+//        vector<int> compression_params;
+//        compression_params.push_back(CV_IMWRITE_PNG_COMPRESSION);
+//        compression_params.push_back(9);
+//        try {
+//            cv::imwrite("/home/tiago/map_debug.png", map_debug, compression_params);
+//        }
+//        catch (exception& e)
+//        {
+//          cout  <<"Exception: "<< e.what() << '\n';
+//        }
 
 
         ros::Duration diff = ros::Time::now() - t01;
 
         cout<<tf_pref<<" - Time for reach: "<<diff<<endl;
 
-    //}
-
-
 }
 
 
 bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
 {
-    bool debug=false;
-
-    if(opt_x==0 && opt_y==145)
-        debug=false;
-
     float dist_t=sqrt( (dest_x-opt_x)*(dest_x-opt_x)+(dest_y-opt_y)*(dest_y-opt_y) );
     float angle=atan2(dest_y-opt_y, dest_x-opt_x);
 
@@ -726,13 +615,6 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
 
     int p_x=opt_x;
     int p_y=opt_y;
-
-    if(debug)
-        cout<<"Test!!!!!!!!!!!!!!!!!"<<endl<<p_x<<" "<<p_y<<endl;
-    if(debug)
-        cout<<angle<<" "<<cos_ang<<" "<<sin_ang<<endl;
-    if(debug)
-        cout<<dist_t<<endl;
 
     float temp, tempx=opt_x, tempy=opt_y, temp_tx, temp_ty;
 
@@ -770,20 +652,12 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
 
     float dist=0;
 
-    //                                bool count_free=false;
-
-    //cout<<p_x<<" "<<p_y<<" "<<sign_x*(tempx+temp*cos_ang)<<" "<<sign_y*(tempy+temp*sin_ang)<<" "<<tempx<<" "<<tempy<<" "<<dist+temp<<" "<<dist<<endl;
-
-    int n=1;
 
     while( (dist+temp)<=dist_t && p_x>=0 && p_x<map.rows && p_y>=0 && p_y<map.cols )
     {
-        n++;
 
         dist=dist+temp;
 
-        if(debug)
-            cout<<p_x<<" "<<p_y<<endl;
 
         if( map.at<uchar>(p_x,p_y)==0 )
             return false;
@@ -827,8 +701,6 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
         }
 
 
-        //if(n<50)
-            //cout<<p_x<<" "<<p_y<<" "<<sign_x*(tempx+temp*cos_ang)+p_x<<" "<<sign_y*(tempy+temp*sin_ang)+p_y<<" "<<tempx<<" "<<tempy<<" "<<dist+temp<<" "<<dist<<endl;
 
         prev_px=p_x;
 
@@ -844,15 +716,7 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
         else
             p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
 
-
-
-
-
-
     }
-
-    if(debug)
-        cout<<"Found!!!!!"<<endl;
 
     return true;
 }
@@ -989,7 +853,6 @@ void Reach_transf::transf_pos(void)
 {
 
 
-
     if(count>0)
     {
         tf::StampedTransform transform;
@@ -1037,9 +900,7 @@ void Reach_transf::transf_pos(void)
 
         for (int i=0;i<labels.size();i++){
             for(int j=0;j<labels[i].size();j++){
-                //ROS_INFO("%d-%d ; %d-%d",i+1, labels.size(),j+1,labels[i].size());
 
-                //ROS_INFO("%d %d",labels[i][j].x, labels[i][j].y);
                 if( pos_x==labels[i][j].x && pos_y==labels[i][j].y){
 
                     label_pos=i;
@@ -1077,133 +938,6 @@ void Reach_transf::transf_pos(void)
                 }
              }
 
-            //cout<<"Test"<<endl;
-
-
-            cv::Mat element1 = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                                   cv::Size( 2*infl + 1, 2*infl+1 ),
-                                                   cv::Point( infl, infl ) );
-
-
-            cv::Mat element2 = cv::getStructuringElement( cv::MORPH_ERODE,
-                                                   cv::Size( 2*infl + 1, 2*infl+1 ),
-                                                   cv::Point( infl, infl ) );
-
-            cv::Mat element3 = cv::getStructuringElement( cv::MORPH_DILATE,
-                                                   cv::Size( 2*infl + 1, 2*infl+1 ),
-                                                   cv::Point( infl, infl ) );
-
-            //cv::Mat element4 = cv::getStructuringElement( cv::MORPH_CLOSE,
-            //                                       cv::Size( 2*infl + 1, 2*infl+1 ),
-            //                                         cv::Point( infl, infl ) );
-
-
-            cv::Mat element5 = cv::getStructuringElement( cv::MORPH_CROSS,
-                                                   cv::Size( 2*infl + 1, 2*infl+1 ),
-                                                   cv::Point( infl, infl ) );
-
-            cv::Mat element6 = cv::getStructuringElement( cv::MORPH_RECT,
-                                                   cv::Size( 2*infl + 1, 2*infl+1 ),
-                                                   cv::Point( infl, infl ) );
-
-            int rad=min(infl,defl);
-
-
-            cv::Mat element11 = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                                   cv::Size( 2*rad + 1, 2*rad+1 ),
-                                                   cv::Point( rad, rad ) );
-
-
-            cv::Mat element12 = cv::getStructuringElement( cv::MORPH_ERODE,
-                                                   cv::Size( 2*rad + 1, 2*rad+1 ),
-                                                   cv::Point( rad, rad ) );
-
-            cv::Mat element13 = cv::getStructuringElement( cv::MORPH_DILATE,
-                                                   cv::Size( 2*rad + 1, 2*rad+1 ),
-                                                   cv::Point( rad, rad ) );
-
-            //cv::Mat element4 = cv::getStructuringElement( cv::MORPH_CLOSE,
-            //                                       cv::Size( 2*infl + 1, 2*infl+1 ),
-            //                                         cv::Point( infl, infl ) );
-
-
-            cv::Mat element15 = cv::getStructuringElement( cv::MORPH_CROSS,
-                                                   cv::Size( 2*rad + 1, 2*rad+1 ),
-                                                   cv::Point( rad, rad ) );
-
-            cv::Mat element16 = cv::getStructuringElement( cv::MORPH_RECT,
-                                                   cv::Size( 2*rad + 1, 2*rad+1 ),
-                                                   cv::Point( rad, rad ) );
-
-
-
-
-            /// Apply the erosion operation
-            ///
-            ///
-            ///
-            ///
-            ///
-            ///
-
-            cv::Mat act_map=l_map.clone();
-
-
-            switch (kernel) {
-            case 1:
-                //erode( or_map, er_map, element1);
-                cv::dilate( act_map, act_map, element11 );
-                break;
-            case 3:
-                //erode( or_map, er_map, element5);
-                cv::dilate( act_map, act_map,  element15 );
-                break;
-            default:
-                //erode( or_map, er_map, element6);
-                cv::dilate( act_map, act_map,  element16 );
-                break;
-            }
-
-            cv::Mat vis_map=act_map.clone(), vis_map_temp, contours;
-
-
-            bitwise_not(map_or,temp);
-
-            unreach_map=vis_map|temp;
-
-            bitwise_not( unreach_map.clone() , temp_labelling);
-
-            std::vector<std::vector<cv::Point> > labels_unreach=label(temp_labelling/255,4);
-
-
-            //label_pos=2;
-
-
-            regions=map_or.clone()/255;
-
-            for (int i=0;i<labels_unreach.size();i++){
-                for(int j=0;j<labels_unreach[i].size();j++){
-                    //if( i!=label_pos ){
-
-                        regions.at<uchar>(labels_unreach[i][j].x,labels_unreach[i][j].y)=i+2;
-
-                    //}
-                }
-             }
-
-            //int k=label_pos;
-
-
-            //vis_map=vis_map_temp;
-
-            //=unreach_map;
-
-            map_label=l_map;
-            map_act=act_map;
-            map_vis=vis_map;
-
-            //map_debug=unreach_map;
-            //map_debug=contours;
 
 
             ros::Duration diff = ros::Time::now() - t01;
@@ -1240,38 +974,36 @@ void Reach_transf::transf_pos(void)
 
 void Reach_transf::publish(void)
 {
-    //boost::mutex::scoped_lock lock(mux);
 
-        //////////////////////////////////
-
-        nav_msgs::OccupancyGrid n_msg;
+    nav_msgs::OccupancyGrid n_msg;
 
 
-        n_msg=Mat2RosMsg(map_erosionOp , msg_rcv_pub);
-        pub.publish(n_msg);
+    n_msg=Mat2RosMsg(map_erosionOp , msg_rcv_pub);
+    pub.publish(n_msg);
 
-        n_msg=Mat2RosMsg(map_closeOp , msg_rcv_pub);
-        pub2.publish(n_msg);
+    n_msg=Mat2RosMsg(map_closeOp , msg_rcv_pub);
+    pub2.publish(n_msg);
 
 
 
-        if(pos_rcv)
+    if(pos_rcv)
+    {
+        n_msg=Mat2RosMsg( map_label , msg_rcv_pub);
+        pub5.publish(n_msg);
+        n_msg=Mat2RosMsg( map_act , msg_rcv_pub);
+        pub6.publish(n_msg);
+        n_msg=Mat2RosMsg( map_vis , msg_rcv_pub);
+        pub7.publish(n_msg);
+        if(gt && gt_c)
         {
-            n_msg=Mat2RosMsg( map_label , msg_rcv_pub);
-            pub5.publish(n_msg);
-            n_msg=Mat2RosMsg( map_act , msg_rcv_pub);
-            pub6.publish(n_msg);
-            n_msg=Mat2RosMsg( map_vis , msg_rcv_pub);
-            pub7.publish(n_msg);
             n_msg=Mat2RosMsg( map_truth , msg_rcv_pub);
             pub8.publish(n_msg);
         }
+    }
 
 
-        std::stringstream ss;
-        ss << tf_pref+"-> Message sent: " << count;
-        //msg.data = ss.str();
-        //ROS_INFO("%s", ss.str().c_str());
+    std::stringstream ss;
+    ss << tf_pref+"-> Message sent: " << count;
 
 
 }
@@ -1282,22 +1014,10 @@ std::vector<std::vector<cv::Point> >  Reach_transf::label(const cv::Mat binary, 
     std::vector<std::vector<cv::Point> > blobs;
     blobs.clear();
 
-    // Using labels from 2+ for each blob
     cv::Mat label_image;
     binary.convertTo(label_image, CV_32FC1);
 
-    //ROS_INFO("%f %f %f %f", label_image.at<float>(0,0), label_image.at<float>(100,100), label_image.at<float>(100,150), label_image.at<float>(150,50) );
-
-
-    //cv::imshow("test",label_image);
-
     int label_count = 2; // starts at 2 because 0,1 are used already
-
-    //if(pos_rcv)
-    //    ROS_INFO("%f %f %f %f", label_image.at<float>(0,0), label_image.at<float>(50,50), label_image.at<float>(100,150), label_image.at<float>(150,50) );
-        //ROS_INFO("label %d", label_count);
-
-
 
 
     for(int y=0; y < binary.rows; y++) {
@@ -1323,15 +1043,6 @@ std::vector<std::vector<cv::Point> >  Reach_transf::label(const cv::Mat binary, 
 
             blobs.push_back(blob);
 
-            //ROS_INFO("size %d", blob.size());
-
-            //if(pos_rcv)
-            //    ROS_INFO("%f %f %f %f", label_image.at<float>(0,0), label_image.at<float>(50,50), label_image.at<float>(100,150), label_image.at<float>(150,50) );
-                //ROS_INFO("label %d", label_count);
-
-
-
-
             label_count++;
         }
     }
@@ -1344,53 +1055,30 @@ std::vector<cv::Point> Reach_transf::label_seed(const cv::Mat binary, int conn, 
     std::vector<cv::Point> blob;
     blob.clear();
 
-    // Using labels from 2+ for each blob
     cv::Mat label_image;
     binary.convertTo(label_image, CV_32FC1);
 
-    //ROS_INFO("%f %f %f %f", label_image.at<float>(0,0), label_image.at<float>(100,100), label_image.at<float>(100,150), label_image.at<float>(150,50) );
-
-
-    //cv::imshow("test",label_image);
-
     int label_count = 2; // starts at 2 because 0,1 are used already
 
-    //if(pos_rcv)
-    //    ROS_INFO("%f %f %f %f", label_image.at<float>(0,0), label_image.at<float>(50,50), label_image.at<float>(100,150), label_image.at<float>(150,50) );
-        //ROS_INFO("label %d", label_count);
+
+    if((int)label_image.at<float>(seed.x,seed.y) != 1 ) {
+        return blob;
+    }
+
+    cv::Rect rect;
+    cv::Point sd=cv::Point(seed.y, seed.x);
+    cv::floodFill(label_image, sd, cv::Scalar(label_count), &rect, cv::Scalar(0), cv::Scalar(0), conn);
 
 
-
-
-
-            if((int)label_image.at<float>(seed.x,seed.y) != 1 ) {
-                return blob;
+    for(int i=rect.y; i < (rect.y+rect.height); i++) {
+        for(int j=rect.x; j < (rect.x+rect.width); j++) {
+            if((int)label_image.at<float>(i,j) != label_count) {
+                continue;
             }
 
-            cv::Rect rect;
-            cv::Point sd=cv::Point(seed.y, seed.x);
-            cv::floodFill(label_image, sd, cv::Scalar(label_count), &rect, cv::Scalar(0), cv::Scalar(0), conn);
-
-
-            for(int i=rect.y; i < (rect.y+rect.height); i++) {
-                for(int j=rect.x; j < (rect.x+rect.width); j++) {
-                    if((int)label_image.at<float>(i,j) != label_count) {
-                        continue;
-                    }
-
-                    blob.push_back(cv::Point(i,j));
-                }
-            }
-
-
-            //ROS_INFO("size %d", blob.size());
-
-            //if(pos_rcv)
-            //    ROS_INFO("%f %f %f %f", label_image.at<float>(0,0), label_image.at<float>(50,50), label_image.at<float>(100,150), label_image.at<float>(150,50) );
-                //ROS_INFO("label %d", label_count);
-
-
-
+            blob.push_back(cv::Point(i,j));
+        }
+    }
 
     return blob;
 }
@@ -1420,8 +1108,10 @@ int main(int argc, char **argv)
 
     cv::Mat robot=cv::imread(filename, CV_LOAD_IMAGE_GRAYSCALE);
 
+
     if(robot.empty())
         return -2;
+
 
     for(int i=0;i<robot.rows;i++)
     {
@@ -1440,68 +1130,20 @@ int main(int argc, char **argv)
   ros::NodeHandle nh("~");
 
 
-//  vector<cv::Point> frontier[ff]s;frontier[ff]s.clear();
-//  cv::Point p;
-//  p.x=1;p.y=1;
-//  frontier[ff]s.push_back(p);
-//  p.x=16;p.y=16;
-//  frontier[ff]s.push_back(p);
-//  p.x=1;p.y=2;
-//  frontier[ff]s.push_back(p);
-//  p.x=16;p.y=15;
-//  frontier[ff]s.push_back(p);
-//  p.x=1;p.y=3;
-//  frontier[ff]s.push_back(p);
-//  p.x=15;p.y=14;
-//  frontier[ff]s.push_back(p);
-//  p.x=2;p.y=4;
-//  frontier[ff]s.push_back(p);
-//  p.x=16;p.y=13;
-//  frontier[ff]s.push_back(p);
+  Reach_transf reach(nh,robot, debug);
 
-
-//  vector<vector<cv::Point> > res=cluster_points(frontier[ff]s);
-
-//  for(int i=0;i<res.size();i++)
-//  {
-//      cout<<"Cluster "<<i+1<<":"<<endl;
-//      for(int j=0;j<res[i].size();j++)
-//      {
-//          cout<<res[i][j].x<<" "<<res[i][j].y<<"; ";
-//      }
-//      cout<<endl;
-//  }
-
-
-
-  Reach_transf reach(nh,robot);
-
-  //ros::Publisher pub = nh.advertise<nav_msgs::OccupancyGrid>("n_map", 1);
-
-  //ros::Subscriber sub = nh.subscribe("map", 1, &Reach_transf::transf, &reach);
 
   ros::Rate loop_rate(10);
 
-  //boost::thread t(&Reach_transf::spin, &reach);
-
   while (ros::ok())
   {
-
-
     ros::spinOnce();
 
-    //if (t.timed_join(boost::posix_time::seconds(0)) && !reach.getTreated() )
-        //t.start_thread();
-        //t=boost::thread::Thread(&Reach_transf::transf, &reach);
+    reach.transf_pos();
 
-    //reach.transf_pos();
-
-    //if(debug)
-        reach.show();
+    reach.show();
 
     reach.publish();
-
-    //reach.publish();
 
     loop_rate.sleep();
   }

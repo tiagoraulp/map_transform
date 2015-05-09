@@ -1,5 +1,5 @@
 <launch>
- <arg name="i" default="1"/>
+ <arg name="i" default="100"/>
  <arg name="k" default="3"/>
  <arg name="d" default="$(arg i)"/>
 
@@ -12,5 +12,14 @@
     <param name="defl" value="$(arg d)" />
     <param name="infl" value="$(arg i)" />
     <param name="kernel" value="$(arg k)" />
+    <param name="rx" value="50" />
+    <param name="ry" value="50" />
+    <param name="rt" value="0" />
+    <param name="x" value="10" />
+    <param name="y" value="10" />
+    <param name="theta" value="0" />
+    <param name="ground_truth" value="false" />
+    <param name="angle_res" value="32" />
+    <param name="debug_angle" value="0" />
  </node>
 </launch>

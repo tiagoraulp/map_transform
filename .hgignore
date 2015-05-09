@@ -14,3 +14,8 @@ src/map_transform/cfg/*
 .morph_maze.launch.swn
 .morph_maze.launch.swp
 .morph_maze.launch.swo
+cfg/Parameters-nc.cfgc
+cfg/Parametersnc.cfgc
+docs/Parameters-ncConfig-usage.dox
+docs/Parameters-ncConfig.dox
+docs/Parameters-ncConfig.wikidoc
