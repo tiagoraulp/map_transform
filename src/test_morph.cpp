@@ -17,7 +17,7 @@ using namespace std;
 
 const double PI = 3.141592653589793;
 
-bool debug;
+//bool debug;
 
 string filename;
 
@@ -31,6 +31,13 @@ static const std::string D_WINDOW = "Debug";
 static const std::string G_WINDOW = "Ground_Truth";
 static const std::string S_WINDOW = "Structuring Element";
 
+
+class Elem{
+public:
+    vector<cv::Mat> elems;
+    cv::Point pt;
+    int  pu, pb, pl, pr;
+};
 
 
 class Reach_transf{
@@ -92,14 +99,19 @@ private:
 
     double angle_debug;
 
+    Elem robot_or;
+
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
 
-    cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label , map_act, map_vis, map_debug, map_truth,struct_elem;
+    cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label , map_act, map_vis, map_debug, map_truth,struct_elem,map_erosionOpPrintColor;
 
 public:
 
-    Reach_transf(ros::NodeHandle nh, cv::Mat rob, bool debug_): nh_(nh), robot(rob), _debug(debug_)
+    //Reach_transf(ros::NodeHandle nh, cv::Mat rob, bool debug_): nh_(nh), robot(rob), _debug(debug_)
+    Reach_transf(ros::NodeHandle nh, cv::Mat rob): nh_(nh), robot(rob)
     {
+
+
 
         pub = nh_.advertise<nav_msgs::OccupancyGrid>("e_map", 1,true);
         pub2 = nh_.advertise<nav_msgs::OccupancyGrid>("c_map", 1,true);
@@ -109,6 +121,8 @@ public:
         pub8 = nh_.advertise<nav_msgs::OccupancyGrid>("g_map", 1,true);
 
         sub = nh_.subscribe("map", 1, &Reach_transf::rcv_map, this);
+
+
 
 
         nh_.param("infl", infl, 100.0);
@@ -131,15 +145,23 @@ public:
 
         nh_.param("debug_angle", angle_debug, 0.0);
 
+        nh_.param("debug", _debug, true);
+
         nh_.param("kernel", kernel, 2);
 
         nh_.param("tf_prefix", tf_pref, std::string(""));
+
+
+
+        prev_x=-1; prev_y=-1;
+
+        count=0;
 
         func = boost::bind(&Reach_transf::callbackParameters, this,_1, _2);
         server.setCallback(func);
 
 
-        count=0;
+
 
         treated=false;
 
@@ -163,6 +185,9 @@ public:
 
         //angle_debug=0;
 
+
+
+
         if(_debug){
             cv::namedWindow(M_WINDOW);
             cv::namedWindow(E_WINDOW);
@@ -178,6 +203,7 @@ public:
                     cv::namedWindow(G_WINDOW);
             }
         }
+
 
     }
 
@@ -225,10 +251,16 @@ void Reach_transf::callbackParameters(map_transform::ParametersncConfig &config,
     rxr=config.x;
     ryr=config.y;
     rtr=config.theta;
+    _debug=config.debug;
 
     changed=true;
-    transf();
-    transf_pos();
+
+
+    if(count>0)
+    {
+        transf();
+        transf_pos();
+    }
 
 }
 
@@ -242,7 +274,7 @@ void Reach_transf::show(void)
 
 
         cv::imshow(M_WINDOW,map_or);
-        cv::imshow(E_WINDOW,map_erosionOp);
+        cv::imshow(E_WINDOW,map_erosionOpPrintColor);
         cv::imshow(C_WINDOW,map_closeOp);
 
         cv::imshow(S_WINDOW,struct_elem);
@@ -321,6 +353,8 @@ nav_msgs::OccupancyGrid Reach_transf::Mat2RosMsg(cv::Mat map ,const nav_msgs::Oc
 
 void Reach_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
+
+
     ROS_INFO("I heard map: [%d]", msg->header.seq);
 
     cv::Mat prev_map=cv_map.clone();
@@ -420,19 +454,24 @@ cv::Mat color_print3(cv::Mat img1, cv::Mat img2, cv::Mat img3, unsigned char* c_
 
 
 
-class Elem{
-public:
-    vector<cv::Mat> elems;
-    cv::Point pt;
-};
 
 
-
-Elem multiElem(cv::Mat elem, cv::Point2f pt)
+Elem multiElem(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int res)
 {
     Elem result;
 
-    int pl,pr, pu, pb;
+    int pl, pr, pu, pb;
+
+    pu=elem.rows/2*max(0.0,scale-1);
+    pb=elem.rows/2*max(0.0,scale-1);
+    pl=elem.cols/2*max(0.0,scale-1);
+    pr=elem.cols/2*max(0.0,scale-1);
+
+    cv::copyMakeBorder(elem,elem,pu,pb,pl,pr,cv::BORDER_CONSTANT,cv::Scalar(0));
+
+    pt.x=pt.x+pl;
+    pt.y=pt.y+pu;
+
 
     int max_r=max(pt.x,elem.cols-pt.x), max_c=max(pt.y,elem.rows-pt.y);
 
@@ -443,23 +482,35 @@ Elem multiElem(cv::Mat elem, cv::Point2f pt)
     pu=max_d-pt.y+1;
     pb=max_d-elem.rows+pt.y+1;
 
-    copyMakeBorder(elem,elem,pu,pb,pl,pr,cv::BORDER_CONSTANT,cv::Scalar(0));
+    cv::copyMakeBorder(elem,elem,pu,pb,pl,pr,cv::BORDER_CONSTANT,cv::Scalar(0));
 
     pt.x=pt.x+pl;
     pt.y=pt.y+pu;
+
 
     result.pt=cv::Point(pt.x,pt.y);
 
 
 
-    for(int i=0;i<32;i++)
+    pu=pt.y+1;
+    pb=elem.rows-pt.y+1;
+    pl=pt.x+1;
+    pr=elem.cols-pt.x+1;
+
+    result.pl=pl;
+    result.pr=pr;
+    result.pb=pb;
+    result.pu=pu;
+
+
+    for(int i=0;i<res;i++)
     {
         cv::Mat elem_t;
-        cv::Mat r = cv::getRotationMatrix2D(pt, (360.0/32.0*i), 1.0);
+        cv::Mat r = cv::getRotationMatrix2D(pt, -orient+(360.0/res*i), scale);
 
 
 
-        cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols));
+        cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
 
         result.elems.push_back(elem_t);
     }
@@ -470,11 +521,13 @@ Elem multiElem(cv::Mat elem, cv::Point2f pt)
 vector<cv::Mat> multiErosion(cv::Mat map, Elem robot_or)
 {
     vector<cv::Mat> result;
+    cv::Mat map_n=map.clone();
+
 
     for(int i=0;i<robot_or.elems.size();i++)
     {
         cv::Mat temp;
-        cv::erode( map, temp, robot_or.elems[i], robot_or.pt );
+        cv::erode( map_n, temp, robot_or.elems[i], robot_or.pt,1, cv::BORDER_CONSTANT,cv::Scalar(0));
 
         result.push_back(temp);
     }
@@ -492,7 +545,6 @@ vector<cv::Mat> multiDilation(vector<cv::Mat> map_er, Elem robot_or )
     cv::Point pr;
     pr.x=robot_or.elems[0].cols-1-robot_or.pt.x;
     pr.y=robot_or.elems[0].rows-1-robot_or.pt.y;
-
 
     for(int i=0;i<robot_or.elems.size();i++)
     {
@@ -515,10 +567,11 @@ vector<cv::Mat> multiDilation(vector<cv::Mat> map_er, Elem robot_or )
 void Reach_transf::transf(void)
 {
 
-
+    if(count>0)
+    {
         ros::Time t01=ros::Time::now();
 
-        cv::Mat or_map, er_map, cl_map, es_map, r_map, temp;
+        cv::Mat or_map, er_map, cl_map, or_mapN;
 
         or_map=cv_map.clone();
         msg_rcv_pub=msg_rcv;
@@ -526,18 +579,21 @@ void Reach_transf::transf(void)
 
         cv::Mat elem = robot.clone();
 
+        cv::Point2f pt=cv::Point2f(elem.cols*rcx,elem.rows*rcy);
 
-        cv::Point2f pt=cv::Point2f(elem.cols/2,elem.rows/2);
-
-
-        Elem robot_or=multiElem(elem, pt);
+        robot_or=multiElem(elem, pt,rct, infl, angle_res);
 
 
-        vector<cv::Mat> mer_map=multiErosion(or_map, robot_or);
+        cv::copyMakeBorder(or_map,or_mapN,robot_or.pu,robot_or.pb,robot_or.pl,robot_or.pr,cv::BORDER_CONSTANT,cv::Scalar(0));
+
+
+
+        vector<cv::Mat> mer_map=multiErosion(or_mapN, robot_or);
 
 
 
         vector<cv::Mat> mcl_map=multiDilation(mer_map, robot_or);
+
 
         unsigned char c123[3]={0,0,255};
         unsigned char c12[3]={255,255,0};
@@ -548,38 +604,54 @@ void Reach_transf::transf(void)
         unsigned char c3[3]={255,0,0};
         unsigned char c0[3]={0,0,0};
 
-        cv::Mat temp_color;
 
 
-        ostringstream text(ostringstream::ate);
 
-        for(int i=0;i<mcl_map.size();i++)
+        double rtrd=angle_debug;
+
+        if(rtrd<0)
+            rtrd+=360;
+
+        double min_err;
+        int m_a=0;
+
+        for(int i=0;i<angle_res;i++)
         {
             if(i==0)
             {
-
-                er_map=mer_map[0];
-                cl_map=mcl_map[0];
-                map_debug=color_print3(er_map, cl_map, or_map, c123, c12, c13, c23, c1, c2, c3, c0 );
-
-                map_or=or_map;
-                map_erosionOp=er_map;
-                map_closeOp=cl_map;
-
-                struct_elem=robot_or.elems[0]*255;
-
+                m_a=i;
+                min_err=abs(360.0/angle_res*i-rtrd);
+            }
+            else
+            {
+                if( abs(360.0/angle_res*i-rtrd)<min_err  )
+                {
+                    m_a=i;
+                    min_err=abs(360.0/angle_res*i-rtrd);
+                }
             }
 
-
-            temp_color=color_print3(mer_map[i], mcl_map[i], or_map, c123, c12, c13, c23, c1, c2, c3, c0 );
-
-
-            text.str("Test ");
-            text << i;
-            cv::imshow(text.str(), temp_color);
-            cv::waitKey(3);
+            //temp_color=color_print3(mer_map[i], mcl_map[i], or_map, c123, c12, c13, c23, c1, c2, c3, c0 );
+            //text.str("Test ");
+            //text << i;
+            //cv::imshow(text.str(), temp_color);
+            //cv::waitKey(3);
 
         }
+
+        er_map=mer_map[m_a].clone();
+        cl_map=mcl_map[m_a].clone();
+
+
+        map_debug=color_print3(er_map, cl_map, or_mapN, c123, c12, c13, c23, c1, c2, c3, c0 );
+
+        map_or=or_map;
+        map_erosionOp=er_map;
+
+        cv::Rect rec(robot_or.pl,robot_or.pu, or_map.cols, or_map.rows);
+        map_closeOp=cl_map(rec);
+
+        struct_elem=robot_or.elems[m_a]*255;
 
 
 //        vector<int> compression_params;
@@ -597,6 +669,9 @@ void Reach_transf::transf(void)
         ros::Duration diff = ros::Time::now() - t01;
 
         cout<<tf_pref<<" - Time for reach: "<<diff<<endl;
+
+
+    }
 
 }
 
@@ -852,45 +927,115 @@ cv::Mat brute_force_opt(cv::Mat map, cv::Mat reach, int defl)
 void Reach_transf::transf_pos(void)
 {
 
-
     if(count>0)
     {
-        tf::StampedTransform transform;
-        try{
-            pos_listener.lookupTransform("/map", tf_pref+"/base_link", ros::Time(0), transform);
-        }
-        catch (tf::TransformException ex){
-          ROS_INFO("%s",ex.what());
-
-
-
-          return ;
-        }
-
-
-
         ros::Time t01=ros::Time::now();
 
-        int pos_x=(int) round((transform.getOrigin().x()-or_x)/res);
+        double xx,yy, tt;
 
-        int pos_y=(int) round((transform.getOrigin().y()-or_y)/res);
-
-        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0)
+        if(!_debug)
         {
-            pos_rcv=false;
+            tf::StampedTransform transform;
+            try{
+                pos_listener.lookupTransform("/map", tf_pref+"/base_link", ros::Time(0), transform);
+            }
+            catch (tf::TransformException ex){
+              ROS_INFO("%s",ex.what());
+              //cout<<"No transform!!!\r";
+
+
+              return ;
+            }
+
+
+            xx=transform.getOrigin().x();
+            yy=transform.getOrigin().y();
+            tt=tf::getYaw(transform.getRotation())/2/PI*360;
+
+        }
+        else
+        {
+            xx=rxr;
+            yy=ryr;
+            tt=rtr;
+        }
+
+        if(tt<0)
+            tt+=360;
+
+
+
+
+        int pos_x=((int) round((xx-or_x)/res))+robot_or.pu;
+
+        int pos_y=((int) round((yy-or_y)/res))+robot_or.pl;
+
+        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0 && (! treated || changed) )
+        {
+            pos_rcv=true;
+            changed=false;
 
             prev_x=pos_x;
             prev_y=pos_y;
 
-            treated=false;
+            treated=true;
+            gt_c=false;
+
+            vector<cv::Mat> channels(3);
+
+            channels[0]=map_erosionOp.clone();
+            channels[1]=map_erosionOp.clone();
+            channels[2]=map_erosionOp.clone();
+
+            channels[2].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=255;
+            channels[2].at<uchar>(max(pos_x-1,0),pos_y)=255;
+            channels[2].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=255;
+            channels[2].at<uchar>(pos_x,max(pos_y-1,0))=255;
+            channels[2].at<uchar>(pos_x,pos_y)=255;
+            channels[2].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=255;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=255;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=255;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=255;
+
+            channels[1].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
+            channels[1].at<uchar>(max(pos_x-1,0),pos_y)=0;
+            channels[1].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[1].at<uchar>(pos_x,max(pos_y-1,0))=0;
+            channels[1].at<uchar>(pos_x,pos_y)=0;
+            channels[1].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
+
+            channels[0].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
+            channels[0].at<uchar>(max(pos_x-1,0),pos_y)=0;
+            channels[0].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[0].at<uchar>(pos_x,max(pos_y-1,0))=0;
+            channels[0].at<uchar>(pos_x,pos_y)=0;
+            channels[0].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
+
+
+            cv::merge(channels, map_erosionOpPrintColor);
+
+
+            map_label=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
+            map_act=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
+            map_vis=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
+
+            ros::Duration diff = ros::Time::now() - t01;
+
+            cout<<tf_pref<<" - Time for label: "<<diff<<endl;
+
+
             return;
 
         }
 
-        //cout<<pos_x<<" ; "<<pos_y<<endl;
 
         cv::Mat temp_labelling, temp;
-        //bitwise_not( map_erosionOp.clone() , temp_labelling);
 
         std::vector<std::vector<cv::Point> > labels=label(map_erosionOp.clone()/255,8);
 
@@ -907,25 +1052,30 @@ void Reach_transf::transf_pos(void)
 
                 }
 
-                if( prev_x==labels[i][j].x && prev_y==labels[i][j].y){
+                if(prev_x>=0 &&  prev_y>=0)
+                {
 
-                    prev_label=i;
+                    if( prev_x==labels[i][j].x && prev_y==labels[i][j].y){
 
+                        prev_label=i;
+
+                    }
                 }
 
-                if(label_pos>-1 && prev_label>-1)
+                if(label_pos>-1 && ( (prev_label>-1) || (prev_x<0) || (prev_y<0) ) )
                     break;
             }
 
-            if(label_pos>-1 && prev_label>-1)
+            if(label_pos>-1 && ( (prev_label>-1) || (prev_x<0) || (prev_y<0) ) )
                 break;
         }
 
-        if( (prev_label!=label_pos) || ! treated)
+        if( (prev_label!=label_pos) || (prev_x<0) || (prev_y<0) || ! treated || changed)
         {
 
+            changed=false;
 
-            cv::Mat l_map=map_erosionOp.clone(), unreach_map, regions;
+            cv::Mat l_map=map_erosionOp.clone(), unreach_map, regions, act_map=map_or.clone(), vis_map=map_or.clone();
 
 
             for (int i=0;i<labels.size();i++){
@@ -940,18 +1090,72 @@ void Reach_transf::transf_pos(void)
 
 
 
+            vector<cv::Mat> channels(3);
+
+            channels[0]=map_erosionOp.clone();
+            channels[1]=map_erosionOp.clone();
+            channels[2]=map_erosionOp.clone();
+
+            channels[1].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=255;
+            channels[1].at<uchar>(max(pos_x-1,0),pos_y)=255;
+            channels[1].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=255;
+            channels[1].at<uchar>(pos_x,max(pos_y-1,0))=255;
+            channels[1].at<uchar>(pos_x,pos_y)=255;
+            channels[1].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=255;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=255;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=255;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=255;
+
+            channels[2].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
+            channels[2].at<uchar>(max(pos_x-1,0),pos_y)=0;
+            channels[2].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[2].at<uchar>(pos_x,max(pos_y-1,0))=0;
+            channels[2].at<uchar>(pos_x,pos_y)=0;
+            channels[2].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
+
+            channels[0].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
+            channels[0].at<uchar>(max(pos_x-1,0),pos_y)=0;
+            channels[0].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[0].at<uchar>(pos_x,max(pos_y-1,0))=0;
+            channels[0].at<uchar>(pos_x,pos_y)=0;
+            channels[0].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
+
+
+            cv::merge(channels, map_erosionOpPrintColor);
+
+
+
+
+
             ros::Duration diff = ros::Time::now() - t01;
 
             cout<<tf_pref<<" - Time for label: "<<diff<<endl;
 
 
-            ros::Time t3=ros::Time::now();
 
-            map_truth=brute_force_opt(map_or, map_label, defl);
+            map_label=l_map;
+            map_act=act_map;
+            map_vis=vis_map;
 
-            diff = ros::Time::now() - t3;
+            if(gt)
+            {
 
-            cout<<tf_pref<<" - Time for Optimized brute force: "<<diff<<endl;
+                ros::Time t3=ros::Time::now();
+
+                map_truth=brute_force_opt(map_or, map_label, defl*30);
+
+                diff = ros::Time::now() - t3;
+
+                cout<<tf_pref<<" - Time for Optimized brute force: "<<diff<<endl;
+
+                gt_c=true;
+            }
 
         }
 
@@ -1090,18 +1294,18 @@ int main(int argc, char **argv)
 
 
     ros::init(argc, argv, "reach");
-    debug=true;
+    //debug=true;
     if(argc==2)
     {
         filename=string(argv[1]);
 
     }
-    else if (argc==3)
-    {
-        filename=string(argv[1]);
-        if(string(argv[2])==string("0"))
-            debug=false;
-    }
+    //else if (argc==3)
+    //{
+    //    filename=string(argv[1]);
+    //    if(string(argv[2])==string("0"))
+    //        debug=false;
+    //}
     else
         return -1;
 
@@ -1126,24 +1330,32 @@ int main(int argc, char **argv)
 
 
 
-
   ros::NodeHandle nh("~");
 
 
-  Reach_transf reach(nh,robot, debug);
+  //Reach_transf reach(nh,robot, debug);
+  Reach_transf reach(nh,robot);
+
+
 
 
   ros::Rate loop_rate(10);
 
   while (ros::ok())
   {
+
     ros::spinOnce();
+
+
 
     reach.transf_pos();
 
+
     reach.show();
 
+
     reach.publish();
+
 
     loop_rate.sleep();
   }

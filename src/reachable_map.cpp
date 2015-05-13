@@ -1498,9 +1498,10 @@ void Reach_transf::transf_pos(void)
 
 
             treated=false;
+            gt_c=false;
+
             return;
 
-            gt_c=false;
 
         }
 
