@@ -11,6 +11,12 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include <thread>         // std::thread
+#include <mutex>          // std::mutex
+
+std::mutex mtx;           // mutex for critical section
+
+
 
 
 using namespace std;
@@ -73,7 +79,7 @@ private:
 
     bool pos_rcv;
 
-    bool treated;
+    bool treated, treated2;
 
     double infl;
 
@@ -91,7 +97,7 @@ private:
 
     float res, or_x, or_y;
 
-    bool _debug, gt, gt_c, changed;
+    bool _debug, gt, gt_c, changed, changed2;
 
     double rxr,ryr, rtr, rcx, rcy, rct;
 
@@ -164,6 +170,7 @@ public:
 
 
         treated=false;
+        treated2=false;
 
         pos_rcv=false;
 
@@ -172,6 +179,7 @@ public:
         gt_c=false;
 
         changed=false;
+        changed2=false;
 
         //rxr=10;
         //ryr=10;
@@ -254,13 +262,14 @@ void Reach_transf::callbackParameters(map_transform::ParametersncConfig &config,
     _debug=config.debug;
 
     changed=true;
+    changed2=true;
 
 
-    if(count>0)
-    {
-        transf();
-        transf_pos();
-    }
+    //if(count>0)
+    //{
+    //    transf();
+    //    transf_pos();
+    //}
 
 }
 
@@ -406,9 +415,9 @@ void Reach_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 
     msg_rcv=*msg;
 
+    treated2=treated;
 
-    transf();
-
+    //transf();
 
 }
 
@@ -567,8 +576,10 @@ vector<cv::Mat> multiDilation(vector<cv::Mat> map_er, Elem robot_or )
 void Reach_transf::transf(void)
 {
 
-    if(count>0)
+    if(count>0 && ((!treated2) || changed2) )
     {
+        treated2=true;
+        changed=false;
         ros::Time t01=ros::Time::now();
 
         cv::Mat or_map, er_map, cl_map, or_mapN;
@@ -1288,9 +1299,24 @@ std::vector<cv::Point> Reach_transf::label_seed(const cv::Mat binary, int conn, 
 }
 
 
+void print_thread_id (int id) {
+  // critical section (exclusive access to std::cout signaled by locking mtx):
+  mtx.lock();
+  cout << "thread #" << id << '\n';
+  mtx.unlock();
+}
+
 
 int main(int argc, char **argv)
 {
+//    thread threads[10];
+//    // spawn 10 threads:
+//    for (int i=0; i<10; ++i)
+//      threads[i] = thread(print_thread_id,i+1);
+
+//    for (int i=0; i<10; ++i)
+//        threads[i].join();
+
 
 
     ros::init(argc, argv, "reach");
@@ -1337,25 +1363,20 @@ int main(int argc, char **argv)
   Reach_transf reach(nh,robot);
 
 
-
-
   ros::Rate loop_rate(10);
+
 
   while (ros::ok())
   {
-
     ros::spinOnce();
 
-
+    reach.transf();
 
     reach.transf_pos();
 
-
     reach.show();
 
-
     reach.publish();
-
 
     loop_rate.sleep();
   }
