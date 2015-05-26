@@ -107,6 +107,10 @@ private:
 
     Elem robot_or;
 
+    bool changed_p;
+
+    map_transform::ParametersncConfig _config;
+
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
 
     cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_eroded_skel, map_reach, map_label , map_act, map_vis, map_debug, map_truth,struct_elem,map_erosionOpPrintColor;
@@ -169,8 +173,8 @@ public:
 
 
 
-        treated=false;
-        treated2=false;
+        treated=true;
+        treated2=true;
 
         pos_rcv=false;
 
@@ -180,6 +184,8 @@ public:
 
         changed=false;
         changed2=false;
+
+        changed_p=false;
 
         //rxr=10;
         //ryr=10;
@@ -236,6 +242,7 @@ public:
     void transf(void);
     void spin(void);
 
+    void update(void);
 
     void transf_pos(void);
 
@@ -247,7 +254,7 @@ public:
 
 void Reach_transf::callbackParameters(map_transform::ParametersncConfig &config, uint32_t level) {
 
-    infl=config.infl/100;
+    /*infl=config.infl/100;
     defl=config.defl/100;
     rcx=config.rx/100;
     rcy=config.ry/100;
@@ -260,9 +267,18 @@ void Reach_transf::callbackParameters(map_transform::ParametersncConfig &config,
     ryr=config.y;
     rtr=config.theta;
     _debug=config.debug;
+    */
 
-    changed=true;
-    changed2=true;
+    mtx.lock();
+
+    //changed=true;
+    //changed2=true;
+
+    changed_p=true;
+
+    _config=config;
+
+    mtx.unlock();
 
 
     //if(count>0)
@@ -576,10 +592,23 @@ vector<cv::Mat> multiDilation(vector<cv::Mat> map_er, Elem robot_or )
 void Reach_transf::transf(void)
 {
 
-    if(count>0 && ((!treated2) || changed2) )
+    bool proc=false;
+
+    //mtx.lock();
+
+    if((!treated2) || changed2)
     {
+        proc=true;
         treated2=true;
-        changed=false;
+        changed2=false;
+    }
+
+    //mtx.unlock();
+
+    if(count>0 && (proc) )
+    {
+        //treated2=true;
+        //changed2=false;
         ros::Time t01=ros::Time::now();
 
         cv::Mat or_map, er_map, cl_map, or_mapN;
@@ -981,15 +1010,30 @@ void Reach_transf::transf_pos(void)
 
         int pos_y=((int) round((yy-or_y)/res))+robot_or.pl;
 
-        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0 && (! treated || changed) )
+
+        bool proc=false;
+
+        //mtx.lock();
+
+        if((!treated) || changed)
+        {
+            proc=true;
+            treated=true;
+            changed=false;
+        }
+
+        //mtx.unlock();
+
+
+        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0 && (proc) )
         {
             pos_rcv=true;
-            changed=false;
+            //changed=false;
 
             prev_x=pos_x;
             prev_y=pos_y;
 
-            treated=true;
+            //treated=true;
             gt_c=false;
 
             vector<cv::Mat> channels(3);
@@ -1081,10 +1125,9 @@ void Reach_transf::transf_pos(void)
                 break;
         }
 
-        if( (prev_label!=label_pos) || (prev_x<0) || (prev_y<0) || ! treated || changed)
+        if( (prev_label!=label_pos) || (prev_x<0) || (prev_y<0) || proc)
         {
 
-            changed=false;
 
             cv::Mat l_map=map_erosionOp.clone(), unreach_map, regions, act_map=map_or.clone(), vis_map=map_or.clone();
 
@@ -1177,7 +1220,9 @@ void Reach_transf::transf_pos(void)
         prev_x=pos_x;
         prev_y=pos_y;
 
-        treated=true;
+        //treated=true;
+        //changed=false;
+
 
     }
     else
@@ -1186,6 +1231,43 @@ void Reach_transf::transf_pos(void)
 
 }
 
+void Reach_transf::update(void)
+{
+    bool proc=false;
+
+    mtx.lock();
+
+    map_transform::ParametersncConfig config=_config;
+
+    if(changed_p)
+    {
+        changed_p=false;
+
+        proc=true;
+    }
+
+    mtx.unlock();
+
+    if(proc)
+    {
+        changed=true;
+        changed2=true;
+        infl=config.infl/100;
+        defl=config.defl/100;
+        rcx=config.rx/100;
+        rcy=config.ry/100;
+        rct=config.rt;
+        angle_res=config.angle_res;
+        _debug=config.debug;
+        gt=config.ground_truth;
+        angle_debug=config.debug_angle;
+        rxr=config.x;
+        ryr=config.y;
+        rtr=config.theta;
+        _debug=config.debug;
+    }
+
+}
 
 void Reach_transf::publish(void)
 {
@@ -1368,6 +1450,8 @@ int main(int argc, char **argv)
 
   while (ros::ok())
   {
+    reach.update();
+
     ros::spinOnce();
 
     reach.transf();
