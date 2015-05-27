@@ -16,8 +16,6 @@
   <depend package="roscpp"/>
   <depend package="tf"/>
   <depend package="dynamic_reconfigure"/>
-
-
 </package>
 
 

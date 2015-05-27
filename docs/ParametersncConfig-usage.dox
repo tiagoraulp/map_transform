@@ -1,6 +1,6 @@
 \subsubsection usage Usage
 \verbatim
-<node name="reach_tr" pkg="map_transform" type="reach_tr">
+<node name="visNC" pkg="map_transform" type="visNC">
   <param name="infl" type="double" value="100.0" />
   <param name="defl" type="double" value="100.0" />
   <param name="rx" type="double" value="50.0" />

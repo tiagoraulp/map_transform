@@ -33,7 +33,6 @@ set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 
 find_package(OpenCV)
 
-
 rosbuild_find_ros_package(dynamic_reconfigure)
 include(${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake)
 gencfg()
@@ -44,16 +43,16 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 rosbuild_add_boost_directories()
 
-rosbuild_add_executable(reach_tr src/reachable_map.cpp)
+rosbuild_add_executable(visibility src/vis_transf.cpp)
 
-rosbuild_add_executable(morph src/test_morph.cpp)
+rosbuild_add_executable(visNC src/visNC_transf.cpp)
 
 rosbuild_add_executable(planner src/planner.cpp)
 
-target_link_libraries(reach_tr ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(visibility ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 
-target_link_libraries(morph ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(visNC ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 
-rosbuild_link_boost(reach_tr thread signals system)
+rosbuild_link_boost(visibility thread signals system)
 
-rosbuild_link_boost(morph thread signals system)
+rosbuild_link_boost(visNC thread signals system)
