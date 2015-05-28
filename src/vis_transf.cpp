@@ -97,7 +97,7 @@ public:
 
         pub = nh_.advertise<nav_msgs::OccupancyGrid>("e_map", 1,true);
         pub2 = nh_.advertise<nav_msgs::OccupancyGrid>("c_map", 1,true);
-        pub3 = nh_.advertise<nav_msgs::OccupancyGrid>("vis_map", 1,true);
+        pub3 = nh_.advertise<nav_msgs::OccupancyGrid>("l_map", 1,true);
         pub4 = nh_.advertise<nav_msgs::OccupancyGrid>("a_map", 1,true);
         pub5 = nh_.advertise<nav_msgs::OccupancyGrid>("v_map", 1,true);
         pub6 = nh_.advertise<nav_msgs::OccupancyGrid>("g_map", 1,true);
@@ -188,7 +188,6 @@ public:
 
 
 void Vis_transf::callbackParameters(map_transform::ParametersConfig &config, uint32_t level) {
-
     mtx.lock();
 
     changed_p=true;
@@ -196,7 +195,6 @@ void Vis_transf::callbackParameters(map_transform::ParametersConfig &config, uin
     _config=config;
 
     mtx.unlock();
-
 }
 
 
@@ -374,7 +372,7 @@ void Vis_transf::transf(void)
 
         ros::Duration diff = ros::Time::now() - t01;
 
-        ROS_INFO("%s - Time for reach: %f", tf_pref.c_str(), diff.toSec());
+        ROS_INFO("%s - Time for configuration space: %f", tf_pref.c_str(), diff.toSec());
     }
 
 }
@@ -398,13 +396,13 @@ public:
 
     void print(void)
     {
-        for (int i=0;i<frontier.size();i++)
+        for (unsigned int i=0;i<frontier.size();i++)
         {
             cout<<frontier[i].x<<" "<<frontier[i].y<<"; ";
         }
         cout<<endl;
 
-        for (int i=0;i<rest.size();i++)
+        for (unsigned int i=0;i<rest.size();i++)
         {
             cout<<rest[i].x<<" "<<rest[i].y<<"; ";
         }
@@ -413,7 +411,7 @@ public:
 };
 
 
-Cluster clustering(Cluster clust, int index)
+Cluster clustering(Cluster clust, unsigned int index)
 {
 
     clust.frontier.clear();
@@ -436,7 +434,7 @@ Cluster clustering(Cluster clust, int index)
     {
         done=true;
 
-        for(int i=0;i<temp.rest.size();i++)
+        for(unsigned int i=0;i<temp.rest.size();i++)
         {
             if(  (temp.rest[i].x==(clust.rest[index].x+1)|| temp.rest[i].x==clust.rest[index].x || temp.rest[i].x==(clust.rest[index].x-1) ) && ( temp.rest[i].y==(clust.rest[index].y+1) || temp.rest[i].y==clust.rest[index].y || temp.rest[i].y==(clust.rest[index].y-1) ) )
             {
@@ -932,9 +930,6 @@ cv::Mat brute_force_opt(cv::Mat map, cv::Mat reach, int defl)
 
 void Vis_transf::transf_pos(void)
 {
-
-
-
     if(count>0)
     {
         ros::Time t01=ros::Time::now();
@@ -965,6 +960,16 @@ void Vis_transf::transf_pos(void)
 
         int pos_y=(int) round((yy-or_y)/res);
 
+        if(pos_x>=map_or.rows)
+            pos_x=map_or.rows-1;
+        if(pos_y>=map_or.cols)
+            pos_y=map_or.cols-1;
+
+        if(pos_x<0)
+            pos_x=0;
+        if(pos_y<0)
+            pos_y=0;
+
         bool proc=false;
 
         if((!treated) || changed)
@@ -989,35 +994,36 @@ void Vis_transf::transf_pos(void)
             channels[1]=map_erosionOp.clone();
             channels[2]=map_erosionOp.clone();
 
-            channels[2].at<uchar>(pos_x-1,pos_y-1)=255;
-            channels[2].at<uchar>(pos_x-1,pos_y)=255;
-            channels[2].at<uchar>(pos_x-1,pos_y+1)=255;
-            channels[2].at<uchar>(pos_x,pos_y-1)=255;
+            channels[2].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=255;
+            channels[2].at<uchar>(max(pos_x-1,0),pos_y)=255;
+            channels[2].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=255;
+            channels[2].at<uchar>(pos_x,max(pos_y-1,0))=255;
             channels[2].at<uchar>(pos_x,pos_y)=255;
-            channels[2].at<uchar>(pos_x,pos_y+1)=255;
-            channels[2].at<uchar>(pos_x+1,pos_y-1)=255;
-            channels[2].at<uchar>(pos_x+1,pos_y)=255;
-            channels[2].at<uchar>(pos_x+1,pos_y+1)=255;
+            channels[2].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=255;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=255;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=255;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=255;
 
-            channels[1].at<uchar>(pos_x-1,pos_y-1)=0;
-            channels[1].at<uchar>(pos_x-1,pos_y)=0;
-            channels[1].at<uchar>(pos_x-1,pos_y+1)=0;
-            channels[1].at<uchar>(pos_x,pos_y-1)=0;
+            channels[1].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
+            channels[1].at<uchar>(max(pos_x-1,0),pos_y)=0;
+            channels[1].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[1].at<uchar>(pos_x,max(pos_y-1,0))=0;
             channels[1].at<uchar>(pos_x,pos_y)=0;
-            channels[1].at<uchar>(pos_x,pos_y+1)=0;
-            channels[1].at<uchar>(pos_x+1,pos_y-1)=0;
-            channels[1].at<uchar>(pos_x+1,pos_y)=0;
-            channels[1].at<uchar>(pos_x+1,pos_y+1)=0;
+            channels[1].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
 
-            channels[0].at<uchar>(pos_x-1,pos_y-1)=0;
-            channels[0].at<uchar>(pos_x-1,pos_y)=0;
-            channels[0].at<uchar>(pos_x-1,pos_y+1)=0;
-            channels[0].at<uchar>(pos_x,pos_y-1)=0;
+            channels[0].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
+            channels[0].at<uchar>(max(pos_x-1,0),pos_y)=0;
+            channels[0].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[0].at<uchar>(pos_x,max(pos_y-1,0))=0;
             channels[0].at<uchar>(pos_x,pos_y)=0;
-            channels[0].at<uchar>(pos_x,pos_y+1)=0;
-            channels[0].at<uchar>(pos_x+1,pos_y-1)=0;
-            channels[0].at<uchar>(pos_x+1,pos_y)=0;
-            channels[0].at<uchar>(pos_x+1,pos_y+1)=0;
+            channels[0].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
+
 
 
             cv::merge(channels, map_erosionOpPrintColor);
@@ -1028,7 +1034,7 @@ void Vis_transf::transf_pos(void)
 
             ros::Duration diff = ros::Time::now() - t01;
 
-            ROS_INFO("%s - Time for label: %f", tf_pref.c_str(), diff.toSec());
+            ROS_INFO("%s - Time for visibility (invalid position): %f", tf_pref.c_str(), diff.toSec());
 
             return;
 
@@ -1096,18 +1102,18 @@ void Vis_transf::transf_pos(void)
 
             regions=map_or.clone()/255;
 
-            for (int i=0;i<labels_unreach.size();i++){
-                for(int j=0;j<labels_unreach[i].size();j++){
+            for (unsigned int i=0;i<labels_unreach.size();i++){
+                for(unsigned int j=0;j<labels_unreach[i].size();j++){
                         regions.at<uchar>(labels_unreach[i][j].x,labels_unreach[i][j].y)=i+2;
                 }
             }
 
             if(infl<defl)
             {
-                for (int k=0;k<labels_unreach.size();k++){//2;k++){//
+                for (unsigned int k=0;k<labels_unreach.size();k++){//2;k++){//
                     vector<cv::Point> frontiers;
 
-                    for(int j=0;j<labels_unreach[k].size();j++){
+                    for(unsigned int j=0;j<labels_unreach[k].size();j++){
 
                         if ((labels_unreach[k][j].x+1)<vis_map.rows)
                             if(vis_map.at<uchar>(labels_unreach[k][j].x+1,labels_unreach[k][j].y)==255)
@@ -1138,12 +1144,12 @@ void Vis_transf::transf_pos(void)
                     vector<vector<cv::Point> > frontier=cluster_points(frontiers);
 
 
-                    for(int ff=0;ff<frontier.size();ff++)
+                    for(unsigned int ff=0;ff<frontier.size();ff++)
                     {
                         if(frontier[ff].size()>0)
                         {
                             int min_x=vis_map.rows, min_y=vis_map.cols, max_x=-1, max_y=-1;
-                            for(int j=0;j<frontier[ff].size();j++){
+                            for(unsigned int j=0;j<frontier[ff].size();j++){
 
                                 if(frontier[ff][j].x>max_x)
                                     max_x=frontier[ff][j].x;
@@ -1155,7 +1161,7 @@ void Vis_transf::transf_pos(void)
                                     min_y=frontier[ff][j].y;
                             }
 
-                            double min_sum=-1; int opt_x, opt_y;
+                            double min_sum=-1; int opt_x=0, opt_y=0;
 
                             for(int x=max(min_x-infl,0);x<min(max_x+infl,vis_map.rows);x++)
                             {
@@ -1164,7 +1170,7 @@ void Vis_transf::transf_pos(void)
                                     if(l_map.at<uchar>(x,y)==255)
                                     {
                                         double sum=0;
-                                        for(int l=0;l<frontier[ff].size();l++){
+                                        for(unsigned int l=0;l<frontier[ff].size();l++){
                                             sum+=(frontier[ff][l].x-x)*(frontier[ff][l].x-x)+(frontier[ff][l].y-y)*(frontier[ff][l].y-y);
                                         }
                                         if(min_sum==-1)
@@ -1194,7 +1200,7 @@ void Vis_transf::transf_pos(void)
 
                             int obt_angle=-1;
 
-                            for(int l=0;l<frontier[ff].size();l++)
+                            for(unsigned int l=0;l<frontier[ff].size();l++)
                             {
                                 float angle=atan2(frontier[ff][l].y-opt_y,frontier[ff][l].x-opt_x);
                                 vector<float>::iterator it=angles.begin();
@@ -1378,7 +1384,7 @@ void Vis_transf::transf_pos(void)
                             if(angles.size()==1)
                             {
                                 float min_dist=-1;
-                                int min_x, min_y;
+                                int min_x=0, min_y=0;
 
                                 for(int rowx=max((angles_x[0]-1),0);rowx<=min((angles_x[0]+1),regions.rows-1);rowx++)
                                 {
@@ -1462,7 +1468,7 @@ void Vis_transf::transf_pos(void)
                                 if(obt_angle==(angles.size()-1))
                                 {
                                     float min_dist=-1;
-                                    int min_x, min_y;
+                                    int min_x=0, min_y=0;
                                     for(int rowx=max((angles_x[obt_angle]-1),0);rowx<=min((angles_x[obt_angle]+1),regions.rows-1);rowx++)
                                     {
                                         for(int coly=max((angles_y[obt_angle]-1),0);coly<=min((angles_y[obt_angle]+1),regions.cols-1);coly++)
@@ -1532,7 +1538,7 @@ void Vis_transf::transf_pos(void)
                                 else
                                 {
                                     float min_dist=-1;
-                                    int min_x, min_y;
+                                    int min_x=0, min_y=0;
                                     for(int rowx=max((angles_x[obt_angle]-1),0);rowx<=min((angles_x[obt_angle]+1),regions.rows-1);rowx++)
                                     {
                                         for(int coly=max((angles_y[obt_angle]-1),0);coly<=min((angles_y[obt_angle]+1),regions.cols-1);coly++)
@@ -1683,9 +1689,9 @@ void Vis_transf::transf_pos(void)
 
                             contours = cv::Mat::ones(regions.rows, regions.cols, CV_8UC1)*255;
 
-                            for(int ind=0;ind<occ_clust.size();ind++)
+                            for(unsigned int ind=0;ind<occ_clust.size();ind++)
                             {
-                                for(int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
+                                for(unsigned int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
                                 {
                                     contours.at<uchar>(occ_clust[ind][occ_p].x,occ_clust[ind][occ_p].y)=0;
                                 }
@@ -1703,7 +1709,7 @@ void Vis_transf::transf_pos(void)
                                     {
                                         stop=false;
                                         int pos_x,pos_y;
-                                        for(int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
+                                        for(unsigned int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
                                         {
                                             if( contours_check.at<uchar>(occ_clust[ind][occ_p].x,occ_clust[ind][occ_p].y)==0  )
                                             {
@@ -1729,7 +1735,7 @@ void Vis_transf::transf_pos(void)
                                             vector<Chain> chain;
                                             chain.clear();
 
-                                            int prev_d;
+                                            int prev_d=0;
                                             bool cont_cond=true;
                                             int sign=1;
 
@@ -1865,7 +1871,7 @@ void Vis_transf::transf_pos(void)
                                             vector<float> diffs;
                                             diffs.clear();
 
-                                            for(int c=0;c<chain.size();c++)
+                                            for(unsigned int c=0;c<chain.size();c++)
                                             {
                                                 act_angle=atan2(chain[c].y-opt_y,chain[c].x-opt_x);
                                                 if(c>0)
@@ -1883,8 +1889,8 @@ void Vis_transf::transf_pos(void)
                                             }
 
 
-                                            float prev_diff;
-                                            for(int c=0;c<diffs.size();c++)
+                                            float prev_diff=0;
+                                            for(unsigned int c=0;c<diffs.size();c++)
                                             {
 
                                                 if(c>0)
@@ -1899,7 +1905,7 @@ void Vis_transf::transf_pos(void)
                                                     prev_diff=diffs[c];
                                             }
 
-                                            for(int c=0;c<diffs.size();c++)
+                                            for(unsigned int c=0;c<diffs.size();c++)
                                             {
                                                 if( diffs[c]*prev_diff<0)
                                                 {
@@ -1928,7 +1934,7 @@ void Vis_transf::transf_pos(void)
 
                             occ_crit_filt.clear();
 
-                            for(int c=0;c<occ_critP.size();c++)
+                            for(unsigned int c=0;c<occ_critP.size();c++)
                             {
                                 if(contours_filt.at<uchar>(occ_critP[c].x,occ_critP[c].y)==255)
                                     continue;
@@ -1939,7 +1945,7 @@ void Vis_transf::transf_pos(void)
                                 }
                             }
 
-                            for(int c=0;c<occ_crit_filt.size();c++)
+                            for(unsigned int c=0;c<occ_crit_filt.size();c++)
                             {
                                 float dist=sqrt( (occ_crit_filt[c].x-opt_x)*(occ_crit_filt[c].x-opt_x)+(occ_crit_filt[c].y-opt_y)*(occ_crit_filt[c].y-opt_y) );
                                 float angle=atan2(occ_crit_filt[c].y-opt_y, occ_crit_filt[c].x-opt_x);
@@ -2031,11 +2037,11 @@ void Vis_transf::transf_pos(void)
                                 }
                             }
 
-                            for(int j=0;j<frontier[ff].size();j++){
+                            for(unsigned int j=0;j<frontier[ff].size();j++){
                                 if(vis_map_temp.at<uchar>( frontier[ff][j].x,frontier[ff][j].y)==255)
                                 {
                                     std::vector<cv::Point> points_vis=label_seed(vis_map_temp.clone()/255,4,cv::Point(frontier[ff][j].x,frontier[ff][j].y));
-                                    for(int pv=0;pv<points_vis.size();pv++)
+                                    for(unsigned int pv=0;pv<points_vis.size();pv++)
                                     {
                                         vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
                                     }
@@ -2059,35 +2065,36 @@ void Vis_transf::transf_pos(void)
             channels[1]=map_erosionOp.clone();
             channels[2]=map_erosionOp.clone();
 
-            channels[1].at<uchar>(pos_x-1,pos_y-1)=255;
-            channels[1].at<uchar>(pos_x-1,pos_y)=255;
-            channels[1].at<uchar>(pos_x-1,pos_y+1)=255;
-            channels[1].at<uchar>(pos_x,pos_y-1)=255;
+            channels[1].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=255;
+            channels[1].at<uchar>(max(pos_x-1,0),pos_y)=255;
+            channels[1].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=255;
+            channels[1].at<uchar>(pos_x,max(pos_y-1,0))=255;
             channels[1].at<uchar>(pos_x,pos_y)=255;
-            channels[1].at<uchar>(pos_x,pos_y+1)=255;
-            channels[1].at<uchar>(pos_x+1,pos_y-1)=255;
-            channels[1].at<uchar>(pos_x+1,pos_y)=255;
-            channels[1].at<uchar>(pos_x+1,pos_y+1)=255;
+            channels[1].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=255;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=255;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=255;
+            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=255;
 
-            channels[2].at<uchar>(pos_x-1,pos_y-1)=0;
-            channels[2].at<uchar>(pos_x-1,pos_y)=0;
-            channels[2].at<uchar>(pos_x-1,pos_y+1)=0;
-            channels[2].at<uchar>(pos_x,pos_y-1)=0;
+            channels[2].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
+            channels[2].at<uchar>(max(pos_x-1,0),pos_y)=0;
+            channels[2].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[2].at<uchar>(pos_x,max(pos_y-1,0))=0;
             channels[2].at<uchar>(pos_x,pos_y)=0;
-            channels[2].at<uchar>(pos_x,pos_y+1)=0;
-            channels[2].at<uchar>(pos_x+1,pos_y-1)=0;
-            channels[2].at<uchar>(pos_x+1,pos_y)=0;
-            channels[2].at<uchar>(pos_x+1,pos_y+1)=0;
+            channels[2].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
+            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
 
-            channels[0].at<uchar>(pos_x-1,pos_y-1)=0;
-            channels[0].at<uchar>(pos_x-1,pos_y)=0;
-            channels[0].at<uchar>(pos_x-1,pos_y+1)=0;
-            channels[0].at<uchar>(pos_x,pos_y-1)=0;
+            channels[0].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
+            channels[0].at<uchar>(max(pos_x-1,0),pos_y)=0;
+            channels[0].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[0].at<uchar>(pos_x,max(pos_y-1,0))=0;
             channels[0].at<uchar>(pos_x,pos_y)=0;
-            channels[0].at<uchar>(pos_x,pos_y+1)=0;
-            channels[0].at<uchar>(pos_x+1,pos_y-1)=0;
-            channels[0].at<uchar>(pos_x+1,pos_y)=0;
-            channels[0].at<uchar>(pos_x+1,pos_y+1)=0;
+            channels[0].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
+            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
+
 
             cv::merge(channels, map_erosionOpPrintColor);
 
@@ -2095,7 +2102,7 @@ void Vis_transf::transf_pos(void)
 
             ros::Duration diff = ros::Time::now() - t01;
 
-            ROS_INFO("%s - Time for label: %f", tf_pref.c_str(), diff.toSec());
+            ROS_INFO("%s - Time for visibility: %f", tf_pref.c_str(), diff.toSec());
 
             if(gt)
             {
@@ -2111,6 +2118,7 @@ void Vis_transf::transf_pos(void)
             }
         }
 
+
         pos_rcv=true;
 
         prev_x=pos_x;
@@ -2118,22 +2126,20 @@ void Vis_transf::transf_pos(void)
     }
     else
         return;
-
-
 }
 
 void Vis_transf::update(void)
 {
     bool proc=false;
 
-    mtx.lock();
+    map_transform::ParametersConfig config;
 
-    map_transform::ParametersConfig config=_config;
+    mtx.lock();
 
     if(changed_p)
     {
         changed_p=false;
-
+        config=_config;
         proc=true;
     }
 
@@ -2159,31 +2165,34 @@ void Vis_transf::update(void)
 
 void Vis_transf::publish(void)
 {
-
-    nav_msgs::OccupancyGrid n_msg;
-
-
-    n_msg=Mat2RosMsg(map_erosionOp , msg_rcv_pub);
-    pub.publish(n_msg);
-
-    n_msg=Mat2RosMsg(map_closeOp , msg_rcv_pub);
-    pub2.publish(n_msg);
-
-    if(pos_rcv)
+    if(count>0)
     {
-        n_msg=Mat2RosMsg( map_label , msg_rcv_pub);
-        pub3.publish(n_msg);
-        n_msg=Mat2RosMsg( map_act , msg_rcv_pub);
-        pub4.publish(n_msg);
-        n_msg=Mat2RosMsg( map_vis , msg_rcv_pub);
-        pub5.publish(n_msg);
-        if(gt  && gt_c)
+        nav_msgs::OccupancyGrid n_msg;
+
+        n_msg=Mat2RosMsg(map_erosionOp , msg_rcv_pub);
+        pub.publish(n_msg);
+
+        n_msg=Mat2RosMsg(map_closeOp , msg_rcv_pub);
+        pub2.publish(n_msg);
+
+        if(pos_rcv)
         {
-            n_msg=Mat2RosMsg( map_truth , msg_rcv_pub);
-            pub6.publish(n_msg);
+            n_msg=Mat2RosMsg( map_label , msg_rcv_pub);
+            pub3.publish(n_msg);
+
+            n_msg=Mat2RosMsg( map_act , msg_rcv_pub);
+            pub4.publish(n_msg);
+
+            n_msg=Mat2RosMsg( map_vis , msg_rcv_pub);
+            pub5.publish(n_msg);
+
+            if(gt  && gt_c)
+            {
+                n_msg=Mat2RosMsg( map_truth , msg_rcv_pub);
+                pub6.publish(n_msg);
+            }
         }
     }
-
 }
 
 
@@ -2263,6 +2272,8 @@ std::vector<cv::Point> Vis_transf::label_seed(const cv::Mat binary, int conn, cv
 
 int main(int argc, char **argv)
 {
+
+    char* x=argv[1];
     ros::init(argc, argv, "visibility");
 
     ros::NodeHandle nh("~");

@@ -2,12 +2,12 @@
  <arg name="i" default="100"/>
  <arg name="d" default="$(arg i)"/>
 
- <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze3.png 0.1" respawn="false" > 
+ <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze5.png 0.1" respawn="false" > 
     <param name="frame_id" value="/map" />
     <remap from="map" to="/visibility_NC/map" />
  </node>
 
- <node pkg="map_transform" type="visNC" name="visibility_NC" output="screen" args="$(find map_transform)/maps/robot2.png">    
+ <node pkg="map_transform" type="visNC" name="visibility_NC" output="screen" args="$(find map_transform)/robots/robot.png">    
     <param name="defl" value="$(arg d)" />
     <param name="infl" value="$(arg i)" />
     <param name="debug" value="true" />

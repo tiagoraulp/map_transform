@@ -101,8 +101,6 @@ class node
             return(d);
         }
 
-        // Determine priority (in the priority queue)
-
 };
 
 bool operator<(const node & a, const node & b)
@@ -172,8 +170,6 @@ private:
 
 public:
 
-
-
     Planner(ros::NodeHandle nh): nh_(nh)
     {
 
@@ -182,9 +178,9 @@ public:
 
         pub_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1,true);
 
-        sub1 = nh_.subscribe("/robot_0/l_map", 1, &Planner::rcv_map1, this);
+        sub1 = nh_.subscribe("/robot_0/v_map", 1, &Planner::rcv_map1, this);
 
-        sub2 = nh_.subscribe("/robot_1/l_map", 1, &Planner::rcv_map2, this);
+        sub2 = nh_.subscribe("/robot_1/v_map", 1, &Planner::rcv_map2, this);
 
 
         service = nh_.advertiseService("plan", &Planner::ask_plan, this);
@@ -215,19 +211,11 @@ public:
     void plan(void);
 
     void publish(void);
-
-
-
-
 };
 
 
 void Planner::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
-    //boost::mutex::scoped_lock lock(mux);
-    //ROS_INFO("I heard map 1: [%d]", msg->header.seq);
-
-    //msg_rcv[0]=*msg;
     msg_rcv[0].resize(msg->info.width, vector<bool>(msg->info.height,false));
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
@@ -246,9 +234,6 @@ void Planner::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg)
             }
     }
 
-
-
-
     map_rcv[0]=true;
 
     count[0]=count[0]+1;
@@ -261,10 +246,6 @@ void Planner::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 
 void Planner::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
-    //boost::mutex::scoped_lock lock(mux);
-    //ROS_INFO("I heard map 2: [%d]", msg->header.seq);
-
-    //msg_rcv[1]=*msg;
     msg_rcv[1].resize(msg->info.width, vector<bool>(msg->info.height,false));
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
@@ -283,7 +264,6 @@ void Planner::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg)
             }
     }
 
-
     map_rcv[1]=true;
 
     count[1]=count[1]+1;
@@ -292,16 +272,7 @@ void Planner::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 
 bool Planner::getMapValue(int n, int i, int j)
 {
-    //int width= msg_rcv[n].info.width;
-
-
-    //std::vector<signed char>::const_iterator mapDataIterC = msg_rcv[n].data.begin();
-
-    //mapDataIterC=mapDataIterC+i*width+j;
-
-    //return *mapDataIterC;
     return msg_rcv[n][i][j];
-
 }
 
 bool Planner::ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res)
@@ -322,8 +293,6 @@ bool Planner::clear(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &r
     path_0.header.stamp =  ros::Time::now();
     path_0.poses.clear();
     path_1=path_0;
-
-
 
     pub1.publish(path_0);
 
@@ -356,24 +325,20 @@ geometry_msgs::Point Planner::convertI2W(PointI p)
 
 Apath Planner::Astar(PointI p0, PointI p1, int r)
 {
-
     Apath path; path.points.clear();path.cost=0;
 
     const int n=width;
     const int m=height;
-    //static int map[n][m];
     vector<vector<int> > closed_nodes_map;closed_nodes_map.resize(n,vector<int>(m,0));
     vector<vector<int> > open_nodes_map;open_nodes_map.resize(n,vector<int>(m,0));
     vector<vector<int> > dir_map;dir_map.resize(n,vector<int>(m,0));
 
-
     static priority_queue<node> pq[2];
-    static int pqi; // pq index
+    static int pqi;
     static node* n0;
     static node* m0;
     static int i, j, x, y, xdx, ydy;
     pqi=0;
-
 
     n0=new node(p0.i, p0.j, 0, 0);
     n0->updatePriority(p1.i, p1.j);
@@ -381,7 +346,6 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
     while(!pq[pqi].empty())
     {
-
         n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
                      pq[pqi].top().getLevel(), pq[pqi].top().getPriority());
 
@@ -392,10 +356,8 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
         closed_nodes_map[x][y]=1;
 
-
         if(x==p1.i && y==p1.j)
         {
-
             while(!(x==p0.i && y==p0.j))
             {
                 j=dir_map[x][y];
@@ -408,7 +370,6 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
                 x+=dx[j];
                 y+=dy[j];
             }
-
 
             delete n0;
 
@@ -426,7 +387,6 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
                                                       && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
                                                       && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]]) ))
             {
-
                 m0=new node( xdx, ydy, n0->getLevel(),
                              n0->getPriority());
                 m0->nextLevel(i);
@@ -477,7 +437,7 @@ double Planner::distance2Path(vector<PointI> path, PointI goal, int r)
     vector<double> heuristic(0);
     vector<int> pos(0);
 
-    for(int p=0;p<path.size();p++)
+    for(unsigned int p=0;p<path.size();p++)
     {
         if (!msg_rcv[r][path[p].i][path[p].j])
             continue;
@@ -499,10 +459,10 @@ double Planner::distance2Path(vector<PointI> path, PointI goal, int r)
         pos.insert(posIt,p);
     }
 
-    double min_real;
+    double min_real=0;
     Apath pathT;
 
-    for(int h=0;h<(heuristic.size());h++)
+    for(unsigned int h=0;h<(heuristic.size());h++)
     {
         pathT=Astar(path[pos[h]], goal,r);
         if(h==0)
@@ -531,9 +491,9 @@ int Planner::minDistanceGoal2Path(vector<PointI> path, vector<PointI> goal, int 
     vector<int> pos(0);
     vector<int> gp(0);
 
-    for(int g=0;g<goal.size();g++)
+    for(unsigned int g=0;g<goal.size();g++)
     {
-        for(int p=0;p<path.size();p++)
+        for( unsigned int p=0;p<path.size();p++)
         {
             if (!msg_rcv[r][path[p].i][path[p].j])
                 continue;
@@ -559,11 +519,11 @@ int Planner::minDistanceGoal2Path(vector<PointI> path, vector<PointI> goal, int 
         }
     }
 
-    double min_real;
-    int g_real;
+    double min_real=0;
+    int g_real=0;
     Apath pathT;
 
-    for(int h=0;h<(heuristic.size());h++)
+    for(unsigned int h=0;h<(heuristic.size());h++)
     {
         pathT=Astar(path[pos[h]], goal[gp[h]],r);
         if(h==0)
@@ -589,8 +549,6 @@ int Planner::minDistanceGoal2Path(vector<PointI> path, vector<PointI> goal, int 
         }
     }
 
-    //return goal[0];//pathT.cost;
-    //return pathT.cost;
     return g_real;
 }
 
@@ -612,28 +570,17 @@ public:
         rem.insert(rem.end(),b.rem.begin(),b.rem.end());
     }
 
-//    Sequence & operator= (const Sequence & other)
-//    {
-//            if (this != &other) // protect against invalid self-assignment
-//            {
-//                seq=other.seq;
-//                rem=other.rem;
-//            }
-//            // by convention, always return *this
-//            return *this;
-//    }
-
     void print(void)
     {
-        for (int i=0;i<seq.size();i++)
+        for (unsigned int i=0;i<seq.size();i++)
         {
             cout<<"Permutation: ";
-            for (int j=0;j<seq[i].size();j++)
+            for (unsigned int j=0;j<seq[i].size();j++)
             {
                 cout<<seq[i][j]<<" ";
             }
             cout<<"Remainder: ";
-            for (int j=0;j<rem[i].size();j++)
+            for (unsigned int j=0;j<rem[i].size();j++)
             {
                 cout<<rem[i][j]<<" ";
             }
@@ -654,12 +601,12 @@ Sequence permutations(vector<int> in, int size)
         return perm;
     }
 
-    for (int i=0;i<in.size();i++)
+    for (unsigned int i=0;i<in.size();i++)
     {
         poss=in;
         poss.erase(poss.begin()+i);
         temp=permutations(poss,size-1);
-        for(int j=0;j<temp.seq.size();j++)
+        for(unsigned int j=0;j<temp.seq.size();j++)
             temp.seq[j].insert ( temp.seq[j].begin() , in[i]);
         perm.append(temp);
     }
@@ -667,7 +614,7 @@ Sequence permutations(vector<int> in, int size)
     return perm;
 }
 
-Sequence combinations(vector<int> in, int size)
+Sequence combinations(vector<int> in, unsigned int size)
 {
     Sequence comb, temp;
     vector<int> poss, poss_r;
@@ -679,13 +626,13 @@ Sequence combinations(vector<int> in, int size)
         return comb;
     }
 
-    for (int i=0;i<in.size();i++)
+    for (unsigned int i=0;i<in.size();i++)
     {
         poss=in;
         poss.erase(poss.begin(),poss.begin()+i+1);
         poss_r=vector<int>(in.begin(),in.begin()+i);
         temp=combinations(poss,size-1);
-        for(int j=0;j<temp.seq.size();j++)
+        for(unsigned int j=0;j<temp.seq.size();j++)
         {
             temp.seq[j].insert ( temp.seq[j].begin() , in[i]);
             temp.rem[j].insert ( temp.rem[j].begin() , poss_r.begin(), poss_r.end());
@@ -700,7 +647,7 @@ Sequence combine(vector<int> g1, vector<int> g2, vector<int> gc)
 {
     Sequence ret, comb, temp, temp2;
 
-    for(int i=0;i<=gc.size();i++)
+    for(unsigned int i=0;i<=gc.size();i++)
     {
         temp=combinations(gc,i);
         comb.append(temp);
@@ -708,7 +655,7 @@ Sequence combine(vector<int> g1, vector<int> g2, vector<int> gc)
 
     vector<int> temp_s, temp_s2;
 
-    for(int i=0;i<comb.seq.size();i++)
+    for(unsigned int i=0;i<comb.seq.size();i++)
     {
         temp_s=g1;
         temp_s.insert(temp_s.end(),comb.seq[i].begin(),comb.seq[i].end());
@@ -719,12 +666,12 @@ Sequence combine(vector<int> g1, vector<int> g2, vector<int> gc)
 
         temp=permutations(temp_s,temp_s.size());
 
-        for(int j=0;j<temp.seq.size();j++)
+        for(unsigned int j=0;j<temp.seq.size();j++)
         {
 
             temp2=permutations(temp_s2,temp_s2.size());
 
-            for(int k=0; k<temp2.seq.size();k++)
+            for(unsigned int k=0; k<temp2.seq.size();k++)
             {
                 ret.seq.push_back(temp.seq[j]);
                 ret.rem.push_back(temp2.seq[k]);
@@ -756,8 +703,6 @@ void Planner::plan(void)
         vector<double> pc(2,0.0);
 
 
-        //p0.clear();p1.clear();
-
         path_0.poses.clear();
         path_0.header.frame_id = "/map";
         path_0.header.stamp =  ros::Time::now();
@@ -778,10 +723,6 @@ void Planner::plan(void)
           ROS_INFO("%s",ex.what());
           return ;
         }
-
-        //int x_0=(int) round((transform.getOrigin().x())/res);
-
-        //int y_0=(int) round((transform.getOrigin().y())/res);
 
         PointI pi_temp( (int) round((transform.getOrigin().x())/res), (int) round((transform.getOrigin().y())/res) );
 
@@ -813,11 +754,9 @@ void Planner::plan(void)
         g.push_back(pr[1].back());
 
 
-        for(int i=0;i<goals.size();i++)
+        for(unsigned int i=0;i<goals.size();i++)
         {
             p_temp.pose.position=goals[i];
-
-            //path_0.poses.push_back(p_temp);
 
             pi_temp=convertW2I(p_temp.pose.position);
 
@@ -858,54 +797,36 @@ void Planner::plan(void)
         {
 
             int max_cost=gr[0][0];
-            //cout<<g0s<<endl;
-            for(int i=0;i<gr[0].size();i++)
+            for(unsigned int i=0;i<gr[0].size();i++)
             {
                 path=Astar(pr[0].front(), g[gr[0][i]],0);
-
                 mat[0][gr[0][i]][0]=path;
-                //mat[gr[0][i]][0]=path;
 
                 if(path.cost>mat[0][max_cost][0].cost)
                     max_cost=gr[0][i];
-
             }
 
             pg[0].push_back(max_cost);
             gt[max_cost]=true;
             pc[0]+=mat[0][max_cost][0].cost;
-            //cout<<p0g.size()<<endl;
         }
 
         if(g1s>0)
         {
             int max_cost=gr[1][0];
-            //cout<<g1s<<endl;
-            for(int i=0;i<gr[1].size();i++)
+            for(unsigned int i=0;i<gr[1].size();i++)
             {
                 path=Astar(pr[1].front(), g[gr[1][i]],1);
-
-                //cout<<path.points.size()<<"  "<<g1[i]<<endl;
-
                 mat[1][gr[1][i]][1]=path;
-                //mat[gr[1][i]][1]=path;
 
                 if(path.cost>mat[1][max_cost][1].cost)
                     max_cost=gr[1][i];
-
             }
 
             pg[1].push_back(max_cost);
             gt[max_cost]=true;
             pc[1]+=mat[1][max_cost][1].cost;
-
-            //cout<<"bla bla"<<p1g.size()<<endl;
-            //cout<<max_cost<<" "<<mat[1][2+max_cost].points.size()<<endl;
-
         }
-
-        //vector<vector<vector<double> > > matC(g.size(),vector<vector<double> >(g.size(), vector<double>(g.size(),-1)));
-
 
         if(g0s>0)
         {
@@ -913,25 +834,23 @@ void Planner::plan(void)
             {
 
                 int m_cost;
-                //cout<<g0s<<endl;
-                double m_c;
+                double m_c=0;
                 double cost;
-                double m_i;
+                unsigned int m_i=0;
                 bool first=true;
-                for(int i=0;i<gr[0].size();i++)
+                for(unsigned int i=0;i<gr[0].size();i++)
                 {
                     if(!gt[gr[0][i]])
                     {
-                        double min_c;
-                        int min_cost;
+                        double min_c=0;
+                        unsigned int min_cost=0;
 
-                        for(int j=1;j<pg[0].size();j++)
+                        for(unsigned int j=1;j<pg[0].size();j++)
                         {
 
                             if (mat[gr[0][i]][pg[0][j]][0].cost==-1)
                             {
                                 path=Astar(g[gr[0][i]], g[pg[0][j]],0);
-                                //mat[pg[0][j]][gr[0][i]]=path;
                                 mat[gr[0][i]][pg[0][j]][0]=path;
                             }
 
@@ -939,7 +858,6 @@ void Planner::plan(void)
                             {
                                 path=Astar(g[pg[0][j-1]], g[gr[0][i]],0);
                                 mat[pg[0][j-1]][gr[0][i]][0]=path;
-                                //mat[gr[0][i]][pg[0][j-1]]=path;
                             }
 
 
@@ -955,7 +873,6 @@ void Planner::plan(void)
                                 {
                                     min_c=cost;
                                     min_cost=j;
-                                    //cout<<"max"<<max_cost<<endl;
                                 }
 
 
@@ -967,14 +884,12 @@ void Planner::plan(void)
                         {
                             path=Astar(g[pg[0][j]], g[gr[0][i]],0);
                             mat[pg[0][j]][gr[0][i]][0]=path;
-                            //mat[gr[1][i]][pg[1][j-1]]=path;
                         }
 
                         cost= mat[pg[0][j]][gr[0][i]][0].cost;
                         if(cost<min_c)
                         {
                             min_cost=j+1;
-                            //cost_a=mat[pg[1][pg.size()-1]][gr[1][i]].cost;
                             min_c=cost;
 
                         }
@@ -993,11 +908,8 @@ void Planner::plan(void)
                                 m_c=min_c;
                                 m_cost=min_cost;
                                 m_i=i;
-                                //cout<<"max"<<max_cost<<endl;
                             }
-
                     }
-
                 }
 
                 vector<int>::iterator it = pg[0].begin();
@@ -1015,27 +927,22 @@ void Planner::plan(void)
             {
 
                 int m_cost;
-                //cout<<g0s<<endl;
-                double m_c;
+                double m_c=0;
                 double cost;
-                double m_i;
+                unsigned int m_i=0;
                 bool first=true;
-                for(int i=0;i<gr[1].size();i++)
+                for(unsigned int i=0;i<gr[1].size();i++)
                 {
                     if(!gt[gr[1][i]])
                     {
-                        //cout<<"Goal being analyzed: "<<gr[1][i]<<endl;
-                        double min_c;
-                        int min_cost;
+                        double min_c=0;
+                        unsigned int min_cost=0;
 
-                        for(int j=1;j<pg[1].size();j++)
+                        for(unsigned int j=1;j<pg[1].size();j++)
                         {
-                            //cout<<"position in path: "<<pg[1][j]<<endl;
-
                             if (mat[gr[1][i]][pg[1][j]][1].cost==-1)
                             {
                                 path=Astar(g[gr[1][i]],g[pg[1][j]],1);
-                                //mat[pg[1][j]][gr[1][i]]=path;
                                 mat[gr[1][i]][pg[1][j]][1]=path;
                             }
 
@@ -1043,15 +950,7 @@ void Planner::plan(void)
                             {
                                 path=Astar(g[pg[1][j-1]], g[gr[1][i]],1);
                                 mat[pg[1][j-1]][gr[1][i]][1]=path;
-                                //mat[gr[1][i]][pg[1][j-1]]=path;
                             }
-
-                            //cout<<"Previous cost: "<<mat[pg[1][j-1]][pg[1][j]].cost<<endl;
-
-                            //cout<<"Previous goal cost: "<<mat[pg[1][j-1]][gr[1][i]].cost<<endl;
-
-                            //cout<<"Next goal cost: "<<mat[gr[1][i]][pg[1][j]].cost<<endl;
-
 
                             cost=(mat[pg[1][j-1]][gr[1][i]][1].cost+mat[gr[1][i]][pg[1][j]][1].cost-mat[pg[1][j-1]][pg[1][j]][1].cost);
 
@@ -1059,16 +958,13 @@ void Planner::plan(void)
                             if(j==1)
                             {
                                 min_c=cost;
-                                //cost_a=(mat[pg[1][j-1]][gr[1][i]].cost+mat[gr[1][i]][pg[1][j]].cost-mat[pg[1][j-1]][pg[1][j]].cost);
                                 min_cost=j;
                             }
                             else
                                 if(cost<min_c)
                                 {
                                     min_c=cost;
-                                    //cost_a=(mat[pg[1][j-1]][gr[1][i]].cost+mat[gr[1][i]][pg[1][j]].cost-mat[pg[1][j-1]][pg[1][j]].cost);
                                     min_cost=j;
-                                    //cout<<"max"<<max_cost<<endl;
                                 }
 
 
@@ -1080,14 +976,12 @@ void Planner::plan(void)
                         {
                             path=Astar(g[pg[1][j]], g[gr[1][i]],1);
                             mat[pg[1][j]][gr[1][i]][1]=path;
-                            //mat[gr[1][i]][pg[1][j-1]]=path;
                         }
 
                         cost= mat[pg[1][j]][gr[1][i]][1].cost;
                         if(cost<min_c)
                         {
                             min_cost=j+1;
-                            //cost_a=mat[pg[1][pg.size()-1]][gr[1][i]].cost;
                             min_c=cost;
 
                         }
@@ -1106,7 +1000,6 @@ void Planner::plan(void)
                                 m_c=min_c;
                                 m_cost=min_cost;
                                 m_i=i;
-                                //cout<<"max"<<max_cost<<endl;
                             }
 
 
@@ -1119,15 +1012,6 @@ void Planner::plan(void)
                 pg[1].insert(it+m_cost,gr[1][m_i]);
                 gt[gr[1][m_i]]=true;
                 pc[1]+=m_c;
-
-//                cout<<"Robot 1: ";
-//                for(int i=0;i<pg[1].size();i++)
-//                {
-//                    cout<<pg[1][i]<<" ";
-//                }
-//                cout<<endl;
-
-                //cout<<p0g.size()<<endl;
             }
         }
 
@@ -1140,34 +1024,26 @@ void Planner::plan(void)
                 if (pg[r].size()>1)
                     continue;
 
-                //cout<<r<<endl;
-
                 int r_o=(r+1)%2;
 
-                //cout<<r_o<<endl;
-
                 int max_cost;
-                //cout<<g1s<<endl;
                 double max_c;
 
 
-                for(int i=0;i<gr[2].size();i++)
+                for(unsigned int i=0;i<gr[2].size();i++)
                 {
                     double cost=0;
                     if (pg[r_o].size()==1)
                     {
                         path=Astar(g[pg[r_o][0]], g[gr[2][i]],r_o);
                         mat[pg[r_o][0]][gr[2][i]][r_o]=path;
-                        //mat[gr[2][i]][pg[r_o][0]]=path;
                         cost=path.cost;
                     }
                     else
                     {
-                        //cost=distance2Path(mat[pg[r_o][0]][pg[r_o][1]][r_o].points, g[gr[2][i]], r_o);
+                        double min_c=0;
 
-                        double min_c;
-
-                        for(int j=1;j<pg[r_o].size();j++)
+                        for(unsigned int j=1;j<pg[r_o].size();j++)
                         {
                             if (mat[gr[2][i]][pg[r_o][j]][r_o].cost==-1)
                             {
@@ -1193,8 +1069,6 @@ void Planner::plan(void)
                                 {
                                     min_c=cost;
                                 }
-
-
                         }
 
                         int j=pg[r_o].size()-1;
@@ -1218,11 +1092,8 @@ void Planner::plan(void)
                     path=Astar(g[pg[r].front()], g[gr[2][i]],r);
 
                     mat[pg[r].front()][gr[2][i]][r]=path;
-                    //mat[gr[2][i]][pg[r].front()]=path;
 
                     cost+=path.cost;
-
-                    //cout<<cost<<endl;
 
                     if(i==0)
                     {
@@ -1234,17 +1105,12 @@ void Planner::plan(void)
                         {
                             max_c=cost;
                             max_cost=gr[2][i];
-                            //cout<<"max"<<max_cost<<endl;
                         }
                 }
-
-                //cout<<max_cost<<endl;
 
                 pg[r].push_back(max_cost);
                 gt[max_cost]=true;
                 pc[r]+=mat[r][max_cost][r].cost;
-                //cout<<"bla bla"<<p1g.size()<<endl;
-                //cout<<max_cost<<" "<<mat[1][2+max_cost].points.size()<<endl;
             }
         }
 
@@ -1254,26 +1120,24 @@ void Planner::plan(void)
         {
 
 
-            int m_cost0,m_cost1;
-            //cout<<g0s<<endl;
+            unsigned int m_cost0,m_cost1;
             double m_c0,m_c1;
             double cost,cost0,cost1;
-            double m_i0,m_i1,c0,c1;
+            double m_i0=0,m_i1=0,c0=0,c1=0;
             bool first=true;
-            for(int i=0;i<gr[2].size();i++)
+            for(unsigned int i=0;i<gr[2].size();i++)
             {
                 if(!gt[gr[2][i]])
                 {
-                    double min_c0,min_c1;
-                    int min_cost0,min_cost1;
+                    double min_c0=0,min_c1=0;
+                    unsigned int min_cost0,min_cost1;
 
-                    for(int j=1;j<pg[0].size();j++)
+                    for(unsigned int j=1;j<pg[0].size();j++)
                     {
 
                         if (mat[gr[2][i]][pg[0][j]][0].cost==-1)
                         {
                             path=Astar(g[gr[2][i]], g[pg[0][j]],0);
-                            //mat[pg[0][j]][gr[2][i]]=path;
                             mat[gr[2][i]][pg[0][j]][0]=path;
                         }
 
@@ -1281,7 +1145,6 @@ void Planner::plan(void)
                         {
                             path=Astar(g[pg[0][j-1]], g[gr[2][i]],0);
                             mat[pg[0][j-1]][gr[2][i]][0]=path;
-                            //mat[gr[2][i]][pg[0][j-1]]=path;
                         }
 
 
@@ -1297,53 +1160,33 @@ void Planner::plan(void)
                             {
                                 min_c0=cost;
                                 min_cost0=j;
-                                //cout<<"max"<<max_cost<<endl;
                             }
 
                     }
 
-                    int j=pg[0].size()-1;
+                    unsigned int j=pg[0].size()-1;
 
                     if (mat[pg[0][j]][gr[2][i]][0].cost==-1)
                     {
                         path=Astar(g[pg[0][j]], g[gr[2][i]],0);
                         mat[pg[0][j]][gr[2][i]][0]=path;
-                        //mat[gr[1][i]][pg[1][j-1]]=path;
                     }
 
                     cost= mat[pg[0][j]][gr[2][i]][0].cost;
                     if(cost<min_c0)
                     {
                         min_cost0=j+1;
-                        //cost_a=mat[pg[1][pg.size()-1]][gr[1][i]].cost;
                         min_c0=cost;
 
                     }
 
 
-//                    if(i==0)
-//                    {
-//                        m_c=min_c;
-//                        m_cost=min_cost;
-//                        m_i=i;
-//                    }
-//                    else
-//                        if(min_c<m_c)
-//                        {
-//                            m_c=min_c;
-//                            m_cost=min_cost;
-//                            m_i=i;
-//                            //cout<<"max"<<max_cost<<endl;
-//                        }
-
-
-                    for(int j=1;j<pg[1].size();j++)
+                    for(unsigned int j=1;j<pg[1].size();j++)
                     {
 
                         if (mat[gr[2][i]][pg[1][j]][1].cost==-1)
                         {
                             path=Astar(g[gr[2][i]],g[pg[1][j]],1);
-                            //mat[pg[1][j]][gr[2][i]]=path;
                             mat[gr[2][i]][pg[1][j]][1]=path;
                         }
 
@@ -1351,7 +1194,6 @@ void Planner::plan(void)
                         {
                             path=Astar(g[pg[1][j-1]], g[gr[2][i]],1);
                             mat[pg[1][j-1]][gr[2][i]][1]=path;
-                            //mat[gr[2][i]][pg[1][j-1]]=path;
                         }
 
 
@@ -1367,7 +1209,6 @@ void Planner::plan(void)
                             {
                                 min_c1=cost;
                                 min_cost1=j;
-                                //cout<<"max"<<max_cost<<endl;
                             }
 
 
@@ -1379,14 +1220,12 @@ void Planner::plan(void)
                     {
                         path=Astar(g[pg[1][j]], g[gr[2][i]],1);
                         mat[pg[1][j]][gr[2][i]][1]=path;
-                        //mat[gr[1][i]][pg[1][j-1]]=path;
                     }
 
                     cost= mat[pg[1][j]][gr[2][i]][1].cost;
                     if(cost<min_c1)
                     {
                         min_cost1=j+1;
-                        //cost_a=mat[pg[1][pg.size()-1]][gr[1][i]].cost;
                         min_c1=cost;
 
                     }
@@ -1417,9 +1256,7 @@ void Planner::plan(void)
                             m_cost1=min_cost1;
                             m_i1=i;
                             c1=min_c1;
-                            //cout<<"max"<<max_cost<<endl;
                         }
-
 
                         if(cost0<m_c0)
                         {
@@ -1427,7 +1264,6 @@ void Planner::plan(void)
                             m_cost0=min_cost0;
                             m_i0=i;
                             c0=min_c0;
-                            //cout<<"max"<<max_cost<<endl;
                         }
                     }
 
@@ -1460,21 +1296,21 @@ void Planner::plan(void)
         }
 
         cout<<"Robo 0: ";
-        for(int i=0;i<pg[0].size();i++)
+        for(unsigned int i=0;i<pg[0].size();i++)
         {
             cout<<pg[0][i]<<" ";
         }
         cout<<endl;
 
         cout<<"Robo 1: ";
-        for(int i=0;i<pg[1].size();i++)
+        for(unsigned int i=0;i<pg[1].size();i++)
         {
             cout<<pg[1][i]<<" ";
         }
         cout<<endl;
 
         cout<<"Goals: ";
-        for(int i=0;i<gt.size();i++)
+        for(unsigned int i=0;i<gt.size();i++)
         {
             cout<<gt[i]<<" ";
         }
@@ -1483,89 +1319,19 @@ void Planner::plan(void)
         cout<<"Robot 0 cost: "<<(pc[0]) <<endl;
         cout<<"Robot 1 cost: "<<(pc[1]) <<endl;
 
-
-
-//        <<"TEest!!!!"<<endl;
-//        vector<PointI> path;
-
-//        for(int i=0;i<g0.size();i++)
-//        {
-//            //cout<<g0[i].i<<" "<<g0[i].j<<endl;
-//            path=Astar(p0.back(), g[g0[i]],0);
-//            //cout<<path.size();
-//            for(int p_i=0;p_i<path.points.size();p_i++)
-//            {
-
-
-//                p0.push_back(path.points[p_i]);
-//            }
-
-
-
-//        }
-//        for(int i=0;i<g1.size();i++)
-//        {
-//            //cout<<g1[i].i<<" "<<g1[i].j<<endl;
-//            path=Astar(p1.back(), g[g1[i]],1);
-//            //cout<<path.size();
-//            for(int p_i=0;p_i<path.points.size();p_i++)
-//            {
-
-
-//                p1.push_back(path.points[p_i]);
-//            }
-
-//            //p_temp.pose.position=convertI2W(g1[i]);
-//            //path_1.poses.push_back(p_temp);
-
-//        }
-
-//        for(int i=0;i<gb.size();i++)
-//        {
-//            path=Astar(p0.back(), g[gb[i]],0);
-//            //cout<<path.size();
-//            for(int p_i=0;p_i<path.points.size();p_i++)
-//            {
-//                p0.push_back(path.points[p_i]);
-//            }
-//            //cout<<gb[i].i<<" "<<gb[i].j<<endl;
-//            //p_temp.pose.position=convertI2W(gb[i]);
-//            //path_0.poses.push_back(p_temp);
-
-//        }
-
-
-        //cout<<"DONEEEEEEEEEEE!!!!"<<endl;
-
-        for(int p_i=1;p_i<pg[0].size();p_i++)
+        for(unsigned int p_i=1;p_i<pg[0].size();p_i++)
         {
-            //if(p_i==0)
-            //    pr[0].insert(pr[0].end(), mat[0][pg[0][p_i]].points.begin(), mat[0][pg[0][p_i]].points.end());
-            //else
-                pr[0].insert(pr[0].end(), mat[pg[0][p_i-1]][pg[0][p_i]][0].points.begin(), mat[pg[0][p_i-1]][pg[0][p_i]][0].points.end());
-
+            pr[0].insert(pr[0].end(), mat[pg[0][p_i-1]][pg[0][p_i]][0].points.begin(), mat[pg[0][p_i-1]][pg[0][p_i]][0].points.end());
         }
 
-        for(int p_i=1;p_i<pg[1].size();p_i++)
+        for(unsigned int p_i=1;p_i<pg[1].size();p_i++)
         {
-            //cout<<"bla bla"<<p1g.size()<<endl;
-            //if(p_i==0)
-            //{
-            //    pr[1].insert(pr[1].end(), mat[1][pg[1][p_i]].points.begin(), mat[1][pg[1][p_i]].points.end());
-            //    //cout<<"bla bla"<<p1.size()<<endl;
-            //}
-            //else
-            //{
-                pr[1].insert(pr[1].end(), mat[pg[1][p_i-1]][pg[1][p_i]][1].points.begin(), mat[pg[1][p_i-1]][pg[1][p_i]][1].points.end());
-            //    //cout<<"bla bla"<<p1.size()<<endl;
-            //
-            //}
-
+            pr[1].insert(pr[1].end(), mat[pg[1][p_i-1]][pg[1][p_i]][1].points.begin(), mat[pg[1][p_i-1]][pg[1][p_i]][1].points.end());
         }
 
 
         path_0.poses.clear();
-        for(int p_i=0;p_i<pr[0].size();p_i++)
+        for(unsigned int p_i=0;p_i<pr[0].size();p_i++)
         {
             p_temp.pose.position=convertI2W(pr[0][p_i]);
 
@@ -1573,7 +1339,7 @@ void Planner::plan(void)
         }
 
         path_1.poses.clear();
-        for(int p_i=0;p_i<pr[1].size();p_i++)
+        for(unsigned int p_i=0;p_i<pr[1].size();p_i++)
         {
             p_temp.pose.position=convertI2W(pr[1][p_i]);
 
@@ -1598,109 +1364,21 @@ void Planner::plan(void)
 
         ros::Time t02=ros::Time::now();
 
-//        for(int i=0;i<gr[0].size();i++)
-//        {
-//           path=Astar(g[pg[0][0]], g[gr[0][i]],0);
-
-//           mat[pg[0].front()][gr[0][i]][0]=path;
-//        }
-
-//        for(int i=0;i<gr[1].size();i++)
-//        {
-//           path=Astar(g[pg[1][0]], g[gr[1][i]],1);
-
-//           mat[pg[1].front()][gr[1][i]][1]=path;
-//        }
-
-//        for(int i=0;i<gr[2].size();i++)
-//        {
-//           path=Astar(g[pg[0][0]], g[gr[2][i]],0);
-
-//           mat[pg[0].front()][gr[2][i]][0]=path;
-
-//           path=Astar(g[pg[1][0]], g[gr[2][i]],1);
-
-//           mat[pg[1].front()][gr[2][i]][1]=path;
-//        }
-
-//        for(int i=0;i<gr[0].size();i++)
-//        {
-//            for(int j=0;j<gr[0].size();j++)
-//            {
-//                path=Astar(g[gr[0][i]], g[gr[0][j]],0);
-
-//                mat[gr[0][i]][gr[0][j]][0]=path;
-//            }
-
-//            for(int j=0;j<gr[2].size();j++)
-//            {
-//                path=Astar(g[gr[0][i]], g[gr[2][j]],0);
-
-//                mat[gr[0][i]][gr[2][j]][0]=path;
-//            }
-//        }
-
-//        for(int i=0;i<gr[1].size();i++)
-//        {
-//            for(int j=0;j<gr[1].size();j++)
-//            {
-//                path=Astar(g[gr[1][i]], g[gr[1][j]],1);
-
-//                mat[gr[1][i]][gr[1][j]][1]=path;
-//            }
-
-//            for(int j=0;j<gr[2].size();j++)
-//            {
-//                path=Astar(g[gr[1][i]], g[gr[2][j]],1);
-
-//                mat[gr[1][i]][gr[2][j]][1]=path;
-//            }
-//        }
-
-//        for(int i=0;i<gr[2].size();i++)
-//        {
-//            for(int j=0;j<gr[2].size();j++)
-//            {
-//                path=Astar(g[gr[2][i]], g[gr[2][j]],0);
-
-//                mat[gr[2][i]][gr[2][j]][0]=path;
-
-//                path=Astar(g[gr[2][i]], g[gr[2][j]],1);
-
-//                mat[gr[2][i]][gr[2][j]][1]=path;
-//            }
-
-//            for(int j=0;j<gr[0].size();j++)
-//            {
-//                path=Astar(g[gr[2][i]], g[gr[0][j]],0);
-
-//                mat[gr[2][i]][gr[0][j]][0]=path;
-//            }
-
-//            for(int j=0;j<gr[1].size();j++)
-//            {
-//                path=Astar(g[gr[2][i]], g[gr[1][j]],1);
-
-//                mat[gr[2][i]][gr[1][j]][1]=path;
-//            }
-//        }
-
         Sequence perm=combine(gr[0],gr[1],gr[2]);
 
         vector<int> goal_opt1, goal_opt2;
 
-        double cost_1max, cost_2max, cost_max;
+        double cost_1max, cost_2max, cost_max=0;
 
         vector<vector<vector<double> > > mat_c(g.size(),vector<vector<double> >(g.size(),vector<double>(2,-1)));
 
-
         int counter_opt=0;
-        for(int i=0;i<perm.seq.size();i++)
+        for(unsigned int i=0;i<perm.seq.size();i++)
         {
             double cost=0;
             double cost2=0;
 
-            for(int j=0;j<perm.seq[i].size();j++)
+            for(unsigned int j=0;j<perm.seq[i].size();j++)
             {
                 if(j==0)
                 {
@@ -1743,7 +1421,7 @@ void Planner::plan(void)
 
 
 
-            for(int j=0;j<perm.rem[i].size();j++)
+            for(unsigned int j=0;j<perm.rem[i].size();j++)
             {
                 if(j==0)
                 {
@@ -1806,14 +1484,14 @@ void Planner::plan(void)
         }
 
         cout<<"Robo 0: 0 ";
-        for(int i=0;i<goal_opt1.size();i++)
+        for(unsigned int i=0;i<goal_opt1.size();i++)
         {
             cout<<goal_opt1[i]<<" ";
         }
         cout<<endl;
 
         cout<<"Robo 1: 1 ";
-        for(int i=0;i<goal_opt2.size();i++)
+        for(unsigned int i=0;i<goal_opt2.size();i++)
         {
             cout<<goal_opt2[i]<<" ";
         }
@@ -1829,13 +1507,12 @@ void Planner::plan(void)
         cout<<diff<<endl;
 
 
-
         cout<<"----> Testing time impossible A*"<<endl;
 
         ros::Time t03=ros::Time::now();
 
         int counter=0;
-        for(int i=0;i<gr[0].size();i++)
+        for(unsigned int i=0;i<gr[0].size();i++)
         {
            path=Astar(g[pg[1][0]], g[gr[0][i]],1);
            if(path.cost==-2)
@@ -1844,7 +1521,7 @@ void Planner::plan(void)
         cout<<counter<<"/"<<gr[0].size()<<endl;
 
         counter=0;
-        for(int i=0;i<gr[1].size();i++)
+        for(unsigned int i=0;i<gr[1].size();i++)
         {
            path=Astar(g[pg[0][0]], g[gr[1][i]],0);
            if(path.cost==-2)
@@ -1853,7 +1530,7 @@ void Planner::plan(void)
         cout<<counter<<"/"<<gr[1].size()<<endl;
 
         counter=0;
-        for(int i=0;i<gr[3].size();i++)
+        for(unsigned int i=0;i<gr[3].size();i++)
         {
            path=Astar(g[pg[0][0]], g[gr[3][i]],0);
            if(path.cost==-2)
@@ -1869,10 +1546,6 @@ void Planner::plan(void)
 
         cout<<"Time to fail all impossible goals with A*:"<<diff<<endl;
 
-
-
-
-
     }
 }
 
@@ -1882,7 +1555,6 @@ void Planner::publish(void)
 {
     if(goals.size()>0)
     {
-
         visualization_msgs::MarkerArray points;
         visualization_msgs::Marker point;
         point.header.frame_id = "/map";
@@ -1891,22 +1563,16 @@ void Planner::publish(void)
         point.action = visualization_msgs::Marker::ADD;
         point.pose.orientation.w = 1.0;
 
-
-
-
         point.type = visualization_msgs::Marker::SPHERE;
-
 
         point.scale.x = 0.2;
         point.scale.y = 0.2;
         point.scale.z = 0.2;
 
-        // Points are green
         point.color.g = 1.0f;
         point.color.a = 1.0;
 
         point.lifetime = ros::Duration(2);
-
 
         for (uint32_t i = 0; i < goals.size(); ++i)
         {
@@ -1916,12 +1582,9 @@ void Planner::publish(void)
           points.markers.push_back(point);
         }
 
-
-
         pub_markers.publish(points);
 
         prev_goals=goals.size();
-
     }
 }
 

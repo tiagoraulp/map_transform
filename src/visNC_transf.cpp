@@ -480,7 +480,7 @@ vector<cv::Mat> multiErosion(cv::Mat map, Elem robot_or)
     cv::Mat map_n=map.clone();
 
 
-    for(int i=0;i<robot_or.elems.size();i++)
+    for(unsigned int i=0;i<robot_or.elems.size();i++)
     {
         cv::Mat temp;
         cv::erode( map_n, temp, robot_or.elems[i], robot_or.pt,1, cv::BORDER_CONSTANT,cv::Scalar(0));
@@ -502,7 +502,7 @@ vector<cv::Mat> multiDilation(vector<cv::Mat> map_er, Elem robot_or )
     pr.x=robot_or.elems[0].cols-1-robot_or.pt.x;
     pr.y=robot_or.elems[0].rows-1-robot_or.pt.y;
 
-    for(int i=0;i<robot_or.elems.size();i++)
+    for(unsigned int i=0;i<robot_or.elems.size();i++)
     {
         cv::Mat temp, elem_t;
         flip(robot_or.elems[i], elem_t, -1);
@@ -614,7 +614,7 @@ void VisNC_transf::transf(void)
 
         ros::Duration diff = ros::Time::now() - t01;
 
-        ROS_INFO("%s - Time for reach: %f", tf_pref.c_str(), diff.toSec());
+        ROS_INFO("%s - Time for configuration space: %f", tf_pref.c_str(), diff.toSec());
 
     }
 
@@ -909,6 +909,16 @@ void VisNC_transf::transf_pos(void)
 
         int pos_y=((int) round((yy-or_y)/res))+robot_or.pl;
 
+        if(pos_x>=map_or.rows)
+            pos_x=map_or.rows-1;
+        if(pos_y>=map_or.cols)
+            pos_y=map_or.cols-1;
+
+        if(pos_x<0)
+            pos_x=0;
+        if(pos_y<0)
+            pos_y=0;
+
 
         bool proc=false;
 
@@ -974,7 +984,7 @@ void VisNC_transf::transf_pos(void)
 
             ros::Duration diff = ros::Time::now() - t01;
 
-            ROS_INFO("%s - Time for label: %f", tf_pref.c_str(), diff.toSec());
+            ROS_INFO("%s - Time for visibility (invalid position): %f", tf_pref.c_str(), diff.toSec());
 
             return;
 
@@ -1062,7 +1072,7 @@ void VisNC_transf::transf_pos(void)
 
             ros::Duration diff = ros::Time::now() - t01;
 
-            ROS_INFO("%s - Time for label: %f", tf_pref.c_str(), diff.toSec());
+            ROS_INFO("%s - Time for visibility: %f", tf_pref.c_str(), diff.toSec());
 
 
             map_label=l_map;
@@ -1136,29 +1146,32 @@ void VisNC_transf::update(void)
 void VisNC_transf::publish(void)
 {
 
-    nav_msgs::OccupancyGrid n_msg;
-
-
-    n_msg=Mat2RosMsg(map_erosionOp , msg_rcv_pub);
-    pub.publish(n_msg);
-
-    n_msg=Mat2RosMsg(map_closeOp , msg_rcv_pub);
-    pub2.publish(n_msg);
-
-
-
-    if(pos_rcv)
+    if(count>0)
     {
-        n_msg=Mat2RosMsg( map_label , msg_rcv_pub);
-        pub3.publish(n_msg);
-        n_msg=Mat2RosMsg( map_act , msg_rcv_pub);
-        pub4.publish(n_msg);
-        n_msg=Mat2RosMsg( map_vis , msg_rcv_pub);
-        pub5.publish(n_msg);
-        if(gt && gt_c)
+        nav_msgs::OccupancyGrid n_msg;
+
+
+        n_msg=Mat2RosMsg(map_erosionOp , msg_rcv_pub);
+        pub.publish(n_msg);
+
+        n_msg=Mat2RosMsg(map_closeOp , msg_rcv_pub);
+        pub2.publish(n_msg);
+
+
+
+        if(pos_rcv)
         {
-            n_msg=Mat2RosMsg( map_truth , msg_rcv_pub);
-            pub6.publish(n_msg);
+            n_msg=Mat2RosMsg( map_label , msg_rcv_pub);
+            pub3.publish(n_msg);
+            n_msg=Mat2RosMsg( map_act , msg_rcv_pub);
+            pub4.publish(n_msg);
+            n_msg=Mat2RosMsg( map_vis , msg_rcv_pub);
+            pub5.publish(n_msg);
+            if(gt && gt_c)
+            {
+                n_msg=Mat2RosMsg( map_truth , msg_rcv_pub);
+                pub6.publish(n_msg);
+            }
         }
     }
 

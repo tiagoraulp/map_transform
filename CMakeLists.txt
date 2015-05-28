@@ -31,6 +31,8 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 
+#set(CMAKE_BUILD_TYPE Debug)
+
 find_package(OpenCV)
 
 rosbuild_find_ros_package(dynamic_reconfigure)
