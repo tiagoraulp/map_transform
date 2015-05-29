@@ -11,7 +11,7 @@
 	
  <group ns="robot_0">
 
-    <node pkg="map_transform" type="visibility" name="visibility" output="screen" args="0">    
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
        <param name="infl" value="10" />
        <param name="defl" value="10" />
        <param name="debug" value="false" />
@@ -26,7 +26,7 @@
 
  <group ns="robot_1">
 
-    <node pkg="map_transform" type="visibility" name="visibility" output="screen" args="1">    
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
        <param name="infl" value="6" />
        <param name="defl" value="6" />
        <param name="debug" value="false" />

@@ -60,6 +60,14 @@ private:
 
     void callbackParameters(map_transform::ParametersConfig &config, uint32_t level);
 
+    bool getTFPosition(cv::Point2d&p);
+
+    bool getPosition(cv::Point2i&pos);
+
+    bool checkProceed(void);
+
+    bool checkProceed2(void);
+
     int count;
 
     bool pos_rcv;
@@ -171,19 +179,12 @@ public:
         }
     }
 
+
+    void update(void);
     void show(void);
     void publish(void);
     void transf(void);
-
-    void update(void);
-
-
     void transf_pos(void);
-
-
-    bool getTreated(void){return treated;}
-
-
 };
 
 
@@ -216,7 +217,13 @@ void Vis_transf::show(void)
             {
                 cv::imshow(G_WINDOW,map_truth);
             }
+            else
+            {
+                cv::destroyWindow(G_WINDOW);
+                cv::waitKey(2);
+            }
         }
+
         cv::waitKey(3);
     }
 
@@ -330,11 +337,9 @@ void Vis_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 
 }
 
-
-void Vis_transf::transf(void)
+bool Vis_transf::checkProceed2(void)
 {
     bool proc=false;
-
 
     if((!treated2) || changed2)
     {
@@ -343,6 +348,13 @@ void Vis_transf::transf(void)
         changed2=false;
     }
 
+    return proc;
+}
+
+
+void Vis_transf::transf(void)
+{
+    bool proc=checkProceed2();
 
     if(count>0 && (proc) )
     {
@@ -927,6 +939,64 @@ cv::Mat brute_force_opt(cv::Mat map, cv::Mat reach, int defl)
     return result;
 }
 
+bool Vis_transf::getTFPosition(cv::Point2d &p){
+    tf::StampedTransform transform;
+    try{
+        pos_listener.lookupTransform("/map", tf_pref+"/base_link", ros::Time(0), transform);
+    }
+    catch (tf::TransformException ex){
+      ROS_INFO("%s",ex.what());
+      return false;
+    }
+    p.x=transform.getOrigin().x();
+    p.y=transform.getOrigin().y();
+    return true;
+}
+
+bool Vis_transf::getPosition(cv::Point2i& pos){
+    cv::Point2d p;
+    if(!_debug)
+    {
+        if(!getTFPosition(p))
+            return false;
+    }
+    else
+    {
+        p.x=rxr;
+        p.y=ryr;
+    }
+
+    pos.x=(int) round((p.x-or_x)/res);
+    pos.y=(int) round((p.y-or_y)/res);
+
+    if(pos.x>=map_or.rows)
+        pos.x=map_or.rows-1;
+    if(pos.y>=map_or.cols)
+        pos.y=map_or.cols-1;
+
+    if(pos.x<0)
+        pos.x=0;
+    if(pos.y<0)
+        pos.y=0;
+
+    return true;
+}
+
+
+bool Vis_transf::checkProceed(void)
+{
+    bool proc=false;
+
+    if((!treated) || changed)
+    {
+        proc=true;
+        treated=true;
+        changed=false;
+    }
+
+    return proc;
+}
+
 
 void Vis_transf::transf_pos(void)
 {
@@ -934,59 +1004,21 @@ void Vis_transf::transf_pos(void)
     {
         ros::Time t01=ros::Time::now();
 
-        double xx,yy;
+        cv::Point2i pos;
 
-        if(!_debug)
+        if (!getPosition(pos))
+            return;
+
+        int pos_x=pos.x, pos_y=pos.y;
+
+        bool proc=checkProceed();
+
+        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0 )
         {
-            tf::StampedTransform transform;
-            try{
-                pos_listener.lookupTransform("/map", tf_pref+"/base_link", ros::Time(0), transform);
-            }
-            catch (tf::TransformException ex){
-              ROS_INFO("%s",ex.what());
-              return ;
-            }
-            xx=transform.getOrigin().x();
-            yy=transform.getOrigin().y();
-        }
-        else
-        {
-            xx=rxr;
-            yy=ryr;
-        }
-
-
-        int pos_x=(int) round((xx-or_x)/res);
-
-        int pos_y=(int) round((yy-or_y)/res);
-
-        if(pos_x>=map_or.rows)
-            pos_x=map_or.rows-1;
-        if(pos_y>=map_or.cols)
-            pos_y=map_or.cols-1;
-
-        if(pos_x<0)
-            pos_x=0;
-        if(pos_y<0)
-            pos_y=0;
-
-        bool proc=false;
-
-        if((!treated) || changed)
-        {
-            proc=true;
-            treated=true;
-            changed=false;
-        }
-
-        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0  && (proc) )
-        {
-            pos_rcv=false;
-
-            prev_x=pos_x;
-            prev_y=pos_y;
-
             gt_c=false;
+
+            pos_rcv=true;
+
 
             vector<cv::Mat> channels(3);
 
@@ -1032,13 +1064,23 @@ void Vis_transf::transf_pos(void)
             map_act=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
             map_vis=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
 
+            if (prev_x>=0 && prev_y>=0 && prev_x<map_erosionOp.rows && prev_y<map_erosionOp.cols)
+                if (map_erosionOp.at<uchar>(prev_x,prev_y)==0 && !proc)
+                {
+                    prev_x=pos_x;
+                    prev_y=pos_y;
+                    return;
+                }
+
+            prev_x=pos_x;
+            prev_y=pos_y;
+
             ros::Duration diff = ros::Time::now() - t01;
 
             ROS_INFO("%s - Time for visibility (invalid position): %f", tf_pref.c_str(), diff.toSec());
 
+
             return;
-
-
         }
 
         cv::Mat temp_labelling, temp;
@@ -1046,31 +1088,37 @@ void Vis_transf::transf_pos(void)
         std::vector<std::vector<cv::Point> > labels=label(map_erosionOp.clone()/255,8);
 
 
-        int label_pos=-1, prev_label=-1;
+        unsigned int label_pos=0, prev_label=0;
+        bool found_pos=false, found_prev=false;
 
 
-        for (int i=0;i<labels.size();i++){
-            for(int j=0;j<labels[i].size();j++){
-                if( pos_x==labels[i][j].x && pos_y==labels[i][j].y){
-                    label_pos=i;
+        for (unsigned int i=0;i<labels.size();i++){
+            for (unsigned int j=0;j<labels[i].size();j++){
+                if (pos_x==labels[i][j].x && pos_y==labels[i][j].y){
+                    label_pos=i+1;
+                    found_pos=true;
                 }
-                if( prev_x==labels[i][j].x && prev_y==labels[i][j].y){
-                    prev_label=i;
+                if(prev_x>=0 &&  prev_y>=0)
+                {
+                    if(prev_x==labels[i][j].x && prev_y==labels[i][j].y){
+                        prev_label=i+1;
+                        found_prev=true;
+                    }
                 }
-                if(label_pos>-1 && prev_label>-1)
+                if ( found_pos && ((found_prev) || (prev_x < 0) || (prev_y < 0) ))
                     break;
             }
-            if(label_pos>-1 && prev_label>-1)
+            if(found_pos && ( (found_prev) || (prev_x<0) || (prev_y<0) ) )
                 break;
         }
 
-        if( (prev_label!=label_pos) || (prev_x<0) || (prev_y<0) || proc )
+        if( ( (prev_label!=label_pos) && found_pos) || (prev_x<0) || (prev_y<0) || proc )
         {
             cv::Mat l_map=map_erosionOp.clone(), unreach_map, regions;
 
-            for (int i=0;i<labels.size();i++){
-                for(int j=0;j<labels[i].size();j++){
-                    if( i!=label_pos ){
+            for (unsigned int i=0;i<labels.size();i++){
+                if( i!=(label_pos-1) ){
+                    for(unsigned int j=0;j<labels[i].size();j++){
                         l_map.at<uchar>(labels[i][j].x,labels[i][j].y)=0;
                     }
                 }
@@ -1198,7 +1246,7 @@ void Vis_transf::transf_pos(void)
                             vector<int> angles_x;
                             vector<int> angles_y;
 
-                            int obt_angle=-1;
+                            unsigned int obt_angle=-1;
 
                             for(unsigned int l=0;l<frontier[ff].size();l++)
                             {
@@ -1214,7 +1262,7 @@ void Vis_transf::transf_pos(void)
                                 }
                                 else
                                 {
-                                    for(int a=0;a<angles.size();a++)
+                                    for(unsigned int a=0;a<angles.size();a++)
                                     {
                                         if(angle<angles[a])
                                         {
@@ -1246,7 +1294,7 @@ void Vis_transf::transf_pos(void)
                                                         bool found=false;
                                                         float anglediff;
 
-                                                        for(int aa=0;aa<(angles.size()-1);aa++)
+                                                        for(unsigned int aa=0;aa<(angles.size()-1);aa++)
                                                         {
                                                             if(!found)
                                                             {
@@ -1284,7 +1332,7 @@ void Vis_transf::transf_pos(void)
                                                         bool found=false;
                                                         float anglediff;
 
-                                                        for(int aa=0;aa<(angles.size()-1);aa++)
+                                                        for(unsigned int aa=0;aa<(angles.size()-1);aa++)
                                                         {
                                                             if(!found)
                                                             {
@@ -1351,7 +1399,7 @@ void Vis_transf::transf_pos(void)
 
                                                     float anglediff;
 
-                                                    for(int aa=0;aa<(angles.size()-1);aa++)
+                                                    for(unsigned int aa=0;aa<(angles.size()-1);aa++)
                                                     {
                                                         if(!found)
                                                         {
@@ -2098,8 +2146,6 @@ void Vis_transf::transf_pos(void)
 
             cv::merge(channels, map_erosionOpPrintColor);
 
-
-
             ros::Duration diff = ros::Time::now() - t01;
 
             ROS_INFO("%s - Time for visibility: %f", tf_pref.c_str(), diff.toSec());
@@ -2272,8 +2318,6 @@ std::vector<cv::Point> Vis_transf::label_seed(const cv::Mat binary, int conn, cv
 
 int main(int argc, char **argv)
 {
-
-    char* x=argv[1];
     ros::init(argc, argv, "visibility");
 
     ros::NodeHandle nh("~");

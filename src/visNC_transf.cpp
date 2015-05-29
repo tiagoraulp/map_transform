@@ -110,7 +110,6 @@ private:
 
 public:
 
-    //VisNC_transf(ros::NodeHandle nh, cv::Mat rob, bool debug_): nh_(nh), robot(rob), _debug(debug_)
     VisNC_transf(ros::NodeHandle nh, cv::Mat rob): nh_(nh), robot(rob)
     {
 
@@ -208,16 +207,11 @@ public:
         }
     }
 
+    void update(void);
     void show(void);
     void publish(void);
     void transf(void);
-
-    void update(void);
-
     void transf_pos(void);
-
-
-    bool getTreated(void){return treated;}
 
 
 };
@@ -259,6 +253,11 @@ void VisNC_transf::show(void)
             if(gt && gt_c)
             {
                 cv::imshow(G_WINDOW,map_truth);
+            }
+            else
+            {
+                cv::destroyWindow(G_WINDOW);
+                cv::waitKey(2);
             }
         }
         cv::waitKey(3);
@@ -929,14 +928,11 @@ void VisNC_transf::transf_pos(void)
             changed=false;
         }
 
-        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0 && (proc) )
+        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0 )
         {
-            pos_rcv=true;
-
-            prev_x=pos_x;
-            prev_y=pos_y;
-
             gt_c=false;
+
+            pos_rcv=true;
 
             vector<cv::Mat> channels(3);
 
@@ -982,6 +978,18 @@ void VisNC_transf::transf_pos(void)
             map_act=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
             map_vis=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
 
+            if (prev_x>=0 && prev_y>=0 && prev_x<map_erosionOp.rows && prev_y<map_erosionOp.cols)
+                if (map_erosionOp.at<uchar>(prev_x,prev_y)==0 && !proc)
+                {
+                    prev_x=pos_x;
+                    prev_y=pos_y;
+                    return;
+                }
+
+            prev_x=pos_x;
+            prev_y=pos_y;
+
+
             ros::Duration diff = ros::Time::now() - t01;
 
             ROS_INFO("%s - Time for visibility (invalid position): %f", tf_pref.c_str(), diff.toSec());
@@ -996,39 +1004,45 @@ void VisNC_transf::transf_pos(void)
         std::vector<std::vector<cv::Point> > labels=label(map_erosionOp.clone()/255,8);
 
 
-        int label_pos=-1, prev_label=-1;
+        unsigned int label_pos=0, prev_label=0;
+        bool found_pos=false, found_prev=false;
 
 
-        for (int i=0;i<labels.size();i++){
-            for(int j=0;j<labels[i].size();j++){
+        for (unsigned int i=0;i<labels.size();i++){
+            for(unsigned int j=0;j<labels[i].size();j++){
                 if( pos_x==labels[i][j].x && pos_y==labels[i][j].y){
-                    label_pos=i;
+                    label_pos=i+1;
+                    found_pos=true;
                 }
                 if(prev_x>=0 &&  prev_y>=0)
                 {
                     if( prev_x==labels[i][j].x && prev_y==labels[i][j].y){
-                        prev_label=i;
+                        prev_label=i+1;
+                        found_prev=true;
                     }
                 }
-                if(label_pos>-1 && ( (prev_label>-1) || (prev_x<0) || (prev_y<0) ) )
+                if(found_pos && ( (found_prev) || (prev_x<0) || (prev_y<0) ) )
                     break;
             }
-            if(label_pos>-1 && ( (prev_label>-1) || (prev_x<0) || (prev_y<0) ) )
+            if(found_pos && ( (found_prev) || (prev_x<0) || (prev_y<0) ) )
                 break;
         }
 
-        if( (prev_label!=label_pos) || (prev_x<0) || (prev_y<0) || proc)
+        if( ( (prev_label!=label_pos) && found_pos) || (prev_x<0) || (prev_y<0) || proc)
         {
             cv::Mat l_map=map_erosionOp.clone(), unreach_map, regions, act_map=map_or.clone(), vis_map=map_or.clone();
 
-            for (int i=0;i<labels.size();i++){
-                for(int j=0;j<labels[i].size();j++){
-                    if( i!=label_pos ){
+            for (unsigned int i=0;i<labels.size();i++){
+                if( i!=(label_pos-1) ){
+                    for(unsigned int j=0;j<labels[i].size();j++){
                         l_map.at<uchar>(labels[i][j].x,labels[i][j].y)=0;
                     }
                 }
-             }
+            }
 
+            map_label=l_map;
+            map_act=act_map;
+            map_vis=vis_map;
 
 
             vector<cv::Mat> channels(3);
@@ -1074,14 +1088,8 @@ void VisNC_transf::transf_pos(void)
 
             ROS_INFO("%s - Time for visibility: %f", tf_pref.c_str(), diff.toSec());
 
-
-            map_label=l_map;
-            map_act=act_map;
-            map_vis=vis_map;
-
             if(gt)
             {
-
                 ros::Time t3=ros::Time::now();
 
                 map_truth=brute_force_opt(map_or, map_label, defl*30);
