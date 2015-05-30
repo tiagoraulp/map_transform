@@ -1144,7 +1144,7 @@ protected:
     int ind;
     T fv;
 
-    virtual bool func(T var);
+    virtual bool func(T var)=0;
 public:
     void iter(T var) {
         if(n==0)
@@ -1162,15 +1162,10 @@ public:
     FindElem()
     {
         n=0;
+        ind=0;
+        fv=T();
     }
-    FindElem(vector<T> vars)
-    {
-        n=0;
-        for(int i=0;i<vars.size();i++)
-        {
-            iter(vars[i]);
-        }
-    }
+
     int getInd(void)
     {
         return ind;
@@ -1184,9 +1179,10 @@ public:
 template <typename T>
 class FindMax : public FindElem<T>
 {
+protected:
     bool func(T var)
     {
-        if(var>fv)
+        if(var>FindElem<T>::fv)
             return true;
         else
             return false;
@@ -1194,16 +1190,20 @@ class FindMax : public FindElem<T>
 public:
     FindMax(vector<T> vars)
     {
-        FindElem<T>(vars);
+        for(int i=0;i<vars.size();i++)
+        {
+            this->iter(vars[i]);
+        }
     }
 };
 
 template <typename T>
 class FindMin : public FindElem<T>
 {
+protected:
     bool func(T var)
     {
-        if(var<fv)
+        if(var<this->fv)
             return true;
         else
             return false;
@@ -1211,7 +1211,10 @@ class FindMin : public FindElem<T>
 public:
     FindMin(vector<T> vars)
     {
-        FindElem<T>(vars);
+        for(int i=0;i<vars.size();i++)
+        {
+            this->iter(vars[i]);
+        }
     }
 };
 
@@ -2391,14 +2394,6 @@ std::vector<cv::Point> label_seed(const cv::Mat binary, int conn, cv::Point seed
 
 int main(int argc, char **argv)
 {
-    vector<double> x;
-    x.push_back(0.2);x.push_back(-0.3);x.push_back(-15);x.push_back(100.2);x.push_back(3);x.push_back(100.2);x.push_back(2);
-    FindMax<double> fM(x);
-    FindMin<double> fm(x);
-
-    cout<<"Minimum: "<<"Index-> "<<fm.getInd()<<"; Value-> "<<fm.getVal()<<endl;
-    cout<<"Maximum: "<<"Index-> "<<fM.getInd()<<"; Value-> "<<fM.getVal()<<endl;
-
     ros::init(argc, argv, "visibility");
 
     ros::NodeHandle nh("~");
