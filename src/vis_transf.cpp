@@ -30,7 +30,8 @@ static const std::string V_WINDOW = "Visibility";
 static const std::string D_WINDOW = "Debug";
 static const std::string G_WINDOW = "Ground_Truth";
 
-
+std::vector<std::vector<cv::Point> >  label(const cv::Mat binary, int conn);
+std::vector<cv::Point> label_seed(const cv::Mat binary, int conn, cv::Point seed);
 
 class Vis_transf{
 private:
@@ -52,8 +53,7 @@ private:
 
     tf::TransformListener pos_listener;
 
-    std::vector<std::vector<cv::Point> >  label(const cv::Mat binary, int conn);
-    std::vector<cv::Point> label_seed(const cv::Mat binary, int conn, cv::Point seed);
+
     nav_msgs::OccupancyGrid Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg);
 
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg);
@@ -68,6 +68,8 @@ private:
 
     bool checkProceed2(void);
 
+    cv::Mat unreachable_regions(cv::Mat map_or, cv::Mat act_map);
+
     int count;
 
     bool pos_rcv;
@@ -78,7 +80,7 @@ private:
 
     int defl;
 
-    int prev_x, prev_y;
+    cv::Point2i prev;
 
     string tf_pref;
 
@@ -105,7 +107,7 @@ public:
 
         pub = nh_.advertise<nav_msgs::OccupancyGrid>("e_map", 1,true);
         pub2 = nh_.advertise<nav_msgs::OccupancyGrid>("c_map", 1,true);
-        pub3 = nh_.advertise<nav_msgs::OccupancyGrid>("l_map", 1,true);
+        pub3 = nh_.advertise<nav_msgs::OccupancyGrid>("r_map", 1,true);
         pub4 = nh_.advertise<nav_msgs::OccupancyGrid>("a_map", 1,true);
         pub5 = nh_.advertise<nav_msgs::OccupancyGrid>("v_map", 1,true);
         pub6 = nh_.advertise<nav_msgs::OccupancyGrid>("g_map", 1,true);
@@ -126,7 +128,7 @@ public:
         nh_.param("debug", _debug, true);
 
 
-        prev_x=-1; prev_y=-1;
+        prev.x=-1; prev.y=-1;
 
         count=0;
 
@@ -369,18 +371,18 @@ void Vis_transf::transf(void)
                                                cv::Size( 2*defl + 1, 2*defl+1 ),
                                                cv::Point( defl, defl ) );
 
-        cv::Mat or_map, er_map, cl_map;
+        cv::Mat or_map, er_map, cr_map;
 
         or_map=cv_map.clone();
         msg_rcv_pub=msg_rcv;
 
 
         cv::erode( or_map, er_map, element);
-        cv::dilate( er_map, cl_map, element_d);
+        cv::dilate( er_map, cr_map, element_d);
 
         map_or=or_map;
         map_erosionOp=er_map;
-        map_closeOp=cl_map;
+        map_closeOp=cr_map;
 
         ros::Duration diff = ros::Time::now() - t01;
 
@@ -859,7 +861,6 @@ cv::Mat brute_force_opt(cv::Mat map, cv::Mat reach, int defl)
                                     }
                                 }
                             }
-
                         }
 
                         ii=i+p, jj=j+r;
@@ -879,7 +880,6 @@ cv::Mat brute_force_opt(cv::Mat map, cv::Mat reach, int defl)
                                     }
                                 }
                             }
-
                         }
 
                         ii=i+r, jj=j-p;
@@ -899,7 +899,6 @@ cv::Mat brute_force_opt(cv::Mat map, cv::Mat reach, int defl)
                                     }
                                 }
                             }
-
                         }
 
                         ii=i-p, jj=j-r;
@@ -953,6 +952,15 @@ bool Vis_transf::getTFPosition(cv::Point2d &p){
     return true;
 }
 
+int boundPos(int x, int max)
+{
+    if(x>=max)
+        x=max-1;
+    if(x<0)
+        x=0;
+    return x;
+}
+
 bool Vis_transf::getPosition(cv::Point2i& pos){
     cv::Point2d p;
     if(!_debug)
@@ -969,15 +977,9 @@ bool Vis_transf::getPosition(cv::Point2i& pos){
     pos.x=(int) round((p.x-or_x)/res);
     pos.y=(int) round((p.y-or_y)/res);
 
-    if(pos.x>=map_or.rows)
-        pos.x=map_or.rows-1;
-    if(pos.y>=map_or.cols)
-        pos.y=map_or.cols-1;
 
-    if(pos.x<0)
-        pos.x=0;
-    if(pos.y<0)
-        pos.y=0;
+    pos.x=boundPos(pos.x, map_or.rows);
+    pos.y=boundPos(pos.y, map_or.cols);
 
     return true;
 }
@@ -997,6 +999,222 @@ bool Vis_transf::checkProceed(void)
     return proc;
 }
 
+cv::Mat printPoint(cv::Mat img, cv::Point2i pos, unsigned char* color)
+{
+    vector<cv::Mat> channels(3);
+
+    channels[0]=img.clone();
+    channels[1]=img.clone();
+    channels[2]=img.clone();
+
+    for(int k=0;k<3;k++)
+    {
+        for(int i=(pos.x-1);i<=(pos.x+1);i++)
+        {
+            for(int j=(pos.y-1);j<=(pos.y+1);j++)
+            {
+
+                channels[k].at<uchar>(boundPos(i,img.rows),boundPos(j,img.cols))=color[2-k];
+            }
+        }
+    }
+
+    cv::Mat ret;
+
+    cv::merge(channels, ret);
+
+    return ret;
+}
+
+bool reachability_map(std::vector<std::vector<cv::Point> > labels, cv::Point2i pos, cv::Point2i prev, cv::Mat & r_map)
+{
+    bool found_pos=false, found_prev=false;
+    unsigned int label_pos=0, prev_label=0;
+
+
+    for (unsigned int i=0;i<labels.size();i++){
+        for (unsigned int j=0;j<labels[i].size();j++){
+            if (pos.x==labels[i][j].x && pos.y==labels[i][j].y){
+                label_pos=i+1;
+                found_pos=true;
+            }
+            if(prev.x>=0 &&  prev.y>=0)
+            {
+                if(prev.x==labels[i][j].x && prev.y==labels[i][j].y){
+                    prev_label=i+1;
+                    found_prev=true;
+                }
+            }
+            if ( found_pos && ((found_prev) || (prev.x < 0) || (prev.y < 0) ))
+                break;
+        }
+        if(found_pos && ( (found_prev) || (prev.x<0) || (prev.y<0) ) )
+            break;
+    }
+
+    for (unsigned int i=0;i<labels.size();i++){
+        if( i!=(label_pos-1) ){
+            for(unsigned int j=0;j<labels[i].size();j++){
+                r_map.at<uchar>(labels[i][j].x,labels[i][j].y)=0;
+            }
+        }
+     }
+
+    return (prev_label!=label_pos) && found_pos; //returns true if reachable set changes from prev position
+}
+
+
+class Unreachable
+{
+    vector<vector<cv::Point> > labels_unreach;
+    cv::Mat act;
+    void getRegions(cv::Mat map_or, cv::Mat act_map);
+public:
+    cv::Mat regions;
+    vector<vector<vector<cv::Point> > > frontiers;
+    cv::Mat unreach_map;
+
+    Unreachable(cv::Mat map_or, cv::Mat act_map) {
+        getRegions(map_or, act_map);
+    }
+    void getFrontiers(void);
+
+};
+
+void Unreachable::getFrontiers(void)
+{
+    frontiers.clear();
+    for (unsigned int k=0;k<labels_unreach.size();k++){
+        vector<cv::Point> frontiers_t;
+        for(unsigned int j=0;j<labels_unreach[k].size();j++){
+            bool stop=false;
+            for(int a=labels_unreach[k][j].x-1;a<=(labels_unreach[k][j].x+1);a++){
+                for(int b=labels_unreach[k][j].y-1;b<=(labels_unreach[k][j].y+1);b++){
+                    if ((a>=0)&&(b>=0)&&(a<act.rows)&&(b<act.cols) )
+                    {
+                        int aa=a-labels_unreach[k][j].x;
+                        int bb=b-labels_unreach[k][j].y;
+                        if((abs(aa)+abs(bb))==1)   ///TODO: check connectivity, if 4 is enough!!!
+                            if(act.at<uchar>(a,b)==255)
+                            {
+                                frontiers_t.push_back(cv::Point(labels_unreach[k][j].x,labels_unreach[k][j].y));
+                                stop=true;
+                                break;
+                            }
+                    }
+                }
+                if(stop)
+                    break;
+            }
+        }
+        vector<vector<cv::Point> > frontiers_c=cluster_points(frontiers_t);
+        frontiers.push_back(frontiers_c);
+    }
+}
+
+void Unreachable::getRegions(cv::Mat map_or, cv::Mat act_map)
+{
+    cv::Mat temp_labelling, temp;
+
+    bitwise_not(map_or.clone(),temp);
+
+    unreach_map=act_map|temp;
+
+    bitwise_not( unreach_map.clone() , temp_labelling);
+
+    labels_unreach=label(temp_labelling/255,4);
+
+    regions=map_or.clone()/255;
+
+    for (unsigned int i=0;i<labels_unreach.size();i++){
+        for(unsigned int j=0;j<labels_unreach[i].size();j++){
+               regions.at<uchar>(labels_unreach[i][j].x,labels_unreach[i][j].y)=i+2;
+        }
+    }
+
+    act=act_map;
+}
+
+
+template <typename T>
+class FindElem
+{
+protected:
+    int n;
+    int ind;
+    T fv;
+
+    virtual bool func(T var);
+public:
+    void iter(T var) {
+        if(n==0)
+        {
+            ind=0;
+            fv=var;
+        }
+        else if(func(var))
+        {
+            ind=n;
+            fv=var;
+        }
+        n++;
+    }
+    FindElem()
+    {
+        n=0;
+    }
+    FindElem(vector<T> vars)
+    {
+        n=0;
+        for(int i=0;i<vars.size();i++)
+        {
+            iter(vars[i]);
+        }
+    }
+    int getInd(void)
+    {
+        return ind;
+    }
+    T getVal(void)
+    {
+        return fv;
+    }
+};
+
+template <typename T>
+class FindMax : public FindElem<T>
+{
+    bool func(T var)
+    {
+        if(var>fv)
+            return true;
+        else
+            return false;
+    }
+public:
+    FindMax(vector<T> vars)
+    {
+        FindElem<T>(vars);
+    }
+};
+
+template <typename T>
+class FindMin : public FindElem<T>
+{
+    bool func(T var)
+    {
+        if(var<fv)
+            return true;
+        else
+            return false;
+    }
+public:
+    FindMin(vector<T> vars)
+    {
+        FindElem<T>(vars);
+    }
+};
+
 
 void Vis_transf::transf_pos(void)
 {
@@ -1013,189 +1231,80 @@ void Vis_transf::transf_pos(void)
 
         bool proc=checkProceed();
 
-        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0 )
+        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0)  //invalid center position of the robot (touching obstacles or walls)
         {
             gt_c=false;
 
             pos_rcv=true;
 
+            unsigned char color[3]={255,0,0};
 
-            vector<cv::Mat> channels(3);
-
-            channels[0]=map_erosionOp.clone();
-            channels[1]=map_erosionOp.clone();
-            channels[2]=map_erosionOp.clone();
-
-            channels[2].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=255;
-            channels[2].at<uchar>(max(pos_x-1,0),pos_y)=255;
-            channels[2].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=255;
-            channels[2].at<uchar>(pos_x,max(pos_y-1,0))=255;
-            channels[2].at<uchar>(pos_x,pos_y)=255;
-            channels[2].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=255;
-            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=255;
-            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=255;
-            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=255;
-
-            channels[1].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
-            channels[1].at<uchar>(max(pos_x-1,0),pos_y)=0;
-            channels[1].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
-            channels[1].at<uchar>(pos_x,max(pos_y-1,0))=0;
-            channels[1].at<uchar>(pos_x,pos_y)=0;
-            channels[1].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
-            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
-            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
-            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
-
-            channels[0].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
-            channels[0].at<uchar>(max(pos_x-1,0),pos_y)=0;
-            channels[0].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
-            channels[0].at<uchar>(pos_x,max(pos_y-1,0))=0;
-            channels[0].at<uchar>(pos_x,pos_y)=0;
-            channels[0].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
-            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
-            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
-            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
-
-
-
-            cv::merge(channels, map_erosionOpPrintColor);
+            map_erosionOpPrintColor=printPoint(map_erosionOp, pos, color);
 
             map_label=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
-            map_act=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
-            map_vis=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
+            map_act=map_label;
+            map_vis=map_label;
+            map_debug=map_label;
 
-            if (prev_x>=0 && prev_y>=0 && prev_x<map_erosionOp.rows && prev_y<map_erosionOp.cols)
-                if (map_erosionOp.at<uchar>(prev_x,prev_y)==0 && !proc)
+            bool print=true;
+
+            if (prev.x>=0 && prev.y>=0 && prev.x<map_erosionOp.rows && prev.y<map_erosionOp.cols)
+                if (map_erosionOp.at<uchar>(prev.x,prev.y)==0 && !proc)
                 {
-                    prev_x=pos_x;
-                    prev_y=pos_y;
-                    return;
+                    print=false;
                 }
 
-            prev_x=pos_x;
-            prev_y=pos_y;
+            prev=pos;
 
-            ros::Duration diff = ros::Time::now() - t01;
-
-            ROS_INFO("%s - Time for visibility (invalid position): %f", tf_pref.c_str(), diff.toSec());
-
+            if(print)
+            {
+                ros::Duration diff = ros::Time::now() - t01;
+                ROS_INFO("%s - Time for visibility (invalid position): %f", tf_pref.c_str(), diff.toSec());
+            }
 
             return;
         }
 
-        cv::Mat temp_labelling, temp;
 
         std::vector<std::vector<cv::Point> > labels=label(map_erosionOp.clone()/255,8);
 
+        cv::Mat r_map=map_erosionOp.clone();
 
-        unsigned int label_pos=0, prev_label=0;
-        bool found_pos=false, found_prev=false;
+        bool new_v=reachability_map(labels,pos,prev,r_map);
 
 
-        for (unsigned int i=0;i<labels.size();i++){
-            for (unsigned int j=0;j<labels[i].size();j++){
-                if (pos_x==labels[i][j].x && pos_y==labels[i][j].y){
-                    label_pos=i+1;
-                    found_pos=true;
-                }
-                if(prev_x>=0 &&  prev_y>=0)
-                {
-                    if(prev_x==labels[i][j].x && prev_y==labels[i][j].y){
-                        prev_label=i+1;
-                        found_prev=true;
-                    }
-                }
-                if ( found_pos && ((found_prev) || (prev_x < 0) || (prev_y < 0) ))
-                    break;
-            }
-            if(found_pos && ( (found_prev) || (prev_x<0) || (prev_y<0) ) )
-                break;
-        }
-
-        if( ( (prev_label!=label_pos) && found_pos) || (prev_x<0) || (prev_y<0) || proc )
+        if( (new_v) || (prev.x<0) || (prev.y<0) || proc )  //if visibility is changed
         {
-            cv::Mat l_map=map_erosionOp.clone(), unreach_map, regions;
-
-            for (unsigned int i=0;i<labels.size();i++){
-                if( i!=(label_pos-1) ){
-                    for(unsigned int j=0;j<labels[i].size();j++){
-                        l_map.at<uchar>(labels[i][j].x,labels[i][j].y)=0;
-                    }
-                }
-             }
-
-
-            int rad=min(infl,defl);
+            int rad=min(infl,defl);  //if defl<infl, visibility is given by morphological closing
 
 
             cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
                                                    cv::Size( 2*rad + 1, 2*rad+1 ),
                                                    cv::Point( rad, rad ) );
 
-            cv::Mat act_map=l_map.clone();
+            cv::Mat act_map=r_map.clone();
 
+            dilate( act_map, act_map, element);  //actuation space
 
-            dilate( act_map, act_map, element);
+            cv::Mat vis_map=act_map.clone();
 
+            Unreachable unreach(map_or, act_map);
 
-            cv::Mat vis_map=act_map.clone(), vis_map_temp, contours;
-
-            bitwise_not(map_or,temp);
-
-            unreach_map=vis_map|temp;
-
-            bitwise_not( unreach_map.clone() , temp_labelling);
-
-            std::vector<std::vector<cv::Point> > labels_unreach=label(temp_labelling/255,4);
-
-            regions=map_or.clone()/255;
-
-            for (unsigned int i=0;i<labels_unreach.size();i++){
-                for(unsigned int j=0;j<labels_unreach[i].size();j++){
-                        regions.at<uchar>(labels_unreach[i][j].x,labels_unreach[i][j].y)=i+2;
-                }
-            }
-
-            if(infl<defl)
+            if(infl<defl)  //extended sensing radius
             {
-                for (unsigned int k=0;k<labels_unreach.size();k++){//2;k++){//
-                    vector<cv::Point> frontiers;
+                unreach.getFrontiers();
 
-                    for(unsigned int j=0;j<labels_unreach[k].size();j++){
+                cv::Mat regions=unreach.regions;
 
-                        if ((labels_unreach[k][j].x+1)<vis_map.rows)
-                            if(vis_map.at<uchar>(labels_unreach[k][j].x+1,labels_unreach[k][j].y)==255)
-                            {
-                                frontiers.push_back(cv::Point(labels_unreach[k][j].x,labels_unreach[k][j].y));
-                                continue;
-                            }
-                        if ((labels_unreach[k][j].y+1)<vis_map.cols)
-                            if(vis_map.at<uchar>(labels_unreach[k][j].x,labels_unreach[k][j].y+1)==255)
-                            {
-                                frontiers.push_back(cv::Point(labels_unreach[k][j].x,labels_unreach[k][j].y));
-                                continue;
-                            }
-                        if ((labels_unreach[k][j].x-1)>=0)
-                            if(vis_map.at<uchar>(labels_unreach[k][j].x-1,labels_unreach[k][j].y)==255)
-                            {
-                                frontiers.push_back(cv::Point(labels_unreach[k][j].x,labels_unreach[k][j].y));
-                                continue;
-                            }
-                        if ((labels_unreach[k][j].y-1)>=0)
-                            if(vis_map.at<uchar>(labels_unreach[k][j].x,labels_unreach[k][j].y-1)==255)
-                            {
-                                frontiers.push_back(cv::Point(labels_unreach[k][j].x,labels_unreach[k][j].y));
-                                continue;
-                            }
-                    }
+                cv::Mat vis_map_temp, contours;
 
-                    vector<vector<cv::Point> > frontier=cluster_points(frontiers);
-
-
-                    for(unsigned int ff=0;ff<frontier.size();ff++)
+                for (unsigned int k=0;k<unreach.frontiers.size();k++){//2;k++){//
+                    for(unsigned int ff=0;ff<unreach.frontiers[k].size();ff++)
                     {
-                        if(frontier[ff].size()>0)
+                        if(unreach.frontiers[k][ff].size()>0)
                         {
+                            vector<vector<cv::Point> > frontier=unreach.frontiers[k];
+
                             int min_x=vis_map.rows, min_y=vis_map.cols, max_x=-1, max_y=-1;
                             for(unsigned int j=0;j<frontier[ff].size();j++){
 
@@ -1215,7 +1324,7 @@ void Vis_transf::transf_pos(void)
                             {
                                 for(int y=max(min_y-infl,0);y<min(max_y+infl,vis_map.cols);y++)
                                 {
-                                    if(l_map.at<uchar>(x,y)==255)
+                                    if(r_map.at<uchar>(x,y)==255)
                                     {
                                         double sum=0;
                                         for(unsigned int l=0;l<frontier[ff].size();l++){
@@ -2101,50 +2210,15 @@ void Vis_transf::transf_pos(void)
                 }
             }
 
-            map_label=l_map;
+            map_label=r_map;
             map_act=act_map;
             map_vis=vis_map;
 
-            map_debug=unreach_map;
+            map_debug=unreach.unreach_map;
 
-            vector<cv::Mat> channels(3);
+            unsigned char color[3]={0,255,0};
 
-            channels[0]=map_erosionOp.clone();
-            channels[1]=map_erosionOp.clone();
-            channels[2]=map_erosionOp.clone();
-
-            channels[1].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=255;
-            channels[1].at<uchar>(max(pos_x-1,0),pos_y)=255;
-            channels[1].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=255;
-            channels[1].at<uchar>(pos_x,max(pos_y-1,0))=255;
-            channels[1].at<uchar>(pos_x,pos_y)=255;
-            channels[1].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=255;
-            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=255;
-            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=255;
-            channels[1].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=255;
-
-            channels[2].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
-            channels[2].at<uchar>(max(pos_x-1,0),pos_y)=0;
-            channels[2].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
-            channels[2].at<uchar>(pos_x,max(pos_y-1,0))=0;
-            channels[2].at<uchar>(pos_x,pos_y)=0;
-            channels[2].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
-            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
-            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
-            channels[2].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
-
-            channels[0].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
-            channels[0].at<uchar>(max(pos_x-1,0),pos_y)=0;
-            channels[0].at<uchar>(max(pos_x-1,0),min(pos_y+1,map_erosionOp.cols-1))=0;
-            channels[0].at<uchar>(pos_x,max(pos_y-1,0))=0;
-            channels[0].at<uchar>(pos_x,pos_y)=0;
-            channels[0].at<uchar>(pos_x,min(pos_y+1,map_erosionOp.cols-1))=0;
-            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),max(pos_y-1,0))=0;
-            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),pos_y)=0;
-            channels[0].at<uchar>(min(pos_x+1,map_erosionOp.rows-1),min(pos_y+1,map_erosionOp.cols-1))=0;
-
-
-            cv::merge(channels, map_erosionOpPrintColor);
+            map_erosionOpPrintColor=printPoint(map_erosionOp, pos, color);
 
             ros::Duration diff = ros::Time::now() - t01;
 
@@ -2167,8 +2241,7 @@ void Vis_transf::transf_pos(void)
 
         pos_rcv=true;
 
-        prev_x=pos_x;
-        prev_y=pos_y;
+        prev=pos;
     }
     else
         return;
@@ -2242,7 +2315,7 @@ void Vis_transf::publish(void)
 }
 
 
-std::vector<std::vector<cv::Point> >  Vis_transf::label(const cv::Mat binary, int conn)
+std::vector<std::vector<cv::Point> >  label(const cv::Mat binary, int conn)
 {
     std::vector<std::vector<cv::Point> > blobs;
     blobs.clear();
@@ -2282,7 +2355,7 @@ std::vector<std::vector<cv::Point> >  Vis_transf::label(const cv::Mat binary, in
     return blobs;
 }
 
-std::vector<cv::Point> Vis_transf::label_seed(const cv::Mat binary, int conn, cv::Point seed)
+std::vector<cv::Point> label_seed(const cv::Mat binary, int conn, cv::Point seed)
 {
     std::vector<cv::Point> blob;
     blob.clear();
@@ -2318,6 +2391,14 @@ std::vector<cv::Point> Vis_transf::label_seed(const cv::Mat binary, int conn, cv
 
 int main(int argc, char **argv)
 {
+    vector<double> x;
+    x.push_back(0.2);x.push_back(-0.3);x.push_back(-15);x.push_back(100.2);x.push_back(3);x.push_back(100.2);x.push_back(2);
+    FindMax<double> fM(x);
+    FindMin<double> fm(x);
+
+    cout<<"Minimum: "<<"Index-> "<<fm.getInd()<<"; Value-> "<<fm.getVal()<<endl;
+    cout<<"Maximum: "<<"Index-> "<<fM.getInd()<<"; Value-> "<<fM.getVal()<<endl;
+
     ros::init(argc, argv, "visibility");
 
     ros::NodeHandle nh("~");
