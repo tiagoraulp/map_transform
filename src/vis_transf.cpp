@@ -68,8 +68,6 @@ private:
 
     bool checkProceed2(void);
 
-    cv::Mat unreachable_regions(cv::Mat map_or, cv::Mat act_map);
-
     int count;
 
     bool pos_rcv;
@@ -1195,6 +1193,9 @@ public:
             this->iter(vars[i]);
         }
     }
+    FindMax(void)
+    {
+    }
 };
 
 template <typename T>
@@ -1216,7 +1217,42 @@ public:
             this->iter(vars[i]);
         }
     }
+    FindMin(void)
+    {
+    }
 };
+
+cv::Point2i find_crit_points(vector<cv::Point> frontier, cv::Mat r_map, int infl)
+{
+    FindMin<int> min_y, min_x;
+    FindMax<int> max_y, max_x;
+
+    for(unsigned int j=0;j<frontier.size();j++){
+        max_x.iter(frontier[j].x);
+        min_x.iter(frontier[j].x);
+        max_y.iter(frontier[j].y);
+        min_y.iter(frontier[j].y);
+    }
+
+    FindMin<double> crit;
+
+    for(int x=max(min_x.getVal()-infl,0);x<min(max_x.getVal()+infl,r_map.rows);x++)
+    {
+        for(int y=max(min_y.getVal()-infl,0);y<min(max_y.getVal()+infl,r_map.cols);y++)
+        {
+            if(r_map.at<uchar>(x,y)==255)
+            {
+                double sum=0;
+                for(unsigned int l=0;l<frontier.size();l++){
+                    sum+=(frontier[l].x-x)*(frontier[l].x-x)+(frontier[l].y-y)*(frontier[l].y-y);
+                }
+                crit.iter(sum);
+            }
+        }
+    }
+
+    return frontier[crit.getInd()];
+}
 
 
 void Vis_transf::transf_pos(void)
@@ -1304,55 +1340,13 @@ void Vis_transf::transf_pos(void)
                 for (unsigned int k=0;k<unreach.frontiers.size();k++){//2;k++){//
                     for(unsigned int ff=0;ff<unreach.frontiers[k].size();ff++)
                     {
-                        if(unreach.frontiers[k][ff].size()>0)
+                        vector<vector<cv::Point> > frontier=unreach.frontiers[k];
+
+                        if(frontier[ff].size()>0)
                         {
-                            vector<vector<cv::Point> > frontier=unreach.frontiers[k];
+                            cv::Point2i crit=find_crit_points(frontier[ff], r_map, infl+1);
 
-                            int min_x=vis_map.rows, min_y=vis_map.cols, max_x=-1, max_y=-1;
-                            for(unsigned int j=0;j<frontier[ff].size();j++){
-
-                                if(frontier[ff][j].x>max_x)
-                                    max_x=frontier[ff][j].x;
-                                if(frontier[ff][j].y>max_y)
-                                    max_y=frontier[ff][j].y;
-                                if(frontier[ff][j].x<min_x)
-                                    min_x=frontier[ff][j].x;
-                                if(frontier[ff][j].y<min_y)
-                                    min_y=frontier[ff][j].y;
-                            }
-
-                            double min_sum=-1; int opt_x=0, opt_y=0;
-
-                            for(int x=max(min_x-infl,0);x<min(max_x+infl,vis_map.rows);x++)
-                            {
-                                for(int y=max(min_y-infl,0);y<min(max_y+infl,vis_map.cols);y++)
-                                {
-                                    if(r_map.at<uchar>(x,y)==255)
-                                    {
-                                        double sum=0;
-                                        for(unsigned int l=0;l<frontier[ff].size();l++){
-                                            sum+=(frontier[ff][l].x-x)*(frontier[ff][l].x-x)+(frontier[ff][l].y-y)*(frontier[ff][l].y-y);
-                                        }
-                                        if(min_sum==-1)
-                                        {
-                                              min_sum=sum;
-                                              opt_x=x;
-                                              opt_y=y;
-                                        }
-                                        else
-                                        {
-                                            if(sum<min_sum)
-                                            {
-                                                min_sum=sum;
-                                                opt_x=x;
-                                                opt_y=y;
-                                            }
-                                        }
-                                    }
-
-
-                                }
-                            }
+                            int opt_x=crit.x, opt_y=crit.y;
 
                             vector<float> angles;
                             vector<int> angles_x;
