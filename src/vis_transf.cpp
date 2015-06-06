@@ -1134,13 +1134,15 @@ void Unreachable::getRegions(cv::Mat map_or, cv::Mat act_map)
 }
 
 
-template <typename T>
+template <typename T, typename T2=T>
 class FindElem
 {
 protected:
     int n;
     int ind;
     T fv;
+    T2 p;
+
 
     virtual bool func(T var)=0;
 public:
@@ -1157,11 +1159,28 @@ public:
         }
         n++;
     }
+    void iter(T var,T2 pt) {
+        if(n==0)
+        {
+            ind=0;
+            fv=var;
+            p=pt;
+        }
+        else if(func(var))
+        {
+            ind=n;
+            fv=var;
+            p=pt;
+        }
+        n++;
+    }
+
     FindElem()
     {
         n=0;
         ind=0;
         fv=T();
+        p=T2();
     }
 
     int getInd(void)
@@ -1172,15 +1191,19 @@ public:
     {
         return fv;
     }
+    T2 getP(void)
+    {
+        return p;
+    }
 };
 
-template <typename T>
-class FindMax : public FindElem<T>
+template <typename T, typename T2=T>
+class FindMax : public FindElem<T,T2>
 {
 protected:
     bool func(T var)
     {
-        if(var>FindElem<T>::fv)
+        if(var>FindElem<T,T2>::fv)
             return true;
         else
             return false;
@@ -1193,13 +1216,20 @@ public:
             this->iter(vars[i]);
         }
     }
+    FindMax(vector<T> vars, vector<T2> pts)
+    {
+        for(int i=0;i<vars.size();i++)
+        {
+            this->iter(vars[i],pts[i]);
+        }
+    }
     FindMax(void)
     {
     }
 };
 
-template <typename T>
-class FindMin : public FindElem<T>
+template <typename T,typename T2=T>
+class FindMin : public FindElem<T,T2>
 {
 protected:
     bool func(T var)
@@ -1215,6 +1245,13 @@ public:
         for(int i=0;i<vars.size();i++)
         {
             this->iter(vars[i]);
+        }
+    }
+    FindMin(vector<T> vars, vector<T2> pts)
+    {
+        for(int i=0;i<vars.size();i++)
+        {
+            this->iter(vars[i],pts[i]);
         }
     }
     FindMin(void)
@@ -1234,7 +1271,7 @@ cv::Point2i find_crit_points(vector<cv::Point> frontier, cv::Mat r_map, int infl
         min_y.iter(frontier[j].y);
     }
 
-    FindMin<double> crit;
+    FindMin<double, cv::Point2i> crit;
 
     for(int x=max(min_x.getVal()-infl,0);x<min(max_x.getVal()+infl,r_map.rows);x++)
     {
@@ -1246,12 +1283,12 @@ cv::Point2i find_crit_points(vector<cv::Point> frontier, cv::Mat r_map, int infl
                 for(unsigned int l=0;l<frontier.size();l++){
                     sum+=(frontier[l].x-x)*(frontier[l].x-x)+(frontier[l].y-y)*(frontier[l].y-y);
                 }
-                crit.iter(sum);
+                crit.iter(sum,cv::Point2i(x,y));
             }
         }
     }
 
-    return frontier[crit.getInd()];
+    return crit.getP();
 }
 
 
