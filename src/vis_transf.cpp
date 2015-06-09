@@ -1183,6 +1183,14 @@ public:
         p=T2();
     }
 
+    void clear(void)
+    {
+        n=0;
+        ind=0;
+        fv=T();
+        p=T2();
+    }
+
     int getInd(void)
     {
         return ind;
@@ -1259,16 +1267,141 @@ public:
     }
 };
 
-cv::Point2i find_crit_points(vector<cv::Point> frontier, cv::Mat r_map, int infl)
+
+
+template <typename T, typename T2=T>
+class OrderedVector
+{
+protected:
+    vector<T> fv;
+    vector<T2> p;
+
+    virtual bool func(T var, T comp)=0;
+public:
+    unsigned int iter(T var) {
+        typename vector<T>::iterator it=fv.begin();
+        for(unsigned int i=0; i<fv.size(); i++)
+        {
+            if(func(var,fv[i]))
+            {
+                fv.insert(it,var);
+                return i;
+            }
+            it++;
+        }
+        fv.insert(fv.end(),var);
+        return fv.size()-1;
+    }
+    unsigned int iter(T var,T2 pt) {
+        typename vector<T>::iterator it=fv.begin();
+        typename vector<T2>::iterator itp=p.begin();
+        for(unsigned int i=0; i<fv.size(); i++)
+        {
+            if(func(var,fv[i]))
+            {
+                fv.insert(it,var);
+                p.insert(itp,pt);
+                return i;
+            }
+            it++;
+            itp++;
+        }
+        fv.insert(fv.end(),var);
+        p.insert(p.end(),pt);
+        return fv.size()-1;
+    }
+
+    OrderedVector()
+    {
+        fv.clear();
+        p.clear();
+    }
+
+    void clear(void)
+    {
+        fv.clear();
+        p.clear();
+    }
+
+    unsigned getSize(void)
+    {
+        return fv.size();
+    }
+    T getVal(unsigned int ind)
+    {
+        if(ind<fv.size())
+            return fv[ind];
+        else
+            return T();
+    }
+    T2 getP(unsigned int ind)
+    {
+        if(ind<p.size())
+            return p[ind];
+        else
+            return T2();
+    }
+};
+
+template <typename T, typename T2=T>
+class OrderedDecresc : public OrderedVector<T,T2>
+{
+protected:
+    bool func(T var, T comp)
+    {
+        if(var>comp)
+            return true;
+        else
+            return false;
+    }
+public:
+    OrderedDecresc(void)
+    {
+    }
+};
+
+template <typename T, typename T2=T>
+class OrderedCresc : public OrderedVector<T,T2>
+{
+protected:
+    bool func(T var, T comp)
+    {
+        if(var<comp)
+            return true;
+        else
+            return false;
+    }
+public:
+    OrderedCresc(void)
+    {
+    }
+};
+
+class CritPoints
+{
+private:
+    cv::Mat r_map, map_or;
+    int infl;
+    cv::Point2i critP;
+    vector<cv::Point2i> frontier;
+public:
+    CritPoints(cv::Mat map, cv::Mat reach, int rs): r_map(reach), map_or(map), infl(rs)
+    {
+    }
+    cv::Point2i find_crit_point(vector<cv::Point> frontier);
+    vector<float> frontier_extremes(unsigned int &obt_angle);
+};
+
+cv::Point2i CritPoints::find_crit_point(vector<cv::Point> frontier_p)
 {
     FindMin<int> min_y, min_x;
     FindMax<int> max_y, max_x;
 
-    for(unsigned int j=0;j<frontier.size();j++){
-        max_x.iter(frontier[j].x);
-        min_x.iter(frontier[j].x);
-        max_y.iter(frontier[j].y);
-        min_y.iter(frontier[j].y);
+    for(unsigned int j=0;j<frontier_p.size();j++){
+        max_x.iter(frontier_p[j].x);
+        min_x.iter(frontier_p[j].x);
+        max_y.iter(frontier_p[j].y);
+        min_y.iter(frontier_p[j].y);
     }
 
     FindMin<double, cv::Point2i> crit;
@@ -1280,15 +1413,278 @@ cv::Point2i find_crit_points(vector<cv::Point> frontier, cv::Mat r_map, int infl
             if(r_map.at<uchar>(x,y)==255)
             {
                 double sum=0;
-                for(unsigned int l=0;l<frontier.size();l++){
-                    sum+=(frontier[l].x-x)*(frontier[l].x-x)+(frontier[l].y-y)*(frontier[l].y-y);
+                for(unsigned int l=0;l<frontier_p.size();l++){
+                    sum+=(frontier_p[l].x-x)*(frontier_p[l].x-x)+(frontier_p[l].y-y)*(frontier_p[l].y-y);
                 }
                 crit.iter(sum,cv::Point2i(x,y));
             }
         }
     }
 
-    return crit.getP();
+    critP=crit.getP();
+    frontier=frontier_p;
+
+    return critP;
+}
+
+class Find_Obtuse_Angle
+{
+private:
+    unsigned int obt_angle;
+public:
+    OrderedCresc<float, cv::Point2i> angles;
+
+    Find_Obtuse_Angle(void)
+    {
+        obt_angle=0;
+        angles=OrderedCresc<float,cv::Point2i>();
+    }
+
+    void initialize(float a0, float a1)
+    {
+        if((a1-a0)>PI)
+            obt_angle=0;
+        else
+            obt_angle=1;
+    }
+
+    void updateOA(int i0, int i1, int i2, bool p1, bool p2)
+    {
+        float a1,a2;
+        if(p1)
+            a1=2*PI;
+        else
+            a1=0;
+        if(p2)
+            a2=2*PI;
+        else
+            a2=0;
+
+        if( (angles.getVal(i1)-angles.getVal(i0)+a1)>PI  )
+        {
+            obt_angle=i0;
+        }
+        else if( (angles.getVal(i2)-angles.getVal(i1)+a2)>PI  )
+        {
+            obt_angle=i1;
+        }
+        else
+        {
+            FindMax<float> anglediff;
+            for(unsigned int aa=0;aa<(angles.getSize()-1);aa++)
+            {
+                anglediff.iter(angles.getVal(aa+1)-angles.getVal(aa));
+            }
+            anglediff.iter( (angles.getVal(0)+PI)+(PI-angles.getVal(angles.getSize()-1)) );
+
+            obt_angle=anglediff.getInd();
+        }
+    }
+
+    void iter(float angle, cv::Point2i pt)
+    {
+        unsigned int a=angles.iter(angle,pt);
+
+        if(angles.getSize()==2)
+        {
+            initialize(angles.getVal(0),angles.getVal(1));
+        }
+        else if(angles.getSize()>2)
+        {
+            if(a==(angles.getSize()-1))
+            {
+                if( (a)==(obt_angle+1) )
+                {
+                    updateOA(obt_angle, a, 0, false, true);
+                }
+            }
+            else
+            {
+                if(a==(obt_angle+1) )
+                {
+                    updateOA(obt_angle, a, a+1, false, false);
+                }
+                else if( a==0 && (obt_angle+1)==(angles.getSize()-1) )
+                {
+                    updateOA(obt_angle+1, a, a+1, true, false);
+                }
+                else if(a<=obt_angle)
+                {
+                    obt_angle+=1;
+                }
+            }
+        }
+    }
+
+    unsigned int getObt(void)
+    {
+        return obt_angle;
+    }
+
+    void clear(void)
+    {
+        obt_angle=0;
+        angles=OrderedCresc<float,cv::Point2i>();
+    }
+};
+
+vector<float> CritPoints::frontier_extremes(unsigned int &obt)
+{
+    Find_Obtuse_Angle oa;
+
+    for(unsigned int l=0;l<frontier.size();l++)
+    {
+        float angle=atan2(frontier[l].y-critP.y,frontier[l].x-critP.x);
+
+        oa.iter(angle,cv::Point2i(frontier[l].x,frontier[l].y));
+    }
+
+    vector<float> extremes;extremes.clear();
+
+    if(oa.angles.getSize()==1)
+    {
+        FindMin<float,cv::Point2i> mp;
+
+        for(int rowx=max((oa.angles.getP(0).x-1),0);rowx<=min((oa.angles.getP(0).x+1),map_or.rows-1);rowx++)
+        {
+            for(int coly=max((oa.angles.getP(0).y-1),0);coly<=min((oa.angles.getP(0).y+1),map_or.cols-1);coly++)
+            {
+                if( map_or.at<uchar>(rowx,coly)==0)
+                {
+                    float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
+                    mp.iter(dist,cv::Point2i(rowx,coly));
+                }
+            }
+        }
+        extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().y-critP.x));
+
+        mp.clear();
+
+        for(int rowx=max((oa.angles.getP(0).x-1),0);rowx<=min((oa.angles.getP(0).x+1),map_or.rows-1);rowx++)
+        {
+            for(int coly=max((oa.angles.getP(0).y-1),0);coly<=min((oa.angles.getP(0).y+1),map_or.cols-1);coly++)
+            {
+                float angle=atan2(coly-critP.y,rowx-critP.x);
+                if(map_or.at<uchar>(rowx,coly)==0)
+                {
+
+                    if (
+                         ( (extremes[0]>oa.angles.getVal(0)) && (angle<oa.angles.getVal(0)) && ( (extremes[0]-angle)<PI ) ) ||
+                         ( (extremes[0]<angle) && (angle<oa.angles.getVal(0)) && ( (extremes[0]+2*PI-angle)<PI ) ) ||
+                         ( (extremes[0]>oa.angles.getVal(0)) && (angle>extremes[0]) && ( (extremes[0]+2*PI-angle)<PI ) ) ||
+                         ( (angle>oa.angles.getVal(0)) && (extremes[0]<oa.angles.getVal(0)) && ( (angle-extremes[0])<PI ) ) ||
+                         ( (angle<extremes[0]) && (extremes[0]<oa.angles.getVal(0)) && ( (angle+2*PI-extremes[0])<PI ) ) ||
+                         ( (angle>oa.angles.getVal(0)) && (extremes[0]>angle) && ( (angle+2*PI-extremes[0])<PI ) )
+                       )
+                    {
+                        float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
+                        mp.iter(dist,cv::Point2i(rowx,coly));
+                    }
+                }
+            }
+        }
+
+        if( atan2(mp.getP().y-critP.y,mp.getP().x-critP.x)<extremes[0] )
+            extremes.insert(extremes.begin(),atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
+        else
+            extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
+
+        if( (extremes[1]-extremes[0])>PI )
+            obt=0;
+        else
+            obt=1;
+
+    }
+    else if(oa.angles.getSize()>1)
+    {
+        if(oa.getObt()==(oa.angles.getSize()-1))
+        {
+            FindMin<float,cv::Point2i> mp;
+
+            for(int rowx=max((oa.angles.getP(oa.getObt()).x-1),0);rowx<=min((oa.angles.getP(oa.getObt()).x+1),map_or.rows-1);rowx++)
+            {
+                for(int coly=max((oa.angles.getP(oa.getObt()).y-1),0);coly<=min((oa.angles.getP(oa.getObt()).y+1),map_or.cols-1);coly++)
+                {
+                    float angle=atan2(coly-critP.y,rowx-critP.x);
+                    if( (angle>oa.angles.getVal(oa.getObt()) || angle<oa.angles.getVal(0) ) && map_or.at<uchar>(rowx,coly)==0)
+                    {
+                        float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
+                        mp.iter(dist,cv::Point2i(rowx,coly));
+                    }
+                }
+            }
+            extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
+
+            mp.clear();
+
+            for(int rowx=max((oa.angles.getP(0).x-1),0);rowx<=min((oa.angles.getP(0).x+1),map_or.rows-1);rowx++)
+            {
+                for(int coly=max((oa.angles.getP(0).y-1),0);coly<=min((oa.angles.getP(0).y+1),map_or.cols-1);coly++)
+                {
+                    float angle=atan2(coly-critP.y,rowx-critP.x);
+                    if((angle>oa.angles.getVal(oa.getObt()) || angle<oa.angles.getVal(0)) && map_or.at<uchar>(rowx,coly)==0)
+                    {
+                        float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
+                        mp.iter(dist,cv::Point2i(rowx,coly));
+                    }
+                }
+            }
+
+            if( atan2(mp.getP().y-critP.y,mp.getP().x-critP.x)<extremes[0] )
+                extremes.insert(extremes.begin(),atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
+            else
+                extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
+
+            if( (extremes[1]-extremes[0])>PI )
+                obt=0;
+            else
+                obt=1;
+        }
+        else
+        {
+            FindMin<float,cv::Point2i> mp;
+            for(int rowx=max((oa.angles.getP(oa.getObt()).x-1),0);rowx<=min((oa.angles.getP(oa.getObt()).x+1),map_or.rows-1);rowx++)
+            {
+                for(int coly=max((oa.angles.getP(oa.getObt()).y-1),0);coly<=min((oa.angles.getP(oa.getObt()).y+1),map_or.cols-1);coly++)
+                {
+                    float angle=atan2(coly-critP.y,rowx-critP.x);
+                    if(angle>oa.angles.getVal(oa.getObt()) && angle<oa.angles.getVal(oa.getObt()+1) && map_or.at<uchar>(rowx,coly)==0)
+                    {
+                        float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
+                        mp.iter(dist,cv::Point2i(rowx,coly));
+                    }
+                }
+            }
+
+            extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
+
+            mp.clear();
+
+            for(int rowx=max((oa.angles.getP(oa.getObt()+1).x-1),0);rowx<=min((oa.angles.getP(oa.getObt()+1).x+1),map_or.rows-1);rowx++)
+            {
+                for(int coly=max((oa.angles.getP(oa.getObt()+1).y-1),0);coly<=min((oa.angles.getP(oa.getObt()+1).y+1),map_or.cols-1);coly++)
+                {
+                    float angle=atan2(coly-critP.y,rowx-critP.x);
+                    if(angle>oa.angles.getVal(oa.getObt()) && angle<oa.angles.getVal(oa.getObt()+1) && map_or.at<uchar>(rowx,coly)==0)
+                    {
+                        float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
+                        mp.iter(dist,cv::Point2i(rowx,coly));
+                    }
+                }
+            }
+
+            if( atan2(mp.getP().y-critP.y,mp.getP().x-critP.x)<extremes[0] )
+                extremes.insert(extremes.begin(),atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
+            else
+                extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
+
+            if( (extremes[1]-extremes[0])>PI )
+                obt=0;
+            else
+                obt=1;
+        }
+    }
+    return extremes;
 }
 
 
@@ -1374,6 +1770,8 @@ void Vis_transf::transf_pos(void)
 
                 cv::Mat vis_map_temp, contours;
 
+                CritPoints critP(map_or, r_map, infl);
+
                 for (unsigned int k=0;k<unreach.frontiers.size();k++){//2;k++){//
                     for(unsigned int ff=0;ff<unreach.frontiers[k].size();ff++)
                     {
@@ -1381,422 +1779,13 @@ void Vis_transf::transf_pos(void)
 
                         if(frontier[ff].size()>0)
                         {
-                            cv::Point2i crit=find_crit_points(frontier[ff], r_map, infl+1);
+                            cv::Point2i crit=critP.find_crit_point(frontier[ff]);
 
                             int opt_x=crit.x, opt_y=crit.y;
 
-                            vector<float> angles;
-                            vector<int> angles_x;
-                            vector<int> angles_y;
-
                             unsigned int obt_angle=-1;
 
-                            for(unsigned int l=0;l<frontier[ff].size();l++)
-                            {
-                                float angle=atan2(frontier[ff][l].y-opt_y,frontier[ff][l].x-opt_x);
-                                vector<float>::iterator it=angles.begin();
-                                vector<int>::iterator itx=angles_x.begin();
-                                vector<int>::iterator ity=angles_y.begin();
-                                if(angles.size()==0)
-                                {
-                                    angles.push_back(angle);
-                                    angles_x.push_back(frontier[ff][l].x);
-                                    angles_y.push_back(frontier[ff][l].y);
-                                }
-                                else
-                                {
-                                    for(unsigned int a=0;a<angles.size();a++)
-                                    {
-                                        if(angle<angles[a])
-                                        {
-                                            angles.insert(it,angle);
-                                            angles_x.insert(itx,frontier[ff][l].x);
-                                            angles_y.insert(ity,frontier[ff][l].y);
-
-                                            if(angles.size()==2)
-                                            {
-                                                if((angles[1]-angles[0])>PI)
-                                                    obt_angle=0;
-                                                else
-                                                    obt_angle=1;
-                                            }
-                                            else if(angles.size()>2)
-                                            {
-                                                if(a==(obt_angle+1) )
-                                                {
-                                                    if( (angles[a]-angles[obt_angle])>PI  )
-                                                    {
-                                                        obt_angle=obt_angle;
-                                                    }
-                                                    else if(  (angles[a+1]-angles[a])>PI  )
-                                                    {
-                                                        obt_angle=a;
-                                                    }
-                                                    else
-                                                    {
-                                                        bool found=false;
-                                                        float anglediff;
-
-                                                        for(unsigned int aa=0;aa<(angles.size()-1);aa++)
-                                                        {
-                                                            if(!found)
-                                                            {
-                                                                anglediff=angles[aa+1]-angles[aa];
-                                                                obt_angle=0;
-                                                                found=true;
-                                                            }
-                                                            else
-                                                            {
-                                                                if( (angles[aa+1]-angles[aa])>anglediff )
-                                                                {
-                                                                    anglediff=angles[aa+1]-angles[aa];
-                                                                    obt_angle=aa;
-                                                                }
-                                                            }
-                                                        }
-                                                        if( ((angles[0]+PI)+(PI-angles[angles.size()-1]))>anglediff )
-                                                        {
-                                                            obt_angle=angles.size()-1;
-                                                        }
-                                                    }
-                                                }
-                                                else if( a==0 && (obt_angle+1)==(angles.size()-1) )
-                                                {
-                                                    if( ( (angles[a]+PI)+(PI-angles[obt_angle+1]) )>PI  )
-                                                    {
-                                                        obt_angle=obt_angle+1;
-                                                    }
-                                                    else if(  (angles[a+1]-angles[a])>PI  )
-                                                    {
-                                                        obt_angle=a;
-                                                    }
-                                                    else
-                                                    {
-                                                        bool found=false;
-                                                        float anglediff;
-
-                                                        for(unsigned int aa=0;aa<(angles.size()-1);aa++)
-                                                        {
-                                                            if(!found)
-                                                            {
-                                                                anglediff=angles[aa+1]-angles[aa];
-                                                                obt_angle=0;
-                                                                found=true;
-                                                            }
-                                                            else
-                                                            {
-                                                                if( (angles[aa+1]-angles[aa])>anglediff )
-                                                                {
-                                                                    anglediff=angles[aa+1]-angles[aa];
-                                                                    obt_angle=aa;
-                                                                }
-                                                            }
-                                                        }
-                                                        if( ((angles[0]+PI)+(PI-angles[angles.size()-1]))>anglediff )
-                                                        {
-                                                            obt_angle=angles.size()-1;
-                                                        }
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                     if(a<=obt_angle)
-                                                         obt_angle+=1;
-                                                }
-                                            }
-                                            break;
-                                        }
-                                        it++;
-                                        itx++;
-                                        ity++;
-                                    }
-                                    if(angle>=angles[angles.size()-1])
-                                    {
-                                        angles.insert(angles.end(),angle);
-                                        angles_x.insert(angles_x.end(),frontier[ff][l].x);
-                                        angles_y.insert(angles_y.end(),frontier[ff][l].y);
-
-                                        if(angles.size()==2)
-                                        {
-                                            if((angles[1]-angles[0])>PI)
-                                                obt_angle=0;
-                                            else
-                                                obt_angle=1;
-
-                                        }
-                                        else if(angles.size()>2)
-                                        {
-                                            if( (angles.size()-1)==(obt_angle+1) )
-                                            {
-                                                if( (angles[(angles.size()-1)]-angles[obt_angle])>PI  )
-                                                {
-                                                    obt_angle=obt_angle;
-                                                }
-                                                else if(  ( (angles[0]+PI)+(PI-angles[(angles.size()-1)]) )>PI  )
-                                                {
-                                                    obt_angle=(angles.size()-1);
-                                                }
-                                                else
-                                                {
-                                                    bool found=false;
-
-                                                    float anglediff;
-
-                                                    for(unsigned int aa=0;aa<(angles.size()-1);aa++)
-                                                    {
-                                                        if(!found)
-                                                        {
-                                                            anglediff=angles[aa+1]-angles[aa];
-                                                            obt_angle=0;
-                                                            found=true;
-                                                        }
-                                                        else
-                                                        {
-                                                            if( (angles[aa+1]-angles[aa])>anglediff )
-                                                            {
-                                                                anglediff=angles[aa+1]-angles[aa];
-                                                                obt_angle=aa;
-                                                            }
-                                                        }
-                                                    }
-                                                    if( ((angles[0]+PI)+(PI-angles[angles.size()-1]))>anglediff )
-                                                    {
-                                                        obt_angle=angles.size()-1;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            vector<float> extremes;extremes.clear();
-
-                            if(angles.size()==1)
-                            {
-                                float min_dist=-1;
-                                int min_x=0, min_y=0;
-
-                                for(int rowx=max((angles_x[0]-1),0);rowx<=min((angles_x[0]+1),regions.rows-1);rowx++)
-                                {
-                                    for(int coly=max((angles_y[0]-1),0);coly<=min((angles_y[0]+1),regions.cols-1);coly++)
-                                    {
-                                        if( map_or.at<uchar>(rowx,coly)==0)
-                                        {
-                                            float dist=(rowx-opt_x)*(rowx-opt_x)+(coly-opt_y)*(coly-opt_y);
-                                            if(min_dist==-1)
-                                            {
-                                                min_dist=dist;
-                                                min_x=rowx;
-                                                min_y=coly;
-                                            }
-                                            else
-                                            {
-                                                if(dist<min_dist)
-                                                {
-                                                    min_dist=dist;
-                                                    min_x=rowx;
-                                                    min_y=coly;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
-
-                                min_dist=-1;
-                                for(int rowx=max((angles_x[0]-1),0);rowx<=min((angles_x[0]+1),regions.rows-1);rowx++)
-                                {
-                                    for(int coly=max((angles_y[0]-1),0);coly<=min((angles_y[0]+1),regions.cols-1);coly++)
-                                    {
-                                        float angle=atan2(coly-opt_y,rowx-opt_x);
-                                        if(map_or.at<uchar>(rowx,coly)==0)
-                                        {
-
-                                            if (
-                                                 ( (extremes[0]>angles[0]) && (angle<angles[0]) && ( (extremes[0]-angle)<PI ) ) ||
-                                                 ( (extremes[0]<angle) && (angle<angles[0]) && ( (extremes[0]+2*PI-angle)<PI ) ) ||
-                                                 ( (extremes[0]>angles[0]) && (angle>extremes[0]) && ( (extremes[0]+2*PI-angle)<PI ) ) ||
-                                                 ( (angle>angles[0]) && (extremes[0]<angles[0]) && ( (angle-extremes[0])<PI ) ) ||
-                                                 ( (angle<extremes[0]) && (extremes[0]<angles[0]) && ( (angle+2*PI-extremes[0])<PI ) ) ||
-                                                 ( (angle>angles[0]) && (extremes[0]>angle) && ( (angle+2*PI-extremes[0])<PI ) )
-                                               )
-                                            {
-                                                float dist=(rowx-opt_x)*(rowx-opt_x)+(coly-opt_y)*(coly-opt_y);
-                                                if(min_dist==-1)
-                                                {
-                                                    min_dist=dist;
-                                                    min_x=rowx;
-                                                    min_y=coly;
-                                                }
-                                                else
-                                                {
-                                                    if(dist<min_dist)
-                                                    {
-                                                        min_dist=dist;
-                                                        min_x=rowx;
-                                                        min_y=coly;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if( atan2(min_y-opt_y,min_x-opt_x)<extremes[0] )
-                                    extremes.insert(extremes.begin(),atan2(min_y-opt_y,min_x-opt_x));
-                                else
-                                    extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
-
-                                if( (extremes[1]-extremes[0])>PI )
-                                    obt_angle=0;
-                                else
-                                    obt_angle=1;
-
-                            }
-                            else if(angles.size()>1)
-                            {
-                                if(obt_angle==(angles.size()-1))
-                                {
-                                    float min_dist=-1;
-                                    int min_x=0, min_y=0;
-                                    for(int rowx=max((angles_x[obt_angle]-1),0);rowx<=min((angles_x[obt_angle]+1),regions.rows-1);rowx++)
-                                    {
-                                        for(int coly=max((angles_y[obt_angle]-1),0);coly<=min((angles_y[obt_angle]+1),regions.cols-1);coly++)
-                                        {
-                                            float angle=atan2(coly-opt_y,rowx-opt_x);
-                                            if( (angle>angles[obt_angle] || angle<angles[0] ) && map_or.at<uchar>(rowx,coly)==0)
-                                            {
-                                                float dist=(rowx-opt_x)*(rowx-opt_x)+(coly-opt_y)*(coly-opt_y);
-                                                if(min_dist==-1)
-                                                {
-                                                    min_dist=dist;
-                                                    min_x=rowx;
-                                                    min_y=coly;
-                                                }
-                                                else
-                                                {
-                                                    if(dist<min_dist)
-                                                    {
-                                                        min_dist=dist;
-                                                        min_x=rowx;
-                                                        min_y=coly;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
-
-                                    min_dist=-1;
-                                    for(int rowx=max((angles_x[0]-1),0);rowx<=min((angles_x[0]+1),regions.rows-1);rowx++)
-                                    {
-                                        for(int coly=max((angles_y[0]-1),0);coly<=min((angles_y[0]+1),regions.cols-1);coly++)
-                                        {
-                                            float angle=atan2(coly-opt_y,rowx-opt_x);
-                                            if((angle>angles[obt_angle] || angle<angles[0]) && map_or.at<uchar>(rowx,coly)==0)
-                                            {
-                                                float dist=(rowx-opt_x)*(rowx-opt_x)+(coly-opt_y)*(coly-opt_y);
-                                                if(min_dist==-1)
-                                                {
-                                                    min_dist=dist;
-                                                    min_x=rowx;
-                                                    min_y=coly;
-                                                }
-                                                else
-                                                {
-                                                    if(dist<min_dist)
-                                                    {
-                                                        min_dist=dist;
-                                                        min_x=rowx;
-                                                        min_y=coly;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if( atan2(min_y-opt_y,min_x-opt_x)<extremes[0] )
-                                        extremes.insert(extremes.begin(),atan2(min_y-opt_y,min_x-opt_x));
-                                    else
-                                        extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
-
-                                    if( (extremes[1]-extremes[0])>PI )
-                                        obt_angle=0;
-                                    else
-                                        obt_angle=1;
-                                }
-                                else
-                                {
-                                    float min_dist=-1;
-                                    int min_x=0, min_y=0;
-                                    for(int rowx=max((angles_x[obt_angle]-1),0);rowx<=min((angles_x[obt_angle]+1),regions.rows-1);rowx++)
-                                    {
-                                        for(int coly=max((angles_y[obt_angle]-1),0);coly<=min((angles_y[obt_angle]+1),regions.cols-1);coly++)
-                                        {
-                                            float angle=atan2(coly-opt_y,rowx-opt_x);
-                                            if(angle>angles[obt_angle] && angle<angles[obt_angle+1] && map_or.at<uchar>(rowx,coly)==0)
-                                            {
-                                                float dist=(rowx-opt_x)*(rowx-opt_x)+(coly-opt_y)*(coly-opt_y);
-                                                if(min_dist==-1)
-                                                {
-                                                    min_dist=dist;
-                                                    min_x=rowx;
-                                                    min_y=coly;
-                                                }
-                                                else
-                                                {
-                                                    if(dist<min_dist)
-                                                    {
-                                                        min_dist=dist;
-                                                        min_x=rowx;
-                                                        min_y=coly;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
-
-                                    min_dist=-1;
-                                    for(int rowx=max((angles_x[obt_angle+1]-1),0);rowx<=min((angles_x[obt_angle+1]+1),regions.rows-1);rowx++)
-                                    {
-                                        for(int coly=max((angles_y[obt_angle+1]-1),0);coly<=min((angles_y[obt_angle+1]+1),regions.cols-1);coly++)
-                                        {
-                                            float angle=atan2(coly-opt_y,rowx-opt_x);
-                                            if(angle>angles[obt_angle] && angle<angles[obt_angle+1] && map_or.at<uchar>(rowx,coly)==0)
-                                            {
-                                                float dist=(rowx-opt_x)*(rowx-opt_x)+(coly-opt_y)*(coly-opt_y);
-                                                if(min_dist==-1)
-                                                {
-                                                    min_dist=dist;
-                                                    min_x=rowx;
-                                                    min_y=coly;
-                                                }
-                                                else
-                                                {
-                                                    if(dist<min_dist)
-                                                    {
-                                                        min_dist=dist;
-                                                        min_x=rowx;
-                                                        min_y=coly;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if( atan2(min_y-opt_y,min_x-opt_x)<extremes[0] )
-                                        extremes.insert(extremes.begin(),atan2(min_y-opt_y,min_x-opt_x));
-                                    else
-                                        extremes.push_back(atan2(min_y-opt_y,min_x-opt_x));
-
-                                    if( (extremes[1]-extremes[0])>PI )
-                                        obt_angle=0;
-                                    else
-                                        obt_angle=1;
-                                }
-                            }
+                            vector<float> extremes=critP.frontier_extremes(obt_angle);
 
                             //// TODO:neighbor points
 
