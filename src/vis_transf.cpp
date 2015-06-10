@@ -68,6 +68,10 @@ private:
 
     bool checkProceed2(void);
 
+    bool reachability_map(std::vector<std::vector<cv::Point> > labels, cv::Point2i pos, cv::Mat & r_map);
+
+    vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp);
+
     int count;
 
     bool pos_rcv;
@@ -512,10 +516,9 @@ public:
     }
 };
 
-bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
+bool raytracing(cv::Mat map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest, float dist_t, bool (*func)(cv::Mat&,cv::Point2i,cv::Point2i))
 {
-    float dist_t=sqrt( (dest_x-opt_x)*(dest_x-opt_x)+(dest_y-opt_y)*(dest_y-opt_y) );
-    float angle=atan2(dest_y-opt_y, dest_x-opt_x);
+    float angle=atan2(dest.y-opt.y, dest.x-opt.x);
 
     float cos_ang=cos(angle);
     float sin_ang=sin(angle);
@@ -524,10 +527,10 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
     float sign_y=0; if(sin_ang!=0) sign_y=sin_ang/abs(sin_ang);
 
 
-    int p_x=opt_x;
-    int p_y=opt_y;
+    int p_x=ref.x;
+    int p_y=ref.y;
 
-    float temp, tempx=opt_x, tempy=opt_y, temp_tx, temp_ty;
+    float temp, tempx=ref.x, tempy=ref.y, temp_tx, temp_ty;
 
     if(cos_ang!=0)
     {
@@ -561,25 +564,15 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
     else
         p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
 
-    float dist=0;
+    float dist=sqrt( (ref.x-opt.x)*(ref.x-opt.x)+(ref.y-opt.y)*(ref.y-opt.y) );
 
 
     while( (dist+temp)<=dist_t && p_x>=0 && p_x<map.rows && p_y>=0 && p_y<map.cols )
     {
         dist=dist+temp;
 
-
-        if( map.at<uchar>(p_x,p_y)==0 )
+        if(!(*func)(map, cv::Point2i(p_x,p_y), cv::Point2i(prev_px,prev_py)))
             return false;
-
-        if( (abs(prev_px-p_x)+abs(prev_py-p_y))==2 )
-        {
-            if( map.at<uchar>(prev_px,p_y)==0 )
-                return false;
-
-            if( map.at<uchar>(p_x,prev_py)==0 )
-                return false;
-        }
 
         tempx=tempx+temp*cos_ang;
         tempy=tempy+temp*sin_ang;
@@ -630,6 +623,39 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
 
     return true;
 }
+
+
+bool checkMap(cv::Mat &map, cv::Point2i p, cv::Point2i prev)
+{
+    if( map.at<uchar>(p.x,p.y)==0 )
+        return false;
+
+    if( (abs(prev.x-p.x)+abs(prev.y-p.y))==2 )
+    {
+        if( map.at<uchar>(prev.x,p.y)==0 )
+            return false;
+
+        if( map.at<uchar>(p.x,prev.y)==0 )
+            return false;
+    }
+
+    return true;
+}
+
+bool print2Map(cv::Mat &map, cv::Point2i p, cv::Point2i prev)//, cv::Point2i prev)
+{
+    map.at<uchar>(p.x,p.y)=0;
+
+    return true;
+}
+
+
+bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
+{
+    float dist_t=sqrt( (dest_x-opt_x)*(dest_x-opt_x)+(dest_y-opt_y)*(dest_y-opt_y) );
+    return raytracing(map, cv::Point2i(opt_x,opt_y), cv::Point2i(opt_x,opt_y), cv::Point2i(dest_x,dest_y), dist_t, &checkMap);
+}
+
 
 cv::Mat brute_force(cv::Mat map, cv::Mat reach, int defl)
 {
@@ -1024,7 +1050,8 @@ cv::Mat printPoint(cv::Mat img, cv::Point2i pos, unsigned char* color)
     return ret;
 }
 
-bool reachability_map(std::vector<std::vector<cv::Point> > labels, cv::Point2i pos, cv::Point2i prev, cv::Mat & r_map)
+
+bool Vis_transf::reachability_map(std::vector<std::vector<cv::Point> > labels, cv::Point2i pos, cv::Mat & r_map)
 {
     bool found_pos=false, found_prev=false;
     unsigned int label_pos=0, prev_label=0;
@@ -1377,55 +1404,6 @@ public:
     }
 };
 
-class CritPoints
-{
-private:
-    cv::Mat r_map, map_or;
-    int infl;
-    cv::Point2i critP;
-    vector<cv::Point2i> frontier;
-public:
-    CritPoints(cv::Mat map, cv::Mat reach, int rs): r_map(reach), map_or(map), infl(rs)
-    {
-    }
-    cv::Point2i find_crit_point(vector<cv::Point> frontier);
-    vector<float> frontier_extremes(unsigned int &obt_angle);
-};
-
-cv::Point2i CritPoints::find_crit_point(vector<cv::Point> frontier_p)
-{
-    FindMin<int> min_y, min_x;
-    FindMax<int> max_y, max_x;
-
-    for(unsigned int j=0;j<frontier_p.size();j++){
-        max_x.iter(frontier_p[j].x);
-        min_x.iter(frontier_p[j].x);
-        max_y.iter(frontier_p[j].y);
-        min_y.iter(frontier_p[j].y);
-    }
-
-    FindMin<double, cv::Point2i> crit;
-
-    for(int x=max(min_x.getVal()-infl,0);x<min(max_x.getVal()+infl,r_map.rows);x++)
-    {
-        for(int y=max(min_y.getVal()-infl,0);y<min(max_y.getVal()+infl,r_map.cols);y++)
-        {
-            if(r_map.at<uchar>(x,y)==255)
-            {
-                double sum=0;
-                for(unsigned int l=0;l<frontier_p.size();l++){
-                    sum+=(frontier_p[l].x-x)*(frontier_p[l].x-x)+(frontier_p[l].y-y)*(frontier_p[l].y-y);
-                }
-                crit.iter(sum,cv::Point2i(x,y));
-            }
-        }
-    }
-
-    critP=crit.getP();
-    frontier=frontier_p;
-
-    return critP;
-}
 
 class Find_Obtuse_Angle
 {
@@ -1528,7 +1506,165 @@ public:
     }
 };
 
-vector<float> CritPoints::frontier_extremes(unsigned int &obt)
+
+class CritPoints
+{
+private:
+    cv::Mat r_map, map_or;
+    int infl;
+    cv::Point2i critP;
+    vector<cv::Point2i> frontier;
+    vector<float> extremes;
+    vector<cv::Point2i> extremesP;
+    unsigned int obt;
+    cv::Point2i find_extreme(cv::Point2i pt, float a0, float a1, bool special=false);
+    void extremePoints(cv::Point2i pt, cv::Point2i pt2, float a0, float a1, bool first=false);
+    float getAngle(cv::Point2i pt);
+public:
+    CritPoints(cv::Mat map, cv::Mat reach, int rs): r_map(reach), map_or(map), infl(rs)
+    {
+    }
+    cv::Point2i find_crit_point(vector<cv::Point> frontier);
+    vector<float> frontier_extremes(void);
+    cv::Point2i getCrit(void)
+    {
+        return critP;
+    }
+    vector<float> getExtremes(void)
+    {
+        return extremes;
+    }
+    vector<cv::Point2i> getExtremesP(void)
+    {
+        return extremesP;
+    }
+    unsigned int getObt(void)
+    {
+        return obt;
+    }
+};
+
+cv::Point2i CritPoints::find_crit_point(vector<cv::Point> frontier_p)
+{
+    FindMin<int> min_y, min_x;
+    FindMax<int> max_y, max_x;
+
+    for(unsigned int j=0;j<frontier_p.size();j++){
+        max_x.iter(frontier_p[j].x);
+        min_x.iter(frontier_p[j].x);
+        max_y.iter(frontier_p[j].y);
+        min_y.iter(frontier_p[j].y);
+    }
+
+    FindMin<double, cv::Point2i> crit;
+
+    for(int x=max(min_x.getVal()-infl,0);x<min(max_x.getVal()+infl,r_map.rows);x++)
+    {
+        for(int y=max(min_y.getVal()-infl,0);y<min(max_y.getVal()+infl,r_map.cols);y++)
+        {
+            if(r_map.at<uchar>(x,y)==255)
+            {
+                double sum=0;
+                for(unsigned int l=0;l<frontier_p.size();l++){
+                    sum+=(frontier_p[l].x-x)*(frontier_p[l].x-x)+(frontier_p[l].y-y)*(frontier_p[l].y-y);
+                }
+                crit.iter(sum,cv::Point2i(x,y));
+            }
+        }
+    }
+
+    critP=crit.getP();
+    frontier=frontier_p;
+
+    return critP;
+}
+
+
+cv::Point2i CritPoints::find_extreme(cv::Point2i pt, float a0, float a1, bool special)
+{
+    FindMin<float,cv::Point2i> mp;
+    for(int rowx=max((pt.x-1),0);rowx<=min((pt.x+1),map_or.rows-1);rowx++)
+    {
+        for(int coly=max((pt.y-1),0);coly<=min((pt.y+1),map_or.cols-1);coly++)
+        {
+            float angle=atan2(coly-critP.y,rowx-critP.x);
+            bool inside_region;
+
+            if(special)
+                inside_region=(
+                                ( (a0>a1) && (angle<a1) && ( (a0-angle)<PI ) ) ||
+                                ( (a0<angle) && (angle<a1) && ( (a0+2*PI-angle)<PI ) ) ||
+                                ( (a0>a1) && (angle>a0) && ( (a0+2*PI-angle)<PI ) ) ||
+                                ( (angle>a1) && (a0<a1) && ( (angle-a0)<PI ) ) ||
+                                ( (angle<a0) && (a0<a1) && ( (angle+2*PI-a0)<PI ) ) ||
+                                ( (angle>a1) && (a0>angle) && ( (angle+2*PI-a0)<PI ) )
+                              );
+            else
+            {
+                if(a0<a1)
+                    inside_region=(angle>a0 && angle<a1);
+                else
+                    inside_region=(angle>a0 || angle<a1);
+            }
+
+            if(inside_region  && map_or.at<uchar>(rowx,coly)==0)
+            {
+                float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
+                mp.iter(dist,cv::Point2i(rowx,coly));
+            }
+        }
+    }
+
+    return mp.getP();
+
+
+}
+
+float CritPoints::getAngle(cv::Point2i pt){
+    return atan2(pt.y-critP.y,pt.x-critP.x);
+}
+
+void CritPoints::extremePoints(cv::Point2i pt, cv::Point2i pt2, float a0, float a1, bool first)
+{
+    extremes.clear();
+    extremesP.clear();
+    float e;
+    cv::Point2i ptf;
+
+    if(first)
+        ptf=find_extreme(pt, -4*PI, 4*PI);
+    else
+        ptf=find_extreme(pt, a0, a1);
+
+    extremesP.push_back(ptf);
+    e=getAngle(ptf);
+    extremes.push_back(e);
+
+    if(first)
+        ptf=find_extreme(pt2, extremes[0], a1, true);
+    else
+        ptf=find_extreme(pt2, a0, a1);
+
+    e=getAngle(ptf);
+
+    if( e<extremes[0] )
+    {
+        extremes.insert(extremes.begin(),e);
+        extremesP.insert(extremesP.begin(),ptf);
+    }
+    else
+    {
+        extremes.push_back(e);
+        extremesP.push_back(ptf);
+    }
+
+    if( (extremes[1]-extremes[0])>PI )
+        obt=0;
+    else
+        obt=1;
+}
+
+vector<float> CritPoints::frontier_extremes(void)
 {
     Find_Obtuse_Angle oa;
 
@@ -1539,152 +1675,71 @@ vector<float> CritPoints::frontier_extremes(unsigned int &obt)
         oa.iter(angle,cv::Point2i(frontier[l].x,frontier[l].y));
     }
 
-    vector<float> extremes;extremes.clear();
-
     if(oa.angles.getSize()==1)
     {
-        FindMin<float,cv::Point2i> mp;
-
-        for(int rowx=max((oa.angles.getP(0).x-1),0);rowx<=min((oa.angles.getP(0).x+1),map_or.rows-1);rowx++)
-        {
-            for(int coly=max((oa.angles.getP(0).y-1),0);coly<=min((oa.angles.getP(0).y+1),map_or.cols-1);coly++)
-            {
-                if( map_or.at<uchar>(rowx,coly)==0)
-                {
-                    float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
-                    mp.iter(dist,cv::Point2i(rowx,coly));
-                }
-            }
-        }
-        extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().y-critP.x));
-
-        mp.clear();
-
-        for(int rowx=max((oa.angles.getP(0).x-1),0);rowx<=min((oa.angles.getP(0).x+1),map_or.rows-1);rowx++)
-        {
-            for(int coly=max((oa.angles.getP(0).y-1),0);coly<=min((oa.angles.getP(0).y+1),map_or.cols-1);coly++)
-            {
-                float angle=atan2(coly-critP.y,rowx-critP.x);
-                if(map_or.at<uchar>(rowx,coly)==0)
-                {
-
-                    if (
-                         ( (extremes[0]>oa.angles.getVal(0)) && (angle<oa.angles.getVal(0)) && ( (extremes[0]-angle)<PI ) ) ||
-                         ( (extremes[0]<angle) && (angle<oa.angles.getVal(0)) && ( (extremes[0]+2*PI-angle)<PI ) ) ||
-                         ( (extremes[0]>oa.angles.getVal(0)) && (angle>extremes[0]) && ( (extremes[0]+2*PI-angle)<PI ) ) ||
-                         ( (angle>oa.angles.getVal(0)) && (extremes[0]<oa.angles.getVal(0)) && ( (angle-extremes[0])<PI ) ) ||
-                         ( (angle<extremes[0]) && (extremes[0]<oa.angles.getVal(0)) && ( (angle+2*PI-extremes[0])<PI ) ) ||
-                         ( (angle>oa.angles.getVal(0)) && (extremes[0]>angle) && ( (angle+2*PI-extremes[0])<PI ) )
-                       )
-                    {
-                        float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
-                        mp.iter(dist,cv::Point2i(rowx,coly));
-                    }
-                }
-            }
-        }
-
-        if( atan2(mp.getP().y-critP.y,mp.getP().x-critP.x)<extremes[0] )
-            extremes.insert(extremes.begin(),atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
-        else
-            extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
-
-        if( (extremes[1]-extremes[0])>PI )
-            obt=0;
-        else
-            obt=1;
-
+        extremePoints(oa.angles.getP(0), oa.angles.getP(0), 0, oa.angles.getVal(0), true);
     }
     else if(oa.angles.getSize()>1)
     {
         if(oa.getObt()==(oa.angles.getSize()-1))
         {
-            FindMin<float,cv::Point2i> mp;
-
-            for(int rowx=max((oa.angles.getP(oa.getObt()).x-1),0);rowx<=min((oa.angles.getP(oa.getObt()).x+1),map_or.rows-1);rowx++)
-            {
-                for(int coly=max((oa.angles.getP(oa.getObt()).y-1),0);coly<=min((oa.angles.getP(oa.getObt()).y+1),map_or.cols-1);coly++)
-                {
-                    float angle=atan2(coly-critP.y,rowx-critP.x);
-                    if( (angle>oa.angles.getVal(oa.getObt()) || angle<oa.angles.getVal(0) ) && map_or.at<uchar>(rowx,coly)==0)
-                    {
-                        float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
-                        mp.iter(dist,cv::Point2i(rowx,coly));
-                    }
-                }
-            }
-            extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
-
-            mp.clear();
-
-            for(int rowx=max((oa.angles.getP(0).x-1),0);rowx<=min((oa.angles.getP(0).x+1),map_or.rows-1);rowx++)
-            {
-                for(int coly=max((oa.angles.getP(0).y-1),0);coly<=min((oa.angles.getP(0).y+1),map_or.cols-1);coly++)
-                {
-                    float angle=atan2(coly-critP.y,rowx-critP.x);
-                    if((angle>oa.angles.getVal(oa.getObt()) || angle<oa.angles.getVal(0)) && map_or.at<uchar>(rowx,coly)==0)
-                    {
-                        float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
-                        mp.iter(dist,cv::Point2i(rowx,coly));
-                    }
-                }
-            }
-
-            if( atan2(mp.getP().y-critP.y,mp.getP().x-critP.x)<extremes[0] )
-                extremes.insert(extremes.begin(),atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
-            else
-                extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
-
-            if( (extremes[1]-extremes[0])>PI )
-                obt=0;
-            else
-                obt=1;
+            extremePoints(oa.angles.getP(oa.getObt()), oa.angles.getP(0), oa.angles.getVal(oa.getObt()), oa.angles.getVal(0));
         }
         else
         {
-            FindMin<float,cv::Point2i> mp;
-            for(int rowx=max((oa.angles.getP(oa.getObt()).x-1),0);rowx<=min((oa.angles.getP(oa.getObt()).x+1),map_or.rows-1);rowx++)
-            {
-                for(int coly=max((oa.angles.getP(oa.getObt()).y-1),0);coly<=min((oa.angles.getP(oa.getObt()).y+1),map_or.cols-1);coly++)
-                {
-                    float angle=atan2(coly-critP.y,rowx-critP.x);
-                    if(angle>oa.angles.getVal(oa.getObt()) && angle<oa.angles.getVal(oa.getObt()+1) && map_or.at<uchar>(rowx,coly)==0)
-                    {
-                        float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
-                        mp.iter(dist,cv::Point2i(rowx,coly));
-                    }
-                }
-            }
-
-            extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
-
-            mp.clear();
-
-            for(int rowx=max((oa.angles.getP(oa.getObt()+1).x-1),0);rowx<=min((oa.angles.getP(oa.getObt()+1).x+1),map_or.rows-1);rowx++)
-            {
-                for(int coly=max((oa.angles.getP(oa.getObt()+1).y-1),0);coly<=min((oa.angles.getP(oa.getObt()+1).y+1),map_or.cols-1);coly++)
-                {
-                    float angle=atan2(coly-critP.y,rowx-critP.x);
-                    if(angle>oa.angles.getVal(oa.getObt()) && angle<oa.angles.getVal(oa.getObt()+1) && map_or.at<uchar>(rowx,coly)==0)
-                    {
-                        float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
-                        mp.iter(dist,cv::Point2i(rowx,coly));
-                    }
-                }
-            }
-
-            if( atan2(mp.getP().y-critP.y,mp.getP().x-critP.x)<extremes[0] )
-                extremes.insert(extremes.begin(),atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
-            else
-                extremes.push_back(atan2(mp.getP().y-critP.y,mp.getP().x-critP.x));
-
-            if( (extremes[1]-extremes[0])>PI )
-                obt=0;
-            else
-                obt=1;
+            extremePoints(oa.angles.getP(oa.getObt()), oa.angles.getP(oa.getObt()+1), oa.angles.getVal(oa.getObt()), oa.angles.getVal(oa.getObt()+1));
         }
     }
+
     return extremes;
+}
+
+
+vector<cv::Point> Vis_transf::expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp)
+{
+    vector<cv::Point> occ;
+    for(int rowx=max((crit.x-defl),0);rowx<=min((crit.x+defl),regions.rows-1);rowx++)
+    {
+        for(int coly=max((crit.y-defl),0);coly<=min((crit.y+defl),regions.cols-1);coly++)
+        {
+            float angle=atan2(coly-crit.y,rowx-crit.x);
+            float dist=(rowx-crit.x)*(rowx-crit.x)+(coly-crit.y)*(coly-crit.y);
+
+            bool reg;
+            if(obt_angle==1)
+                reg=(angle<extremes[1] && angle>extremes[0]);
+            else
+                reg=(angle<extremes[0] || angle>extremes[1]);
+
+            if(reg && (dist<=(1*defl*defl)) && (regions.at<uchar>(rowx,coly)==(k+2) ) )
+            {
+                vis_map_temp.at<uchar>(rowx,coly)=255;
+            }
+            else if (reg && (dist<=(1*defl*defl)) && (map_or.at<uchar>(rowx,coly)==0) )
+            {
+                bool stop=false;
+                for(int vx=-1;vx<=1;vx++)
+                {
+                    for(int vy=-1;vy<=1;vy++)
+                    {
+                        if( (rowx+vx)>=0 && (rowx+vx)<regions.rows && (coly+vy)>=0 && (coly+vy)<regions.cols )
+                        {
+                            if( (abs(vx)+abs(vy)==1) &&  regions.at<uchar>(rowx+vx,coly+vy)==(k+2)  )
+                            {
+                                occ.push_back(cv::Point(rowx,coly));
+                                stop=true;
+                                break;
+                            }
+                        }
+                    }
+                    if(stop)
+                        break;
+                }
+            }
+        }
+    }
+
+    return occ;
 }
 
 
@@ -1699,11 +1754,9 @@ void Vis_transf::transf_pos(void)
         if (!getPosition(pos))
             return;
 
-        int pos_x=pos.x, pos_y=pos.y;
-
         bool proc=checkProceed();
 
-        if(map_erosionOp.at<uchar>(pos_x,pos_y)==0)  //invalid center position of the robot (touching obstacles or walls)
+        if(map_erosionOp.at<uchar>(pos.x,pos.y)==0)  //invalid center position of the robot (touching obstacles or walls)
         {
             gt_c=false;
 
@@ -1742,7 +1795,7 @@ void Vis_transf::transf_pos(void)
 
         cv::Mat r_map=map_erosionOp.clone();
 
-        bool new_v=reachability_map(labels,pos,prev,r_map);
+        bool new_v=reachability_map(labels,pos,r_map);
 
 
         if( (new_v) || (prev.x<0) || (prev.y<0) || proc )  //if visibility is changed
@@ -1775,93 +1828,21 @@ void Vis_transf::transf_pos(void)
                 for (unsigned int k=0;k<unreach.frontiers.size();k++){//2;k++){//
                     for(unsigned int ff=0;ff<unreach.frontiers[k].size();ff++)
                     {
-                        vector<vector<cv::Point> > frontier=unreach.frontiers[k];
+                        vector<cv::Point> frontier=unreach.frontiers[k][ff];
 
-                        if(frontier[ff].size()>0)
+                        if(frontier.size()>0)
                         {
-                            cv::Point2i crit=critP.find_crit_point(frontier[ff]);
+                            cv::Point2i crit=critP.find_crit_point(frontier);
 
                             int opt_x=crit.x, opt_y=crit.y;
 
-                            unsigned int obt_angle=-1;
-
-                            vector<float> extremes=critP.frontier_extremes(obt_angle);
+                            critP.frontier_extremes();
 
                             //// TODO:neighbor points
 
                             vis_map_temp = cv::Mat::zeros(regions.rows, regions.cols, CV_8UC1)*255;
 
-                            vector<cv::Point> pre_vis; pre_vis.clear();
-
-                            vector<cv::Point> occ;
-
-                            for(int rowx=max((opt_x-defl),0);rowx<=min((opt_x+defl),regions.rows-1);rowx++)
-                            {
-                                for(int coly=max((opt_y-defl),0);coly<=min((opt_y+defl),regions.cols-1);coly++)
-                                {
-                                    float angle=atan2(coly-opt_y,rowx-opt_x);
-                                    float dist=(rowx-opt_x)*(rowx-opt_x)+(coly-opt_y)*(coly-opt_y);
-
-                                    if(obt_angle==1)
-                                    {
-                                        if(angle<extremes[1] && angle>extremes[0] && (dist<=(1*defl*defl)) && (regions.at<uchar>(rowx,coly)==(k+2) ) )
-                                        {
-                                            vis_map_temp.at<uchar>(rowx,coly)=255;
-                                            pre_vis.push_back(cv::Point(rowx,coly));
-                                        }
-                                        else if (angle<extremes[1] && angle>extremes[0] && (dist<=(1*defl*defl)) && (map_or.at<uchar>(rowx,coly)==0) )
-                                        {
-                                            bool stop=false;
-                                            for(int vx=-1;vx<=1;vx++)
-                                            {
-                                                for(int vy=-1;vy<=1;vy++)
-                                                {
-                                                    if( (rowx+vx)>=0 && (rowx+vx)<regions.rows && (coly+vy)>=0 && (coly+vy)<regions.cols )
-                                                    {
-                                                        if( (abs(vx)+abs(vy)==1) &&  regions.at<uchar>(rowx+vx,coly+vy)==(k+2)  )
-                                                        {
-                                                            occ.push_back(cv::Point(rowx,coly));
-                                                            stop=true;
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                                if(stop)
-                                                    break;
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        if( (angle<extremes[0] || angle>extremes[1]) && (dist<=(1*defl*defl)) && (regions.at<uchar>(rowx,coly)==(k+2) ) )
-                                        {
-                                            vis_map_temp.at<uchar>(rowx,coly)=255;
-                                            pre_vis.push_back(cv::Point(rowx,coly));
-                                        }
-                                        else if ( (angle<extremes[0] || angle>extremes[1]) && (dist<=(1*defl*defl)) && (map_or.at<uchar>(rowx,coly)==0) )
-                                        {
-                                            bool stop=false;
-                                            for(int vx=-1;vx<=1;vx++)
-                                            {
-                                                for(int vy=-1;vy<=1;vy++)
-                                                {
-                                                    if( (rowx+vx)>=0 && (rowx+vx)<regions.rows && (coly+vy)>=0 && (coly+vy)<regions.cols )
-                                                    {
-                                                        if( (abs(vx)+abs(vy)==1) && regions.at<uchar>(rowx+vx,coly+vy)==(k+2)  )
-                                                        {
-                                                            occ.push_back(cv::Point(rowx,coly));
-                                                            stop=true;
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                                if(stop)
-                                                    break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            vector<cv::Point> occ=expVisibility_obs(crit, defl, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
 
                             vector<vector<cv::Point> > occ_clust=cluster_points(occ);
 
@@ -2127,100 +2108,13 @@ void Vis_transf::transf_pos(void)
 
                             for(unsigned int c=0;c<occ_crit_filt.size();c++)
                             {
-                                float dist=sqrt( (occ_crit_filt[c].x-opt_x)*(occ_crit_filt[c].x-opt_x)+(occ_crit_filt[c].y-opt_y)*(occ_crit_filt[c].y-opt_y) );
-                                float angle=atan2(occ_crit_filt[c].y-opt_y, occ_crit_filt[c].x-opt_x);
-
-                                float cos_ang=cos(angle);
-                                float sin_ang=sin(angle);
-
-                                float sign_x=0; if(cos_ang!=0) sign_x=cos_ang/abs(cos_ang);
-                                float sign_y=0; if(sin_ang!=0) sign_y=sin_ang/abs(sin_ang);
-
-
-                                int p_x=occ_crit_filt[c].x;
-                                int p_y=occ_crit_filt[c].y;
-
-                                float temp, tempx=occ_crit_filt[c].x, tempy=occ_crit_filt[c].y, temp_tx, temp_ty;
-
-                                if(cos_ang!=0)
-                                {
-                                    temp_tx=sign_x*0.5/cos_ang;
-                                    if(sin_ang!=0)
-                                    {
-                                        temp_ty=sign_y*0.5/sin_ang;
-                                        if(temp_tx<temp_ty)
-                                            temp=temp_tx;
-                                        else
-                                            temp=temp_ty;
-                                    }
-                                    else
-                                        temp=temp_tx;
-
-                                }
-                                else
-                                    temp=sign_y*0.5/sin_ang;
-
-                                if(sign_x==0)
-                                    p_x=p_x;
-                                else
-                                    p_x=sign_x*((int)round(sign_x*(tempx+temp*cos_ang)+p_x)-p_x);
-
-                                if(sign_y==0)
-                                    p_y=p_y;
-                                else
-                                    p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
-
-                                while( (dist+temp)<=defl && p_x>=0 && p_x<regions.rows && p_y>=0 && p_y<regions.cols )
-                                {
-                                    dist=dist+temp;
-
-                                    vis_map_temp.at<uchar>(p_x,p_y)=0;
-
-                                    tempx=tempx+temp*cos_ang;
-                                    tempy=tempy+temp*sin_ang;
-
-                                    if(cos_ang!=0)
-                                    {
-                                        temp_tx=(p_x+sign_x*0.5-tempx)/cos_ang;
-                                        if(temp_tx==0)
-                                            temp_tx=sign_x*1/cos_ang;
-                                        if(sin_ang!=0)
-                                        {
-                                            temp_ty=(p_y+sign_y*0.5-tempy)/sin_ang;
-                                            if(temp_ty==0)
-                                                temp_ty=sign_y*1/sin_ang;
-
-                                            if(temp_tx<temp_ty)
-                                                temp=temp_tx;
-                                            else
-                                                temp=temp_ty;
-                                        }
-                                        else
-                                            temp=temp_tx;
-                                    }
-                                    else
-                                    {
-                                        temp=(p_y+sign_y*0.5-tempy)/sin_ang;
-                                        if(temp==0)
-                                            temp=sign_y*1/sin_ang;
-                                    }
-
-                                    if(sign_x==0)
-                                        p_x=p_x;
-                                    else
-                                        p_x=sign_x*((int)round(sign_x*(tempx+temp*cos_ang)+p_x)-p_x);
-
-                                    if(sign_y==0)
-                                        p_y=p_y;
-                                    else
-                                        p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
-                                }
+                                raytracing(vis_map_temp, cv::Point2i(crit.x,crit.y), occ_crit_filt[c], occ_crit_filt[c], defl, &print2Map);
                             }
 
-                            for(unsigned int j=0;j<frontier[ff].size();j++){
-                                if(vis_map_temp.at<uchar>( frontier[ff][j].x,frontier[ff][j].y)==255)
+                            for(unsigned int j=0;j<frontier.size();j++){
+                                if(vis_map_temp.at<uchar>( frontier[j].x,frontier[j].y)==255)
                                 {
-                                    std::vector<cv::Point> points_vis=label_seed(vis_map_temp.clone()/255,4,cv::Point(frontier[ff][j].x,frontier[ff][j].y));
+                                    std::vector<cv::Point> points_vis=label_seed(vis_map_temp.clone()/255,4,cv::Point(frontier[j].x,frontier[j].y));
                                     for(unsigned int pv=0;pv<points_vis.size();pv++)
                                     {
                                         vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
