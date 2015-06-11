@@ -1305,7 +1305,7 @@ int main(int argc, char **argv)
 
     ros::NodeHandle nh("~");
 
-    VisNC_transf vis(nh,robot);
+    VisNC_transf visNC(nh,robot);
 
 
     ros::Rate loop_rate(10);
@@ -1313,17 +1313,17 @@ int main(int argc, char **argv)
 
     while (ros::ok())
     {
-        vis.update();
+        visNC.update();
 
         ros::spinOnce();
 
-        vis.transf();
+        visNC.transf();
 
-        vis.transf_pos();
+        visNC.transf_pos();
 
-        vis.show();
+        visNC.show();
 
-        vis.publish();
+        visNC.publish();
 
         loop_rate.sleep();
     }

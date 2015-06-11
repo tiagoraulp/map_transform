@@ -4,9 +4,6 @@
 #include <dynamic_reconfigure/server.h>
 #include <map_transform/ParametersConfig.h>
 
-#include <sstream>
-#include <string>
-
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -71,6 +68,8 @@ private:
     bool reachability_map(std::vector<std::vector<cv::Point> > labels, cv::Point2i pos, cv::Mat & r_map);
 
     vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp);
+
+    vector<cv::Point> getExtremeFromObstacles(vector<cv::Point> occ, cv::Point2i crit);
 
     int count;
 
@@ -1743,6 +1742,333 @@ vector<cv::Point> Vis_transf::expVisibility_obs(cv::Point2i crit, int defl, cv::
 }
 
 
+class ExtremesObst2Point
+{
+private:
+    cv::Point2i critP;
+    vector<Chain> ch;
+    vector<float> diffAngle;
+    float prev_diff;
+    vector<cv::Point> ext;
+    void chainAngleDiff(void);
+    void firstLoop(void);
+    void secLoop(void);
+public:
+    ExtremesObst2Point(cv::Point2i crit, vector<Chain> c): critP(crit), ch(c)
+    {
+        chainAngleDiff();
+        ext.clear();
+        prev_diff=0;
+        firstLoop();
+        secLoop();
+    }
+    vector<cv::Point2i> getExt(void)
+    {
+        return ext;
+    }
+
+};
+
+void ExtremesObst2Point::chainAngleDiff(void)
+{
+    diffAngle.clear();
+    float prev_angle, act_angle;
+    for(unsigned int c=0;c<ch.size();c++)
+    {
+        act_angle=atan2(ch[c].y-critP.y,ch[c].x-critP.x);
+        if(c>0)
+        {
+            float diff_angle=act_angle-prev_angle;
+
+            if(diff_angle<-PI)
+                diff_angle+=2*PI;
+            else if (diff_angle>PI)
+                diff_angle-=2*PI;
+
+            diffAngle.push_back(diff_angle);
+        }
+        prev_angle=act_angle;
+    }
+}
+
+
+void ExtremesObst2Point::firstLoop(void)
+{
+    for(unsigned int c=0;c<diffAngle.size();c++)
+    {
+        if(c>0)
+        {
+            if( diffAngle[c]*prev_diff<0)
+            {
+                ext.push_back(cv::Point(ch[c].x,ch[c].y));
+                prev_diff=diffAngle[c];
+            }
+        }
+        else
+            prev_diff=diffAngle[c];
+    }
+}
+
+void ExtremesObst2Point::secLoop(void)
+{
+    for(unsigned int c=0;c<diffAngle.size();c++)
+    {
+        if( diffAngle[c]*prev_diff<0)
+        {
+            ext.push_back(cv::Point(ch[c].x,ch[c].y));
+            break;
+        }
+        else if(diffAngle[c]*prev_diff>0)
+        {
+            break;
+        }
+    }
+}
+
+
+class BugFollowing
+{
+private:
+    const static int dir=8; // number of possible directions to go at any position
+    //if (dir==4){
+    //    static int dx[dir]={1, 0, -1, 0};
+    //    static int dy[dir]={0, 1, 0, -1};
+    //}
+    //if (dir==8) {
+    const int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
+    const int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
+    //}
+    int prev_d;
+    int sign;
+    cv::Mat contours, contours_check;
+    cv::Point pos;
+    vector<Chain> chain;
+    void run(void);
+    bool iter(void);
+    void initialization(void);
+    void saveP(int d);
+    void save(int d);
+    bool check_direction(int sn, int d, int max_dir);
+public:
+    BugFollowing(cv::Mat con, cv::Mat con_ch, cv::Point ini): contours(con), contours_check(con_ch), pos(ini)
+    {
+        chain.clear();
+        prev_d=0;
+        sign=1;
+        run();
+    }
+    vector<Chain> getChain(void)
+    {
+        return chain;
+    }
+    cv::Mat getContourChecked(void)
+    {
+        return contours_check;
+    }
+};
+
+void BugFollowing::saveP(int d)
+{
+    contours_check.at<uchar>(pos.x,pos.y)=255;
+    pos.x=pos.x+dx[d];
+    pos.y=pos.y+dy[d];
+    prev_d=(d+dir/2)%dir;
+}
+
+void BugFollowing::save(int d)
+{
+    Chain c(pos.x,pos.y,d);
+    chain.push_back(c);
+    saveP(d);
+}
+
+bool BugFollowing::iter(void)
+{
+    int act_dir;
+    for(int d=1;d<=dir;d++)
+    {
+        act_dir=(prev_d+sign*d+dir)%dir;
+        if( (pos.x+dx[act_dir])>=0 && (pos.x+dx[act_dir])<contours.rows && (pos.y+dy[act_dir])>=0 && (pos.y+dy[act_dir])<contours.cols )
+        {
+            if( contours.at<uchar>(pos.x+dx[act_dir],pos.y+dy[act_dir])==0)
+            {
+                Chain c(pos.x,pos.y,act_dir);
+                saveP(act_dir);
+
+                if(chain[chain.size()-1]==c)
+                {
+                    return true;
+                }
+
+                chain.push_back(c);
+
+                if(chain[0]==c)
+                {
+                    return true;
+                }
+                break;
+            }
+        }
+    }
+    return false;
+}
+
+bool BugFollowing::check_direction(int sn, int d, int max_dir)
+{
+    bool valid_rotation=true;
+    for(int dd=1;dd<=max_dir;dd++)
+    {
+        int act_dir=(prev_d+sn*dd+dir)%dir;
+        if( (pos.x+dx[d]+dx[act_dir])>=0 && (pos.x+dx[d]+dx[act_dir])<contours.rows && (pos.y+dy[d]+dy[act_dir])>=0 && (pos.y+dy[d]+dy[act_dir])<contours.cols )
+        {
+            if( contours.at<uchar>(pos.x+dx[d]+dx[act_dir],pos.y+dy[d]+dy[act_dir])==0)
+            {
+                valid_rotation=false;
+                break;
+            }
+            else
+            {
+                valid_rotation=true;
+            }
+        }
+    }
+    return valid_rotation;
+}
+
+void BugFollowing::initialization(void)
+{
+    for(int d=0;d<dir;d++)
+    {
+        if( (pos.x+dx[d])>=0 && (pos.x+dx[d])<contours.rows && (pos.y+dy[d])>=0 && (pos.y+dy[d])<contours.cols )
+        {
+            if(  contours.at<uchar>(pos.x+dx[d],pos.y+dy[d])==0 )
+            {
+                prev_d=(d+dir/2)%dir;
+                int max_dir;
+
+                if(prev_d==0 || prev_d==2 || prev_d==4 || prev_d==6)
+                    max_dir=2;
+                else
+                    max_dir=1;
+
+                if(check_direction(1,d,max_dir))
+                {
+                    sign=1;
+                    save(d);
+                    break;
+                }
+                else
+                {
+                    if(check_direction(-1,d,max_dir))
+                    {
+                        sign=-1;
+                        save(d);
+                        break;
+                    }
+                    else
+                        continue;
+                }
+            }
+        }
+    }
+}
+
+void BugFollowing::run(void)
+{
+    bool cont_cond=true;
+
+    while(cont_cond)
+    {
+        if(chain.size()!=0)
+        {
+            cont_cond=!iter();
+        }
+        else
+        {
+            initialization();
+        }
+    }
+}
+
+
+vector<cv::Point> Vis_transf::getExtremeFromObstacles(vector<cv::Point> occ, cv::Point2i crit)
+{
+    vector<vector<cv::Point> > occ_clust=cluster_points(occ);
+
+    vector<cv::Point> occ_critP;
+
+    cv::Mat contours = cv::Mat::ones(map_or.rows, map_or.cols, CV_8UC1)*255;
+
+    for(unsigned int ind=0;ind<occ_clust.size();ind++)
+    {
+        for(unsigned int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
+        {
+            contours.at<uchar>(occ_clust[ind][occ_p].x,occ_clust[ind][occ_p].y)=0;
+        }
+
+        if(occ_clust[ind].size()==1)
+        {
+            occ_critP.push_back(cv::Point(occ_clust[ind][0].x,occ_clust[ind][0].y));
+        }
+        else
+        {
+            cv::Mat contours_check=contours.clone();
+            bool stop=true;
+
+            while(stop)
+            {
+                stop=false;
+                cv::Point pos;
+                for(unsigned int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
+                {
+                    if( contours_check.at<uchar>(occ_clust[ind][occ_p].x,occ_clust[ind][occ_p].y)==0  )
+                    {
+                        pos.x=occ_clust[ind][occ_p].x;
+                        pos.y=occ_clust[ind][occ_p].y;
+                        stop=true;
+                        break;
+                    }
+                }
+
+                if(stop)
+                {
+                    BugFollowing bf(contours, contours_check, pos);
+                    vector<Chain> chain=bf.getChain();
+                    contours_check=bf.getContourChecked();
+
+                    ExtremesObst2Point eo(crit, chain);
+                    vector<cv::Point> temp=eo.getExt();
+                    occ_critP.insert(occ_critP.end(), temp.begin(), temp.end());
+                }
+            }
+
+            if(occ_critP.size()==0)
+            {
+                occ_critP.push_back(cv::Point(occ_clust[ind][0].x,occ_clust[ind][0].y));
+            }
+        }
+    }
+
+    vector<cv::Point> occ_crit_filt;
+
+    cv::Mat contours_filt=contours.clone();
+
+    occ_crit_filt.clear();
+
+    for(unsigned int c=0;c<occ_critP.size();c++)
+    {
+        if(contours_filt.at<uchar>(occ_critP[c].x,occ_critP[c].y)==255)
+            continue;
+        else
+        {
+            contours_filt.at<uchar>(occ_critP[c].x,occ_critP[c].y)=255;
+            occ_crit_filt.push_back(cv::Point(occ_critP[c].x,occ_critP[c].y));
+        }
+    }
+
+    return occ_crit_filt;
+}
+
 void Vis_transf::transf_pos(void)
 {
     if(count>0)
@@ -1821,7 +2147,7 @@ void Vis_transf::transf_pos(void)
 
                 cv::Mat regions=unreach.regions;
 
-                cv::Mat vis_map_temp, contours;
+                cv::Mat vis_map_temp;
 
                 CritPoints critP(map_or, r_map, infl);
 
@@ -1834,8 +2160,6 @@ void Vis_transf::transf_pos(void)
                         {
                             cv::Point2i crit=critP.find_crit_point(frontier);
 
-                            int opt_x=crit.x, opt_y=crit.y;
-
                             critP.frontier_extremes();
 
                             //// TODO:neighbor points
@@ -1844,267 +2168,7 @@ void Vis_transf::transf_pos(void)
 
                             vector<cv::Point> occ=expVisibility_obs(crit, defl, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
 
-                            vector<vector<cv::Point> > occ_clust=cluster_points(occ);
-
-                            vector<cv::Point> occ_critP;
-
-                            contours = cv::Mat::ones(regions.rows, regions.cols, CV_8UC1)*255;
-
-                            for(unsigned int ind=0;ind<occ_clust.size();ind++)
-                            {
-                                for(unsigned int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
-                                {
-                                    contours.at<uchar>(occ_clust[ind][occ_p].x,occ_clust[ind][occ_p].y)=0;
-                                }
-
-                                if(occ_clust[ind].size()==1)
-                                {
-                                    occ_critP.push_back(cv::Point(occ_clust[ind][0].x,occ_clust[ind][0].y));
-                                }
-                                else
-                                {
-                                    cv::Mat contours_check=contours.clone();
-                                    bool stop=true;
-
-                                    while(stop)
-                                    {
-                                        stop=false;
-                                        int pos_x,pos_y;
-                                        for(unsigned int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
-                                        {
-                                            if( contours_check.at<uchar>(occ_clust[ind][occ_p].x,occ_clust[ind][occ_p].y)==0  )
-                                            {
-                                                pos_x=occ_clust[ind][occ_p].x;
-                                                pos_y=occ_clust[ind][occ_p].y;
-                                                stop=true;
-                                                break;
-                                            }                                                  
-                                        }
-
-                                        if(stop)
-                                        {
-                                            const int dir=8; // number of possible directions to go at any position
-                                            //if (dir==4){
-                                            //    static int dx[dir]={1, 0, -1, 0};
-                                            //    static int dy[dir]={0, 1, 0, -1};
-                                            //}
-                                            //if (dir==8) {
-                                                static int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
-                                                static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
-                                            //}
-
-                                            vector<Chain> chain;
-                                            chain.clear();
-
-                                            int prev_d=0;
-                                            bool cont_cond=true;
-                                            int sign=1;
-
-                                            while(cont_cond)
-                                            {
-                                                if(chain.size()!=0)
-                                                {
-                                                    int act_dir;
-                                                    for(int d=1;d<=dir;d++)
-                                                    {
-                                                        act_dir=(prev_d+sign*d+dir)%dir;
-                                                        if( (pos_x+dx[act_dir])>=0 && (pos_x+dx[act_dir])<regions.rows && (pos_y+dy[act_dir])>=0 && (pos_y+dy[act_dir])<regions.cols )
-                                                        {
-                                                            if( contours.at<uchar>(pos_x+dx[act_dir],pos_y+dy[act_dir])==0)
-                                                            {
-                                                                Chain c(pos_x,pos_y,act_dir);
-                                                                contours_check.at<uchar>(pos_x,pos_y)=255;
-
-                                                                if(chain[chain.size()-1]==c)
-                                                                {
-                                                                    cont_cond=false;
-                                                                    break;
-                                                                }
-
-                                                                chain.push_back(c);
-
-                                                                prev_d=(act_dir+dir/2)%dir;
-                                                                pos_x=pos_x+dx[act_dir];
-                                                                pos_y=pos_y+dy[act_dir];
-
-                                                                if(chain[0]==c)
-                                                                {
-                                                                    cont_cond=false;
-                                                                }
-                                                                break;
-                                                            }
-                                                        }
-                                                    }
-
-                                                }
-                                                else
-                                                {
-                                                    bool valid_rotation;
-                                                    for(int d=0;d<dir;d++)
-                                                    {
-                                                        if( (pos_x+dx[d])>=0 && (pos_x+dx[d])<regions.rows && (pos_y+dy[d])>=0 && (pos_y+dy[d])<regions.cols )
-                                                        {
-                                                            if(  contours.at<uchar>(pos_x+dx[d],pos_y+dy[d])==0 )
-                                                            {
-                                                                prev_d=(d+dir/2)%dir;
-                                                                int max_dir;
-
-                                                                if(prev_d==0 || prev_d==2 || prev_d==4 || prev_d==6)
-                                                                    max_dir=2;
-                                                                else
-                                                                    max_dir=1;
-
-                                                                int act_dir;
-
-                                                                valid_rotation=true;
-                                                                sign=1;                                                                
-                                                                for(int dd=1;dd<=max_dir;dd++)
-                                                                {
-                                                                    act_dir=(prev_d+sign*dd)%dir;
-                                                                    if( (pos_x+dx[d]+dx[act_dir])>=0 && (pos_x+dx[d]+dx[act_dir])<regions.rows && (pos_y+dy[d]+dy[act_dir])>=0 && (pos_y+dy[d]+dy[act_dir])<regions.cols )
-                                                                    {
-                                                                        if( contours.at<uchar>(pos_x+dx[d]+dx[act_dir],pos_y+dy[d]+dy[act_dir])==0)
-                                                                        {
-                                                                            valid_rotation=false;
-                                                                            break;
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            valid_rotation=true;
-                                                                        }
-                                                                    }
-                                                                }
-
-                                                                if(valid_rotation)
-                                                                {
-                                                                    sign=1;
-                                                                    Chain c(pos_x,pos_y,d);
-                                                                    contours_check.at<uchar>(pos_x,pos_y)=255;
-                                                                    pos_x=pos_x+dx[d];
-                                                                    pos_y=pos_y+dy[d];
-                                                                    chain.push_back(c);
-                                                                    break;
-                                                                }
-                                                                else
-                                                                {
-                                                                    valid_rotation=true;
-                                                                    sign=-1;
-                                                                    for(int dd=1;dd<=max_dir;dd++)
-                                                                    {
-                                                                        act_dir=(prev_d+sign*dd+dir)%dir;
-                                                                        if( (pos_x+dx[d]+dx[act_dir])>=0 && (pos_x+dx[d]+dx[act_dir])<regions.rows && (pos_y+dy[d]+dy[act_dir])>=0 && (pos_y+dy[d]+dy[act_dir])<regions.cols )
-                                                                        {
-                                                                            if( contours.at<uchar>(pos_x+dx[d]+dx[act_dir],pos_y+dy[d]+dy[act_dir])==0)
-                                                                            {
-                                                                                valid_rotation=false;
-                                                                                break;
-                                                                            }
-                                                                            else
-                                                                            {
-                                                                                valid_rotation=true;
-                                                                            }
-                                                                        }
-                                                                    }
-
-                                                                    if(valid_rotation)
-                                                                    {
-                                                                        sign=-1;
-                                                                        Chain c(pos_x,pos_y,d);
-                                                                        contours_check.at<uchar>(pos_x,pos_y)=255;
-                                                                        pos_x=pos_x+dx[d];
-                                                                        pos_y=pos_y+dy[d];
-                                                                        chain.push_back(c);
-                                                                        break;
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        continue;
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            float prev_angle, act_angle;
-
-                                            vector<float> diffs;
-                                            diffs.clear();
-
-                                            for(unsigned int c=0;c<chain.size();c++)
-                                            {
-                                                act_angle=atan2(chain[c].y-opt_y,chain[c].x-opt_x);
-                                                if(c>0)
-                                                {
-                                                    float diff_angle=act_angle-prev_angle;
-
-                                                    if(diff_angle<-PI)
-                                                        diff_angle+=2*PI;
-                                                    else if (diff_angle>PI)
-                                                        diff_angle-=2*PI;
-
-                                                    diffs.push_back(diff_angle);
-                                                }
-                                                prev_angle=act_angle;
-                                            }
-
-
-                                            float prev_diff=0;
-                                            for(unsigned int c=0;c<diffs.size();c++)
-                                            {
-
-                                                if(c>0)
-                                                {
-                                                    if( diffs[c]*prev_diff<0)
-                                                    {
-                                                        occ_critP.push_back(cv::Point(chain[c].x,chain[c].y));
-                                                        prev_diff=diffs[c];
-                                                    }
-                                                }
-                                                else
-                                                    prev_diff=diffs[c];
-                                            }
-
-                                            for(unsigned int c=0;c<diffs.size();c++)
-                                            {
-                                                if( diffs[c]*prev_diff<0)
-                                                {
-                                                    occ_critP.push_back(cv::Point(chain[c].x,chain[c].y));
-                                                    prev_diff=diffs[c];
-                                                    break;
-                                                }
-                                                else if(diffs[c]*prev_diff>0)
-                                                {
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if(occ_critP.size()==0)
-                                    {
-                                        occ_critP.push_back(cv::Point(occ_clust[ind][0].x,occ_clust[ind][0].y));
-                                    }
-                                }
-                            }
-
-                            vector<cv::Point> occ_crit_filt;
-
-                            cv::Mat contours_filt=contours.clone();
-
-                            occ_crit_filt.clear();
-
-                            for(unsigned int c=0;c<occ_critP.size();c++)
-                            {
-                                if(contours_filt.at<uchar>(occ_critP[c].x,occ_critP[c].y)==255)
-                                    continue;
-                                else
-                                {
-                                    contours_filt.at<uchar>(occ_critP[c].x,occ_critP[c].y)=255;
-                                    occ_crit_filt.push_back(cv::Point(occ_critP[c].x,occ_critP[c].y));
-                                }
-                            }
+                            vector<cv::Point> occ_crit_filt=getExtremeFromObstacles(occ, crit);
 
                             for(unsigned int c=0;c<occ_crit_filt.size();c++)
                             {
@@ -2312,24 +2376,24 @@ int main(int argc, char **argv)
 
     ros::NodeHandle nh("~");
 
-    Vis_transf visNC(nh);
+    Vis_transf vis(nh);
 
     ros::Rate loop_rate(10);
 
 
     while (ros::ok())
     {
-        visNC.update();
+        vis.update();
 
         ros::spinOnce();
 
-        visNC.transf();
+        vis.transf();
 
-        visNC.transf_pos();
+        vis.transf_pos();
 
-        visNC.show();
+        vis.show();
 
-        visNC.publish();
+        vis.publish();
 
         loop_rate.sleep();
     }
