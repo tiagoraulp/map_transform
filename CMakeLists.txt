@@ -29,9 +29,11 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
 
-set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-std=c++0x -std=gnu11 ${CMAKE_CXX_FLAGS}")
 
 #set(CMAKE_BUILD_TYPE Debug)
+
+add_definitions ("-Wall -Wconversion")
 
 find_package(OpenCV)
 
@@ -45,7 +47,7 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 rosbuild_add_boost_directories()
 
-rosbuild_add_executable(visibility src/vis_transf.cpp)
+rosbuild_add_executable(visibility src/vis_transf.cpp src/unreachable.cpp src/labelling.cpp src/clustering.cpp src/CritPoints.cpp src/obtuseAngle.cpp src/bugfollowing.cpp src/chain.cpp src/obs_extremes.cpp src/vector_utils.cpp src/ray.cpp)
 
 rosbuild_add_executable(visNC src/visNC_transf.cpp)
 
