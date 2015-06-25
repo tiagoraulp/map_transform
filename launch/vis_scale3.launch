@@ -1,9 +1,9 @@
 <launch>
- <arg name="i" default="9"/>
+ <arg name="i" default="14"/>
  <arg name="d" default="$(arg i)"/>
 
- <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze5.png 0.1" respawn="false" > 
-    <param name="frame_id" value="/map" />
+ <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/test_env2.png 0.1" respawn="false" > 
+    <param name="frame_id" value="/map"/>
     <remap from="map" to="/visibility/map" />
  </node>
 

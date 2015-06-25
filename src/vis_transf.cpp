@@ -11,8 +11,11 @@ Vis_transf::Vis_transf(ros::NodeHandle nh): nh_(nh)
     sub = nh_.subscribe("map", 1, &Vis_transf::rcv_map, this);
     nh_.param("infl", infl, 5);
     nh_.param("defl", defl, infl);
-    nh_.param("x", rxr, 10.0);
-    nh_.param("y", ryr, 10.0);
+    nh_.param("x", rxr, 50.0);
+    nh_.param("y", ryr, 50.0);
+    nh_.param("scale", scale, 100.0);
+    scale/=100;
+
     nh_.param("tf_prefix", tf_pref, std::string(""));
     nh_.param("ground_truth", gt, false);
     nh_.param("debug", _debug, true);
@@ -116,6 +119,8 @@ void Vis_transf::show(void)
 
 nav_msgs::OccupancyGrid Vis_transf::Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg)
 {
+    //map=scaling(map, 1/scale);
+
     nav_msgs::OccupancyGrid n_msg;
     n_msg.header.stamp = ros::Time::now();
     n_msg.header.frame_id = msg.header.frame_id;
@@ -143,6 +148,8 @@ nav_msgs::OccupancyGrid Vis_transf::Mat2RosMsg(cv::Mat map ,const nav_msgs::Occu
     return n_msg;
 }
 
+
+
 void Vis_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
     ROS_INFO("I heard map: [%d]", msg->header.seq);
@@ -153,6 +160,13 @@ void Vis_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 
     treated=true;
 
+    res= msg->info.resolution;
+    height= msg->info.height;
+    width= msg->info.width;
+
+    or_x= msg->info.origin.position.x;
+    or_y= msg->info.origin.position.y;
+
     if(count>0)
     {
         if(cv_map.rows!=prev_map.rows || cv_map.cols!=prev_map.cols || res!=msg->info.resolution || or_x!=msg->info.origin.position.x || or_y!=msg->info.origin.position.y )
@@ -161,13 +175,6 @@ void Vis_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     else
         treated=false;
 
-
-    res= msg->info.resolution;
-    height= msg->info.height;
-    width= msg->info.width;
-
-    or_x= msg->info.origin.position.x;
-    or_y= msg->info.origin.position.y;
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
     signed char map_occ_thres = 90;
@@ -193,6 +200,15 @@ void Vis_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     ++count;
 
     msg_rcv=*msg;
+
+    //cv_map=scaling(cv_map, scale);
+
+    //res=res/scale;
+    //height= cv_map.cols;
+    //width= cv_map.rows;
+
+    //or_x= msg->info.origin.position.x;
+    //or_y= msg->info.origin.position.y;
 
     treated2=treated;
 }
@@ -309,8 +325,8 @@ bool Vis_transf::getPosition(cv::Point2i& pos){
     }
     else
     {
-        p.x=rxr;
-        p.y=ryr;
+        p.x=rxr/100.0*map_or.rows*res;
+        p.y=ryr/100.0*map_or.cols*res;
     }
 
     pos.x=(int) round((p.x-or_x)/res);
@@ -669,6 +685,7 @@ void Vis_transf::update(void)
         gt=config.ground_truth;
         rxr=config.x;
         ryr=config.y;
+        scale=config.scale;
     }
 }
 
@@ -707,7 +724,7 @@ void Vis_transf::publish(void)
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "visibility");
+    ros::init(argc, argv, "visibility", ros::init_options::AnonymousName);
 
     ros::NodeHandle nh("~");
 

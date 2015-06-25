@@ -62,6 +62,7 @@ private:
     float res, or_x, or_y;
     bool _debug, gt, gt_c, changed, changed2;
     double rxr,ryr;
+    double scale;
     bool changed_p;
     map_transform::ParametersConfig _config;
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;

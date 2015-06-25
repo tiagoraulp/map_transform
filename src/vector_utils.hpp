@@ -2,6 +2,8 @@
 #define VECTOR_UTILS_HPP
 
 #include <vector>
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 using namespace std;
 
@@ -317,5 +319,7 @@ OrderedCresc<T,T2>::OrderedCresc(void)
 }
 
 int boundPos(int x, int max);
+
+cv::Mat scaling(cv::Mat , double scale);
 
 #endif // VECTOR_UTILS_HPP

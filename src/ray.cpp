@@ -1,6 +1,5 @@
 #include "ray.hpp"
 
-
 bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest, float dist_t, bool (*func)(cv::Mat *,cv::Point2i,cv::Point2i))
 {
     float angle=atan2(dest.y-opt.y, dest.x-opt.x);
@@ -180,7 +179,7 @@ cv::Mat brute_force(cv::Mat map, cv::Mat reach, int defl)
 
 bool bfo_iter(cv::Mat map, cv::Mat reach, int defl, int i, int j, int ii, int jj)
 {
-    if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.rows &&  (jj)>=0 )
+    if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.cols &&  (jj)>=0 )
     {
         if(reach.at<uchar>(ii,jj)==0)
             return false;
@@ -273,7 +272,6 @@ cv::Mat brute_force_opt_act(cv::Mat map, cv::Mat reach, cv::Mat act, int defl)
                 continue;
             if(act.at<uchar>(i,j)==255)
                 continue;
-
             if(bfo( map, reach, defl, i, j) )
                 continue;
 
