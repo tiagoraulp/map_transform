@@ -48,6 +48,8 @@ void ExtremesObst2Point::firstLoop(void)
                 ext.push_back(cv::Point(ch[c].x,ch[c].y));
                 prev_diff=diffAngle[c];
             }
+            if(prev_diff==0)
+                prev_diff=diffAngle[c];
         }
         else
             prev_diff=diffAngle[c];
