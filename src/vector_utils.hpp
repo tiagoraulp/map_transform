@@ -2,10 +2,6 @@
 #define VECTOR_UTILS_HPP
 
 #include <vector>
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-
-using namespace std;
 
 template <typename T, typename T2=T>
 class FindElem
@@ -32,8 +28,8 @@ class FindMax : public FindElem<T,T2>
 protected:
     bool func(T var);
 public:
-    FindMax(vector<T> vars);
-    FindMax(vector<T> vars, vector<T2> pts);
+    FindMax(std::vector<T> vars);
+    FindMax(std::vector<T> vars, std::vector<T2> pts);
     FindMax(void);
 };
 
@@ -43,8 +39,8 @@ class FindMin : public FindElem<T,T2>
 protected:
     bool func(T var);
 public:
-    FindMin(vector<T> vars);
-    FindMin(vector<T> vars, vector<T2> pts);
+    FindMin(std::vector<T> vars);
+    FindMin(std::vector<T> vars, std::vector<T2> pts);
     FindMin(void);
 };
 
@@ -52,8 +48,8 @@ template <typename T, typename T2=T>
 class OrderedVector
 {
 protected:
-    vector<T> fv;
-    vector<T2> p;
+    std::vector<T> fv;
+    std::vector<T2> p;
     virtual bool func(T var, T comp)=0;
 public:
     unsigned int iter(T var);
@@ -162,7 +158,7 @@ bool FindMax<T,T2>::func(T var)
 }
 
 template <typename T, typename T2>
-FindMax<T,T2>::FindMax(vector<T> vars)
+FindMax<T,T2>::FindMax(std::vector<T> vars)
 {
     for(int i=0;i<vars.size();i++)
     {
@@ -171,7 +167,7 @@ FindMax<T,T2>::FindMax(vector<T> vars)
 }
 
 template <typename T, typename T2>
-FindMax<T,T2>::FindMax(vector<T> vars, vector<T2> pts)
+FindMax<T,T2>::FindMax(std::vector<T> vars, std::vector<T2> pts)
 {
     for(int i=0;i<vars.size();i++)
     {
@@ -194,7 +190,7 @@ bool FindMin<T,T2>::func(T var)
 }
 
 template <typename T, typename T2>
-FindMin<T,T2>::FindMin(vector<T> vars)
+FindMin<T,T2>::FindMin(std::vector<T> vars)
 {
     for(int i=0;i<vars.size();i++)
     {
@@ -203,7 +199,7 @@ FindMin<T,T2>::FindMin(vector<T> vars)
 }
 
 template <typename T, typename T2>
-FindMin<T,T2>::FindMin(vector<T> vars, vector<T2> pts)
+FindMin<T,T2>::FindMin(std::vector<T> vars, std::vector<T2> pts)
 {
     for(int i=0;i<vars.size();i++)
     {
@@ -218,7 +214,7 @@ FindMin<T,T2>::FindMin(void)
 
 template <typename T, typename T2>
 unsigned int OrderedVector<T,T2>::iter(T var) {
-    typename vector<T>::iterator it=fv.begin();
+    typename std::vector<T>::iterator it=fv.begin();
     for(unsigned int i=0; i<fv.size(); i++)
     {
         if(func(var,fv[i]))
@@ -234,8 +230,8 @@ unsigned int OrderedVector<T,T2>::iter(T var) {
 
 template <typename T, typename T2>
 unsigned int OrderedVector<T,T2>::iter(T var,T2 pt) {
-    typename vector<T>::iterator it=fv.begin();
-    typename vector<T2>::iterator itp=p.begin();
+    typename std::vector<T>::iterator it=fv.begin();
+    typename std::vector<T2>::iterator itp=p.begin();
     for(unsigned int i=0; i<fv.size(); i++)
     {
         if(func(var,fv[i]))
@@ -319,7 +315,5 @@ OrderedCresc<T,T2>::OrderedCresc(void)
 }
 
 int boundPos(int x, int max);
-
-cv::Mat scaling(cv::Mat , double scale);
 
 #endif // VECTOR_UTILS_HPP

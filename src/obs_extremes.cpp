@@ -1,5 +1,8 @@
 #include "obs_extremes.hpp"
 
+using namespace std;
+
+static const double PI = 3.141592653589793;
 
 ExtremesObst2Point::ExtremesObst2Point(cv::Point2i crit, vector<Chain> c): critP(crit), ch(c)
 {

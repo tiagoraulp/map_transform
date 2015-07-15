@@ -1,5 +1,7 @@
 #include "labelling.hpp"
 
+#include <opencv2/imgproc/imgproc.hpp>
+
 std::vector<std::vector<cv::Point> >  label(const cv::Mat binary, int conn)
 {
     std::vector<std::vector<cv::Point> > blobs;
@@ -36,7 +38,6 @@ std::vector<std::vector<cv::Point> >  label(const cv::Mat binary, int conn)
             label_count++;
         }
     }
-
     return blobs;
 }
 

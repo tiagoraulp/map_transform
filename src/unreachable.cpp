@@ -1,5 +1,11 @@
 #include "unreachable.hpp"
 
+#include "labelling.hpp"
+#include "clustering.hpp"
+
+using namespace std;
+
+
 Unreachable::Unreachable(cv::Mat map_or, cv::Mat act_map) {
     getRegions(map_or, act_map);
 }
@@ -39,15 +45,10 @@ void Unreachable::getFrontiers(void)
 void Unreachable::getRegions(cv::Mat map_or, cv::Mat act_map)
 {
     cv::Mat temp_labelling, temp;
-
     bitwise_not(map_or.clone(),temp);
-
     unreach_map=act_map|temp;
-
     bitwise_not( unreach_map.clone() , temp_labelling);
-
     labels_unreach=label(temp_labelling/255,4);
-
     regions=map_or.clone()/255;
 
     for (unsigned int i=0;i<labels_unreach.size();i++){

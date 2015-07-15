@@ -1,5 +1,11 @@
 #include "CritPoints.hpp"
 
+#include "obtuseAngle.hpp"
+
+using namespace std;
+
+static const double PI = 3.141592653589793;
+
 CritPoints::CritPoints(cv::Mat map, cv::Mat reach, int rs): r_map(reach), map_or(map), infl(rs)
 {
 }

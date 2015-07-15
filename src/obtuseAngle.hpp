@@ -4,8 +4,6 @@
 #include "vector_utils.hpp"
 #include <opencv2/core/core.hpp>
 
-extern const double PI;
-
 class Find_Obtuse_Angle
 {
 private:

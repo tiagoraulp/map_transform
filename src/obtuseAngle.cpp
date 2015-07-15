@@ -1,5 +1,7 @@
 #include "obtuseAngle.hpp"
 
+static const double PI = 3.141592653589793;
+
 
 Find_Obtuse_Angle::Find_Obtuse_Angle(void)
 {
@@ -26,7 +28,6 @@ void Find_Obtuse_Angle::updateOA(int i0, int i1, int i2, bool p1, bool p2)
         a2=2*PI;
     else
         a2=0;
-
     if( (angles.getVal(i1)-angles.getVal(i0)+a1)>PI  )
     {
         obt_angle=i0;

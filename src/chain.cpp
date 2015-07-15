@@ -15,3 +15,4 @@ bool Chain::operator!=(Chain const & C)
 {
     return !(*this == C);
 }
+

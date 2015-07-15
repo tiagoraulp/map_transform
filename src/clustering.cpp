@@ -1,5 +1,9 @@
 #include "clustering.hpp"
 
+#include <iostream>
+
+using namespace std;
+
 Cluster::Cluster()
 {
     frontier.clear();

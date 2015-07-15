@@ -1,11 +1,9 @@
 #ifndef BUGFOLLOWING_HPP
 #define BUGFOLLOWING_HPP
 
-#include <vector>
 #include <opencv2/core/core.hpp>
 #include "chain.hpp"
 
-using namespace std;
 
 class BugFollowing
 {
@@ -23,7 +21,7 @@ private:
     int sign;
     cv::Mat contours, contours_check;
     cv::Point pos;
-    vector<Chain> chain;
+    std::vector<Chain> chain;
     void run(void);
     bool iter(void);
     void initialization(void);
@@ -32,7 +30,7 @@ private:
     bool check_direction(int sn, int d, int max_dir);
 public:
     BugFollowing(cv::Mat con, cv::Mat con_ch, cv::Point ini);
-    vector<Chain> getChain(void);
+    std::vector<Chain> getChain(void);
     cv::Mat getContourChecked(void);
 };
 

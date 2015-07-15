@@ -8,8 +8,10 @@
  </node>
 
  <node pkg="map_transform" type="visNC" name="visibility_NC" output="screen" args="$(find map_transform)/robots/robot2.png">    
-    <param name="defl" value="$(arg d)" />
-    <param name="infl" value="$(arg i)" />
+    <param name="defl" value="80" />
+    <param name="infl" value="9" />
+    <param name="sdefl" value="$(arg d)" />
+    <param name="rinfl" value="$(arg i)" />
     <param name="debug" value="true" />
     <param name="rx" value="50" />
     <param name="ry" value="50" />

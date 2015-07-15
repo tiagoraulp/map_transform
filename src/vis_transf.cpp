@@ -1,6 +1,80 @@
 #include "vis_transf.hpp"
 
-Vis_transf::Vis_transf(ros::NodeHandle nh): nh_(nh)
+
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
+#include "vector_utils.hpp"
+#include "labelling.hpp"
+#include "unreachable.hpp"
+#include "CritPoints.hpp"
+#include "clustering.hpp"
+#include "bugfollowing.hpp"
+#include "obs_extremes.hpp"
+#include "ray.hpp"
+#include "color.hpp"
+
+#include <map_transform/ParametersConfig.h>
+#include <map_transform/ParametersncConfig.h>
+
+using namespace std;
+
+static const double PI = 3.141592653589793;
+
+static const std::string M_WINDOW = "Map";
+static const std::string E_WINDOW = "Erosion";
+static const std::string C_WINDOW = "Close";
+static const std::string L_WINDOW = "Labelled";
+static const std::string A_WINDOW = "Actuation";
+static const std::string V_WINDOW = "Visibility";
+static const std::string D_WINDOW = "Debug";
+static const std::string G_WINDOW = "Ground_Truth";
+
+mutex mtx;
+
+template <typename T>
+void Vis_transf<T>::callbackParameters(T &config, uint32_t level) {
+    mtx.lock();
+    changed_p=true;
+    _config=config;
+    mtx.unlock();
+}
+
+template <typename T>
+void Vis_transf<T>::update(void)
+{
+    bool proc=false;
+
+    T config;
+
+    mtx.lock();
+
+    if(changed_p)
+    {
+        changed_p=false;
+        config=_config;
+        proc=true;
+    }
+
+    mtx.unlock();
+
+    if(proc)
+    {
+        changed=true;
+        changed2=true;
+
+        infl=config.infl;
+        defl=config.defl;
+        _debug=config.debug;
+        gt=config.ground_truth;
+        rxr=config.x;
+        ryr=config.y;
+        scale=config.scale;
+    }
+}
+
+template <typename T>
+Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
 {
     pub = nh_.advertise<nav_msgs::OccupancyGrid>("e_map", 1,true);
     pub2 = nh_.advertise<nav_msgs::OccupancyGrid>("c_map", 1,true);
@@ -47,7 +121,8 @@ Vis_transf::Vis_transf(ros::NodeHandle nh): nh_(nh)
     }
 }
 
-Vis_transf::~Vis_transf()
+template <typename T>
+Vis_transf<T>::~Vis_transf()
 {
     if(_debug){
        cv::destroyWindow(M_WINDOW);
@@ -62,15 +137,8 @@ Vis_transf::~Vis_transf()
     }
 }
 
-void Vis_transf::callbackParameters(map_transform::ParametersConfig &config, uint32_t level) {
-    mtx.lock();
-    changed_p=true;
-    _config=config;
-    mtx.unlock();
-}
-
-
-void Vis_transf::show(void)
+template <typename T>
+void Vis_transf<T>::show(void)
 {
     if(count>0 && _debug){
         cv::imshow(M_WINDOW,map_or);
@@ -116,8 +184,8 @@ void Vis_transf::show(void)
     }
 }
 
-
-nav_msgs::OccupancyGrid Vis_transf::Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg)
+template <typename T>
+nav_msgs::OccupancyGrid Vis_transf<T>::Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg)
 {
     //map=scaling(map, 1/scale);
 
@@ -149,8 +217,8 @@ nav_msgs::OccupancyGrid Vis_transf::Mat2RosMsg(cv::Mat map ,const nav_msgs::Occu
 }
 
 
-
-void Vis_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+template <typename T>
+void Vis_transf<T>::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
     ROS_INFO("I heard map: [%d]", msg->header.seq);
 
@@ -213,7 +281,8 @@ void Vis_transf::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     treated2=treated;
 }
 
-bool Vis_transf::checkProceed2(void)
+template <typename T>
+bool Vis_transf<T>::checkProceed2(void)
 {
     bool proc=false;
 
@@ -227,7 +296,8 @@ bool Vis_transf::checkProceed2(void)
     return proc;
 }
 
-bool Vis_transf::checkProceed(void)
+template <typename T>
+bool Vis_transf<T>::checkProceed(void)
 {
     bool proc=false;
 
@@ -241,7 +311,8 @@ bool Vis_transf::checkProceed(void)
     return proc;
 }
 
-void Vis_transf::transf(void)
+template <typename T>
+void Vis_transf<T>::transf(void)
 {
     bool proc=checkProceed2();
 
@@ -275,33 +346,8 @@ void Vis_transf::transf(void)
     }
 }
 
-cv::Mat Vis_transf::printPoint(cv::Mat img, cv::Point2i pos, unsigned char* color)
-{
-    vector<cv::Mat> channels(3);
-
-    channels[0]=img.clone();
-    channels[1]=img.clone();
-    channels[2]=img.clone();
-
-    for(int k=0;k<3;k++)
-    {
-        for(int i=(pos.x-1);i<=(pos.x+1);i++)
-        {
-            for(int j=(pos.y-1);j<=(pos.y+1);j++)
-            {
-                channels[k].at<uchar>(boundPos(i,img.rows),boundPos(j,img.cols))=color[2-k];
-            }
-        }
-    }
-
-    cv::Mat ret;
-
-    cv::merge(channels, ret);
-
-    return ret;
-}
-
-bool Vis_transf::getTFPosition(cv::Point2d &p)
+template <typename T>
+bool Vis_transf<T>::getTFPosition(cv::Point2d &p)
 {
     tf::StampedTransform transform;
     try{
@@ -316,7 +362,8 @@ bool Vis_transf::getTFPosition(cv::Point2d &p)
     return true;
 }
 
-bool Vis_transf::getPosition(cv::Point2i& pos){
+template <typename T>
+bool Vis_transf<T>::getPosition(cv::Point2i& pos){
     cv::Point2d p;
     if(!_debug)
     {
@@ -338,7 +385,8 @@ bool Vis_transf::getPosition(cv::Point2i& pos){
     return true;
 }
 
-bool Vis_transf::reachability_map(std::vector<std::vector<cv::Point> > labels, cv::Point2i pos, cv::Mat & r_map)
+template <typename T>
+bool Vis_transf<T>::reachability_map(std::vector<std::vector<cv::Point> > labels, cv::Point2i pos, cv::Mat & r_map)
 {
     bool found_pos=false, found_prev=false;
     unsigned int label_pos=0, prev_label=0;
@@ -374,7 +422,8 @@ bool Vis_transf::reachability_map(std::vector<std::vector<cv::Point> > labels, c
     return (prev_label!=label_pos) && found_pos; //returns true if reachable set changes from prev position
 }
 
-vector<cv::Point> Vis_transf::expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp)
+template <typename T>
+vector<cv::Point> Vis_transf<T>::expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp)
 {
     vector<cv::Point> occ;
     for(int rowx=max((crit.x-defl),0);rowx<=min((crit.x+defl),regions.rows-1);rowx++)
@@ -421,7 +470,8 @@ vector<cv::Point> Vis_transf::expVisibility_obs(cv::Point2i crit, int defl, cv::
     return occ;
 }
 
-vector<cv::Point> Vis_transf::getExtremeFromObstacles(vector<cv::Point> occ, cv::Point2i crit)
+template <typename T>
+vector<cv::Point> Vis_transf<T>::getExtremeFromObstacles(vector<cv::Point> occ, cv::Point2i crit)
 {
     vector<vector<cv::Point> > occ_clust=cluster_points(occ);
 
@@ -499,8 +549,8 @@ vector<cv::Point> Vis_transf::getExtremeFromObstacles(vector<cv::Point> occ, cv:
     return occ_crit_filt;
 }
 
-
-void Vis_transf::transf_pos(void)
+template <typename T>
+void Vis_transf<T>::transf_pos(void)
 {
     if(count>0)
     {
@@ -657,39 +707,8 @@ void Vis_transf::transf_pos(void)
         return;
 }
 
-void Vis_transf::update(void)
-{
-    bool proc=false;
-
-    map_transform::ParametersConfig config;
-
-    mtx.lock();
-
-    if(changed_p)
-    {
-        changed_p=false;
-        config=_config;
-        proc=true;
-    }
-
-    mtx.unlock();
-
-    if(proc)
-    {
-        changed=true;
-        changed2=true;
-
-        infl=config.infl;
-        defl=config.defl;
-        _debug=config.debug;
-        gt=config.ground_truth;
-        rxr=config.x;
-        ryr=config.y;
-        scale=config.scale;
-    }
-}
-
-void Vis_transf::publish(void)
+template <typename T>
+void Vis_transf<T>::publish(void)
 {
     if(count>0)
     {
@@ -721,35 +740,6 @@ void Vis_transf::publish(void)
     }
 }
 
+template class Vis_transf<map_transform::ParametersConfig>;
+template class Vis_transf<map_transform::ParametersncConfig>;
 
-int main(int argc, char **argv)
-{
-    ros::init(argc, argv, "visibility", ros::init_options::AnonymousName);
-
-    ros::NodeHandle nh("~");
-
-    Vis_transf vis(nh);
-
-    ros::Rate loop_rate(10);
-
-
-    while (ros::ok())
-    {
-        vis.update();
-
-        ros::spinOnce();
-
-        vis.transf();
-
-        vis.transf_pos();
-
-        vis.show();
-
-        vis.publish();
-
-        loop_rate.sleep();
-    }
-
-
-    return 0;
-}

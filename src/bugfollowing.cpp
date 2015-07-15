@@ -1,5 +1,8 @@
 #include "bugfollowing.hpp"
 
+using namespace std;
+
+
 BugFollowing::BugFollowing(cv::Mat con, cv::Mat con_ch, cv::Point ini): contours(con), contours_check(con_ch), pos(ini)
 {
     chain.clear();

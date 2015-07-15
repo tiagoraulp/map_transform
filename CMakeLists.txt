@@ -33,7 +33,7 @@ set(CMAKE_CXX_FLAGS "-std=c++0x -std=gnu11 ${CMAKE_CXX_FLAGS}")
 
 #set(CMAKE_BUILD_TYPE Debug)
 
-add_definitions ("-Wall -Wconversion")
+#add_definitions ("-Wall -Wconversion")
 
 find_package(OpenCV)
 
@@ -47,9 +47,9 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 rosbuild_add_boost_directories()
 
-rosbuild_add_executable(visibility src/vis_transf.cpp src/unreachable.cpp src/labelling.cpp src/clustering.cpp src/CritPoints.cpp src/obtuseAngle.cpp src/bugfollowing.cpp src/chain.cpp src/obs_extremes.cpp src/vector_utils.cpp src/ray.cpp)
+rosbuild_add_executable(visibility src/vis.cpp src/vis_transf.cpp src/unreachable.cpp src/labelling.cpp src/clustering.cpp src/CritPoints.cpp src/obtuseAngle.cpp src/bugfollowing.cpp src/chain.cpp src/obs_extremes.cpp src/vector_utils.cpp src/ray.cpp src/color.cpp)
 
-rosbuild_add_executable(visNC src/visNC_transf.cpp)
+rosbuild_add_executable(visNC src/visNC.cpp src/visNC_transf.cpp src/unreachable.cpp src/labelling.cpp src/clustering.cpp src/CritPoints.cpp src/obtuseAngle.cpp src/bugfollowing.cpp src/chain.cpp src/obs_extremes.cpp src/vector_utils.cpp src/ray.cpp src/morph.cpp src/color.cpp src/vis_transf.cpp)
 
 rosbuild_add_executable(planner src/planner.cpp)
 

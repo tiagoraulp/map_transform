@@ -1,5 +1,9 @@
 #include "ray.hpp"
 
+#include <cmath>
+
+using namespace std;
+
 bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest, float dist_t, bool (*func)(cv::Mat *,cv::Point2i,cv::Point2i))
 {
     float angle=atan2(dest.y-opt.y, dest.x-opt.x);
@@ -96,7 +100,6 @@ bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest
         else
             p_y=sign_y*((int)round(sign_y*(tempy+temp*sin_ang)+p_y)-p_y);
     }
-
     return true;
 }
 
