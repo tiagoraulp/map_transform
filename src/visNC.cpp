@@ -1,5 +1,4 @@
 #include "visNC_transf.hpp"
-#include "map_transform/ParametersncConfig.h"
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -51,25 +50,17 @@ int main(int argc, char **argv)
 
     ros::NodeHandle nh("~");
 
-    VisNC_transf<map_transform::ParametersncConfig> visNC(nh,robot);
-
+    VisNC_transf visNC(nh,robot);
 
     ros::Rate loop_rate(10);
 
 
     while (ros::ok())
     {
-        visNC.update();
 
         ros::spinOnce();
 
-        visNC.transf();
-
-        visNC.transf_pos();
-
-        visNC.show();
-
-        visNC.publish();
+        visNC.run();
 
         loop_rate.sleep();
     }

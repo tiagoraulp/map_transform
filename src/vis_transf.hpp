@@ -7,8 +7,6 @@
 #include <opencv2/core/core.hpp>
 #include <mutex>
 
-
-
 template <typename T>
 class Vis_transf{
 protected:
@@ -26,14 +24,12 @@ protected:
     int count;
     bool pos_rcv;
     bool treated, treated2;
-    int infl;
-    int defl;
     cv::Point2i prev;
     std::string tf_pref;
     int height, width;
     float res, or_x, or_y;
     bool _debug, gt, gt_c, changed, changed2;
-    double rxr,ryr;
+    double rxr,ryr, rtr;
     double scale;
     bool changed_p;
     T _config;
@@ -43,21 +39,23 @@ protected:
     nav_msgs::OccupancyGrid Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg);
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void callbackParameters(T &config, uint32_t level);
-    bool getTFPosition(cv::Point2d&p);
-    bool getPosition(cv::Point2i&pos);
+    bool getTFPosition(cv::Point3d&p);
+    virtual bool getPosition(cv::Point2i&pos, double& theta);
     bool checkProceed(void);
     bool checkProceed2(void);
-    bool reachability_map(std::vector<std::vector<cv::Point> > labels, cv::Point2i pos, cv::Mat & r_map);
-    std::vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp);
-    std::vector<cv::Point> getExtremeFromObstacles(std::vector<cv::Point> occ, cv::Point2i crit);
+    virtual void update(void);
+    virtual void update_config(T config)=0;
+    virtual void show(void)=0;
+    virtual void publish(void);
+    virtual void transf(void);
+    virtual void transf_pos(void);
+    virtual void conf_space(void)=0;
+    virtual void visibility(cv::Point2i, bool, ros::Time)=0;
 public:
     Vis_transf(ros::NodeHandle nh);
     virtual ~Vis_transf();
-    void update(void);
-    void show(void);
-    void publish(void);
-    void transf(void);
-    void transf_pos(void);
+
+    virtual void run(void);
 };
 
 extern std::mutex mtx;

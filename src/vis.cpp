@@ -1,5 +1,4 @@
-#include "vis_transf.hpp"
-#include "map_transform/ParametersConfig.h"
+#include "visC_transf.hpp"
 
 
 int main(int argc, char **argv)
@@ -8,24 +7,16 @@ int main(int argc, char **argv)
 
     ros::NodeHandle nh("~");
 
-    Vis_transf<map_transform::ParametersConfig> vis(nh);
+    VisC_transf vis(nh);
 
     ros::Rate loop_rate(10);
 
 
     while (ros::ok())
     {
-        vis.update();
-
         ros::spinOnce();
 
-        vis.transf();
-
-        vis.transf_pos();
-
-        vis.show();
-
-        vis.publish();
+        vis.run();
 
         loop_rate.sleep();
     }

@@ -2,13 +2,12 @@
 #define VISNC_TRANSF_HPP
 
 #include "vis_transf.hpp"
+#include "map_transform/ParametersncConfig.h"
 
 #include "morph.hpp"
 
 
-
-template <typename T>
-class VisNC_transf: public Vis_transf<T>{
+class VisNC_transf: public Vis_transf<map_transform::ParametersncConfig>{
 protected:
     cv::Mat robot;
 
@@ -16,7 +15,7 @@ protected:
 
     double sdefl;
 
-    double rtr, rcx, rcy, rct;
+    double rcx, rcy, rct;
 
     int angle_res;
 
@@ -24,20 +23,16 @@ protected:
 
     Elem robot_or;
 
-    nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
-
     cv::Mat struct_elem;
 
+    void update_config(map_transform::ParametersncConfig config);
+    void show(void);
+    void conf_space(void);
+    void visibility(cv::Point2i, bool, ros::Time);
+    bool getPosition(cv::Point2i& pos, double&  theta);
 public:
     VisNC_transf(ros::NodeHandle nh, cv::Mat rob);
     virtual ~VisNC_transf();
-
-    void update(void);
-    void show(void);
-    void transf(void);
-    void transf_pos(void);
-
-
 };
 
 

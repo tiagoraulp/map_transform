@@ -3,8 +3,6 @@
 Reads and maintains the following parameters on the ROS server
 
 - \b "~scale" : \b [double] Scale min: 10.0, default: 50.0, max: 100.0
-- \b "~infl" : \b [int] Robot size in cells min: 1, default: 5, max: 50
-- \b "~defl" : \b [int] Sensing radius in cells min: 1, default: 3, max: 200
 - \b "~rinfl" : \b [double] Robot size (scale %) min: 5.0, default: 100.0, max: 500.0
 - \b "~sdefl" : \b [double] Sensing radius (scale %) min: 5.0, default: 100.0, max: 500.0
 - \b "~rx" : \b [double] Robot center x (%) min: 0.0, default: 50.0, max: 100.0
@@ -14,7 +12,7 @@ Reads and maintains the following parameters on the ROS server
 - \b "~debug" : \b [bool] Debugging with images min: False, default: True, max: True
 - \b "~ground_truth" : \b [bool] Ground Truth min: False, default: False, max: True
 - \b "~debug_angle" : \b [double] Debug of Infl+Defl for angle min: -180.0, default: 0.0, max: 180.0
-- \b "~x" : \b [double] X Position min: 0.0, default: 10.0, max: 20.0
-- \b "~y" : \b [double] Y Position min: 0.0, default: 10.0, max: 20.0
+- \b "~x" : \b [double] X Position min: 0.0, default: 50.0, max: 100.0
+- \b "~y" : \b [double] Y Position min: 0.0, default: 50.0, max: 100.0
 - \b "~theta" : \b [double] Orientation min: -180.0, default: 0.0, max: 180.0
 
