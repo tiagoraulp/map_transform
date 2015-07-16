@@ -40,7 +40,9 @@ protected:
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void callbackParameters(T &config, uint32_t level);
     bool getTFPosition(cv::Point3d&p);
-    virtual bool getPosition(cv::Point2i&pos, double& theta);
+    virtual void getPosition(cv::Point3d&p);
+    virtual void get2DPosition(cv::Point2i&pos, double& theta, cv::Point3d p);
+    bool getPos(cv::Point2i&pos, double& theta);
     bool checkProceed(void);
     bool checkProceed2(void);
     virtual void update(void);

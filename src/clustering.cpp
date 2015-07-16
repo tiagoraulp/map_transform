@@ -4,19 +4,22 @@
 
 using namespace std;
 
-Cluster::Cluster()
+template <typename T>
+Cluster<T>::Cluster()
 {
     frontier.clear();
     rest.clear();
 }
 
-void Cluster::append(Cluster b)
+template <typename T>
+void Cluster<T>::append(Cluster<T> b)
 {
     frontier.insert(frontier.end(),b.frontier.begin(),b.frontier.end());
     rest.insert(rest.end(),b.rest.begin(),b.rest.end());
 }
 
-void Cluster::print(void)
+template <>
+void Cluster<cv::Point>::print(void)
 {
     for (unsigned int i=0;i<frontier.size();i++)
     {
@@ -31,9 +34,49 @@ void Cluster::print(void)
     cout<<endl;
 }
 
-Cluster clustering(Cluster clust, unsigned int index)
+template <>
+void Cluster<cv::Point3i>::print(void)
 {
+    for (unsigned int i=0;i<frontier.size();i++)
+    {
+        cout<<frontier[i].x<<" "<<frontier[i].y<<" "<<frontier[i].z<<"; ";
+    }
+    cout<<endl;
 
+    for (unsigned int i=0;i<rest.size();i++)
+    {
+        cout<<rest[i].x<<" "<<rest[i].y<<" "<<rest[i].z<<"; ";
+    }
+    cout<<endl;
+}
+
+bool cond(cv::Point a, cv::Point b, int num=0)
+{
+    return ( (a.x==(b.x+1)|| a.x==b.x || a.x==(b.x-1) ) && ( a.y==(b.y+1) || a.y==b.y || a.y==(b.y-1) ) );
+}
+
+bool cond(cv::Point3i a, cv::Point3i b, int num)
+{
+    int l, u;
+
+    if(b.z==(num-1))
+        u=0;
+    else
+        u=b.z+1;
+
+    if(b.z==0)
+        l=num-1;
+    else
+        l=b.z-1;
+
+
+    return ( (a.x==(b.x+1)|| a.x==b.x || a.x==(b.x-1) ) && ( a.y==(b.y+1) || a.y==b.y || a.y==(b.y-1) )
+             && ( a.z==(u) || a.z==b.z || a.z==(l) ) );
+}
+
+template <typename T>
+Cluster<T> clustering(Cluster<T> clust, unsigned int index, int num=0)
+{
     clust.frontier.clear();
 
     if(clust.rest.size()==0 || index>=clust.rest.size())
@@ -42,11 +85,11 @@ Cluster clustering(Cluster clust, unsigned int index)
     }
 
 
-    Cluster temp=clust;
+    Cluster<T> temp=clust;
     temp.rest.erase(temp.rest.begin()+index);
     temp.frontier.push_back(clust.rest[index]);
 
-    Cluster tempL;
+    Cluster<T> tempL;
 
     bool done=false;
 
@@ -56,7 +99,8 @@ Cluster clustering(Cluster clust, unsigned int index)
 
         for(unsigned int i=0;i<temp.rest.size();i++)
         {
-            if(  (temp.rest[i].x==(clust.rest[index].x+1)|| temp.rest[i].x==clust.rest[index].x || temp.rest[i].x==(clust.rest[index].x-1) ) && ( temp.rest[i].y==(clust.rest[index].y+1) || temp.rest[i].y==clust.rest[index].y || temp.rest[i].y==(clust.rest[index].y-1) ) )
+            bool val=cond(temp.rest[i],clust.rest[index], num);
+            if( val )
             {
 
                 tempL=clustering(temp,i);
@@ -75,18 +119,20 @@ Cluster clustering(Cluster clust, unsigned int index)
     return temp;
 }
 
-vector<vector<cv::Point> > cluster_points(vector<cv::Point> frontiers)
+
+template <typename T>
+vector<vector<T> > cluster_points(vector<T> frontiers, int num=0)
 {
-    Cluster cl, res;
+    Cluster<T> cl, res;
     cl.frontier.clear();
     cl.rest=frontiers;
 
-    vector<vector<cv::Point> > result;
+    vector<vector<T> > result;
     result.clear();
 
     while(cl.rest.size()>0)
     {
-        res=clustering(cl,0);
+        res=clustering(cl,0, num);
 
         result.push_back(res.frontier);
 
@@ -97,3 +143,22 @@ vector<vector<cv::Point> > cluster_points(vector<cv::Point> frontiers)
     return result;
 }
 
+template <typename T>
+vector<T> cluster_points(vector<T> frontiers, unsigned int index, int num=0)
+{
+    Cluster<T> cl;
+    cl.frontier.clear();
+    cl.rest=frontiers;
+
+    cl=clustering(cl,index, num);
+
+    return cl.frontier;
+}
+
+template vector<vector<cv::Point> > cluster_points<cv::Point>(vector<cv::Point> frontiers,  int num=0);
+template vector<vector<cv::Point3i> > cluster_points<cv::Point3i>(vector<cv::Point3i> frontiers,  int num=0);
+template vector<cv::Point> cluster_points<cv::Point>(vector<cv::Point> frontiers,unsigned int index, int num=0);
+template vector<cv::Point3i> cluster_points<cv::Point3i>(vector<cv::Point3i> frontiers,unsigned int index,  int num=0);
+
+
+template class Cluster<cv::Point3i>;

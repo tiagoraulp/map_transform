@@ -249,7 +249,28 @@ bool Vis_transf<T>::getTFPosition(cv::Point3d &p)
 }
 
 template <typename T>
-bool Vis_transf<T>::getPosition(cv::Point2i& pos, double& theta){
+void Vis_transf<T>::getPosition(cv::Point3d &p)
+{
+        p.x=rxr/100.0*map_or.rows*res;
+        p.y=ryr/100.0*map_or.cols*res;
+        p.z=rtr;
+}
+
+template <typename T>
+void Vis_transf<T>::get2DPosition(cv::Point2i& pos, double& theta, cv::Point3d p)
+{
+    pos.x=(int) round((p.x-or_x)/res);
+    pos.y=(int) round((p.y-or_y)/res);
+
+    pos.x=boundPos(pos.x, map_or.rows);
+    pos.y=boundPos(pos.y, map_or.cols);
+
+    theta=p.z;
+}
+
+template <typename T>
+bool Vis_transf<T>::getPos(cv::Point2i&pos, double& theta)
+{
     cv::Point3d p;
     if(!_debug)
     {
@@ -258,25 +279,16 @@ bool Vis_transf<T>::getPosition(cv::Point2i& pos, double& theta){
     }
     else
     {
-        p.x=rxr/100.0*map_or.rows*res;
-        p.y=ryr/100.0*map_or.cols*res;
-        p.z=rtr;
+        getPosition(p);
     }
 
     if(p.z<0)
         p.z+=360;
 
-    pos.x=(int) round((p.x-or_x)/res);
-    pos.y=(int) round((p.y-or_y)/res);
-
-    pos.x=boundPos(pos.x, map_or.rows);
-    pos.y=boundPos(pos.y, map_or.cols);
-
-    theta=p.z;
+    get2DPosition(pos, theta, p);
 
     return true;
 }
-
 
 
 template <typename T>
@@ -289,10 +301,8 @@ void Vis_transf<T>::transf_pos(void)
         cv::Point2i pos;
         double theta;
 
-        if (!getPosition(pos, theta))
+        if(!getPos(pos, theta))
             return;
-
-
 
         bool proc=checkProceed();
 

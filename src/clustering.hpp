@@ -3,20 +3,25 @@
 
 #include <opencv2/core/core.hpp>
 
-
+template <typename T>
 class Cluster {
 public:
-    std::vector<cv::Point> frontier;
-    std::vector<cv::Point> rest;
+    std::vector<T> frontier;
+    std::vector<T> rest;
 
     Cluster();
-    void append(Cluster b);
+    void append(Cluster<T> b);
     void print(void);
 };
 
-Cluster clustering(Cluster clust, unsigned int index);
+template <typename T>
+Cluster<T> clustering(Cluster<T> clust, unsigned int index, int num=0);
 
-std::vector<std::vector<cv::Point> > cluster_points(std::vector<cv::Point> frontiers);
+template <typename T>
+std::vector<std::vector<T> > cluster_points(std::vector<T> frontiers, int num=0);
+
+template <typename T>
+std::vector<T> cluster_points(std::vector<T> frontiers, unsigned int index,  int num=0);
 
 
 #endif // CLUSTERING_HPP

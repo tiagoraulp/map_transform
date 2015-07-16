@@ -3,6 +3,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include "clustering.hpp"
+
 #include "labelling.hpp"
 #include "ray.hpp"
 #include "color.hpp"
@@ -211,24 +213,15 @@ void VisNC_transf::conf_space(void)
     struct_elem=robot_or.elems[m_a]*255;
 }
 
+void VisNC_transf::getPosition(cv::Point3d &p)
+{
+    p.x=this->rxr/100.0*this->map_or.rows*this->res;
+    p.y=this->ryr/100.0*this->map_or.cols*this->res;
+    p.z=this->rtr;
+}
 
-bool VisNC_transf::getPosition(cv::Point2i& pos, double & theta){
-    cv::Point3d p;
-    if(!this->_debug)
-    {
-        if(!this->getTFPosition(p))
-            return false;
-    }
-    else
-    {
-        p.x=this->rxr/100.0*this->map_or.rows*this->res;
-        p.y=this->ryr/100.0*this->map_or.cols*this->res;
-        p.z=this->rtr;
-    }
-
-    if(p.z<0)
-        p.z+=360;
-
+void VisNC_transf::get2DPosition(cv::Point2i& pos, double& theta, cv::Point3d p)
+{
     pos.x=(int) round((p.x-this->or_x)/this->res)+this->robot_or.pu;
     pos.y=(int) round((p.y-this->or_y)/this->res)+this->robot_or.pl;
 
@@ -236,8 +229,6 @@ bool VisNC_transf::getPosition(cv::Point2i& pos, double & theta){
     pos.y=boundPos(pos.y,this-> map_or.cols+this->robot_or.pl+this->robot_or.pr);
 
     theta=p.z;
-
-    return true;
 }
 
 
@@ -248,6 +239,9 @@ void VisNC_transf::visibility(cv::Point2i pos, bool proc, ros::Time t01)
     cv::Mat temp_labelling, temp;
 
     std::vector<std::vector<cv::Point> > labels=label(this->map_erosionOp.clone()/255,8);
+
+    //for(int i=0; i<map_erosionOp.rows; i++)
+    //    cluster_points()
 
 
     unsigned int label_pos=0, prev_label=0;

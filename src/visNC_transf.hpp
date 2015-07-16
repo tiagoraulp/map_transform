@@ -29,7 +29,8 @@ protected:
     void show(void);
     void conf_space(void);
     void visibility(cv::Point2i, bool, ros::Time);
-    bool getPosition(cv::Point2i& pos, double&  theta);
+    void getPosition(cv::Point3d&p);
+    void get2DPosition(cv::Point2i&pos, double& theta, cv::Point3d p);
 public:
     VisNC_transf(ros::NodeHandle nh, cv::Mat rob);
     virtual ~VisNC_transf();

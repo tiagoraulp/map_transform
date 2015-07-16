@@ -145,8 +145,10 @@ void VisC_transf::conf_space(void)
 }
 
 
-bool VisC_transf::reachability_map(std::vector<std::vector<cv::Point> > labels, cv::Point2i pos, cv::Mat & r_map)
+bool VisC_transf::reachability_map(cv::Point2i pos, cv::Mat & r_map)
 {
+    std::vector<std::vector<cv::Point> > labels=label(map_erosionOp.clone()/255,8);
+
     bool found_pos=false, found_prev=false;
     unsigned int label_pos=0, prev_label=0;
 
@@ -309,11 +311,9 @@ vector<cv::Point> VisC_transf::getExtremeFromObstacles(vector<cv::Point> occ, cv
 
 void VisC_transf::visibility(cv::Point2i pos, bool proc, ros::Time t01)
 {
-    std::vector<std::vector<cv::Point> > labels=label(map_erosionOp.clone()/255,8);
-
     cv::Mat r_map=map_erosionOp.clone();
 
-    bool new_v=reachability_map(labels,pos,r_map);
+    bool new_v=reachability_map(pos,r_map);
 
     if( (new_v) || (prev.x<0) || (prev.y<0) || proc )  //if visibility is changed
     {
