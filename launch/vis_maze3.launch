@@ -1,6 +1,6 @@
 <launch>
  <arg name="i" default="9"/>
- <arg name="d" default="$(arg i)"/>
+ <arg name="d" default="80"/>
 
  <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze5.png 0.1" respawn="false" > 
     <param name="frame_id" value="/map" />

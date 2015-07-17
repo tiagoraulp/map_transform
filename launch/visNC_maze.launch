@@ -17,7 +17,7 @@
     <param name="ry" value="50" />
     <param name="rt" value="0" />
     <param name="x" value="50" />
-    <param name="y" value="50" />
+    <param name="y" value="40" />
     <param name="theta" value="0" />
     <param name="ground_truth" value="false" />
     <param name="angle_res" value="32" />
