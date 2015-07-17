@@ -145,7 +145,7 @@ void VisC_transf::conf_space(void)
 }
 
 
-bool VisC_transf::reachability_map(cv::Point2i pos, cv::Mat & r_map)
+bool VisC_transf::reachability_map(cv::Point3i pos, cv::Mat & r_map)
 {
     std::vector<std::vector<cv::Point> > labels=label(map_erosionOp.clone()/255,8);
 
@@ -238,6 +238,7 @@ vector<cv::Point> VisC_transf::getExtremeFromObstacles(vector<cv::Point> occ, cv
 
     cv::Mat contours = cv::Mat::ones(map_or.rows, map_or.cols, CV_8UC1)*255;
 
+
     for(unsigned int ind=0;ind<occ_clust.size();ind++)
     {
         for(unsigned int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
@@ -308,8 +309,12 @@ vector<cv::Point> VisC_transf::getExtremeFromObstacles(vector<cv::Point> occ, cv
     return occ_crit_filt;
 }
 
+bool VisC_transf::valid_pos(cv::Point3i pos)
+{
+   return (map_erosionOp.at<uchar>(pos.x,pos.y)!=0);
+}
 
-void VisC_transf::visibility(cv::Point2i pos, bool proc, ros::Time t01)
+void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 {
     cv::Mat r_map=map_erosionOp.clone();
 

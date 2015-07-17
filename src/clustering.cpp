@@ -75,19 +75,24 @@ bool cond(cv::Point3i a, cv::Point3i b, int num)
 }
 
 template <typename T>
-Cluster<T> clustering(Cluster<T> clust, unsigned int index, int num=0)
+Cluster<T> clustering(Cluster<T>& clust, typename vector<T>::iterator index, int num=0)
 {
-    clust.frontier.clear();
-
-    if(clust.rest.size()==0 || index>=clust.rest.size())
+    if(clust.rest.size()==0)// || index>=clust.rest.size())
     {
         return clust;
     }
 
+    T vali=*index;
+
+    clust.rest.erase(index);
 
     Cluster<T> temp=clust;
-    temp.rest.erase(temp.rest.begin()+index);
-    temp.frontier.push_back(clust.rest[index]);
+
+    temp.frontier.clear();
+
+    typename vector<T>::iterator it=temp.rest.begin();
+
+    temp.frontier.push_back(vali);
 
     Cluster<T> tempL;
 
@@ -97,23 +102,24 @@ Cluster<T> clustering(Cluster<T> clust, unsigned int index, int num=0)
     {
         done=true;
 
-        for(unsigned int i=0;i<temp.rest.size();i++)
+        while(it!=temp.rest.end())
         {
-            bool val=cond(temp.rest[i],clust.rest[index], num);
+            bool val=cond(*it,vali, num);
             if( val )
             {
 
-                tempL=clustering(temp,i);
+                tempL=clustering(temp,it, num);
 
                 temp.frontier.insert(temp.frontier.end(),tempL.frontier.begin(),tempL.frontier.end());
                 temp.rest=tempL.rest;
 
+                it=temp.rest.begin();
+
                 done=false;
 
                 break;
-
             }
-
+            it++;
         }
     }
     return temp;
@@ -132,33 +138,48 @@ vector<vector<T> > cluster_points(vector<T> frontiers, int num=0)
 
     while(cl.rest.size()>0)
     {
-        res=clustering(cl,0, num);
+        res=clustering(cl,cl.rest.begin(), num);
 
         result.push_back(res.frontier);
 
         cl=res;
         cl.frontier.clear();
+
     }
 
     return result;
 }
 
 template <typename T>
-vector<T> cluster_points(vector<T> frontiers, unsigned int index, int num=0)
+vector<T> cluster_points(vector<T>& frontiers, typename vector<T>::iterator index, int num=0)
 {
     Cluster<T> cl;
     cl.frontier.clear();
     cl.rest=frontiers;
 
-    cl=clustering(cl,index, num);
+    typename vector<T>::iterator it=cl.rest.begin();
+    typename vector<T>::iterator itf=frontiers.begin();
+
+    cout<<"???"<<endl;
+    while(it!=cl.rest.end())
+    {
+        if(itf==index)
+            break;
+
+        it++;
+        itf++;
+    }
+
+
+    cout<<"Let+s cluster!!!!"<<endl;
+
+    cl=clustering(cl,it, num);
 
     return cl.frontier;
 }
 
 template vector<vector<cv::Point> > cluster_points<cv::Point>(vector<cv::Point> frontiers,  int num=0);
 template vector<vector<cv::Point3i> > cluster_points<cv::Point3i>(vector<cv::Point3i> frontiers,  int num=0);
-template vector<cv::Point> cluster_points<cv::Point>(vector<cv::Point> frontiers,unsigned int index, int num=0);
-template vector<cv::Point3i> cluster_points<cv::Point3i>(vector<cv::Point3i> frontiers,unsigned int index,  int num=0);
+template vector<cv::Point> cluster_points<cv::Point>(vector<cv::Point>& frontiers,vector<cv::Point>::iterator index, int num=0);
+template vector<cv::Point3i> cluster_points<cv::Point3i>(vector<cv::Point3i>& frontiers,vector<cv::Point3i>::iterator index,  int num=0);
 
-
-template class Cluster<cv::Point3i>;

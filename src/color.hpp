@@ -3,7 +3,7 @@
 
 #include <opencv2/core/core.hpp>
 
-cv::Mat printPoint(cv::Mat img, cv::Point2i pos, unsigned char* color);
+cv::Mat printPoint(cv::Mat img, cv::Point3i pos, unsigned char* color);
 
 cv::Mat color_print(cv::Mat img1, cv::Mat img2, unsigned char* c_b, unsigned char* c_n, unsigned char* c_1, unsigned char* c_2);
 

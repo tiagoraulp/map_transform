@@ -24,7 +24,7 @@ protected:
     int count;
     bool pos_rcv;
     bool treated, treated2;
-    cv::Point2i prev;
+    cv::Point3i prev;
     std::string tf_pref;
     int height, width;
     float res, or_x, or_y;
@@ -41,8 +41,8 @@ protected:
     void callbackParameters(T &config, uint32_t level);
     bool getTFPosition(cv::Point3d&p);
     virtual void getPosition(cv::Point3d&p);
-    virtual void get2DPosition(cv::Point2i&pos, double& theta, cv::Point3d p);
-    bool getPos(cv::Point2i&pos, double& theta);
+    virtual void get2DPosition(cv::Point3i&pos, cv::Point3d p);
+    bool getPos(cv::Point3i&pos);
     bool checkProceed(void);
     bool checkProceed2(void);
     virtual void update(void);
@@ -52,7 +52,8 @@ protected:
     virtual void transf(void);
     virtual void transf_pos(void);
     virtual void conf_space(void)=0;
-    virtual void visibility(cv::Point2i, bool, ros::Time)=0;
+    virtual bool valid_pos(cv::Point3i pos)=0;
+    virtual void visibility(cv::Point3i, bool, ros::Time)=0;
 public:
     Vis_transf(ros::NodeHandle nh);
     virtual ~Vis_transf();

@@ -15,13 +15,13 @@ public:
 };
 
 template <typename T>
-Cluster<T> clustering(Cluster<T> clust, unsigned int index, int num=0);
+Cluster<T> clustering(Cluster<T>& clust,typename std::vector<T>::iterator, int num=0);
 
 template <typename T>
 std::vector<std::vector<T> > cluster_points(std::vector<T> frontiers, int num=0);
 
 template <typename T>
-std::vector<T> cluster_points(std::vector<T> frontiers, unsigned int index,  int num=0);
+std::vector<T> cluster_points(std::vector<T>& frontiers, typename std::vector<T>::iterator,  int num=0);
 
 
 #endif // CLUSTERING_HPP

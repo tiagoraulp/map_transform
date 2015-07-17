@@ -23,14 +23,17 @@ protected:
 
     Elem robot_or;
 
-    cv::Mat struct_elem;
+    cv::Mat struct_elem, map_projLabel;
+
+    std::vector<cv::Mat> multi_er_map, multi_labl_map, multi_act_map;
 
     void update_config(map_transform::ParametersncConfig config);
     void show(void);
     void conf_space(void);
-    void visibility(cv::Point2i, bool, ros::Time);
+    void visibility(cv::Point3i, bool, ros::Time);
     void getPosition(cv::Point3d&p);
-    void get2DPosition(cv::Point2i&pos, double& theta, cv::Point3d p);
+    void get2DPosition(cv::Point3i&pos, cv::Point3d p);
+    bool valid_pos(cv::Point3i pos);
 public:
     VisNC_transf(ros::NodeHandle nh, cv::Mat rob);
     virtual ~VisNC_transf();

@@ -21,7 +21,7 @@ static const std::string V_WINDOW = "Visibility";
 static const std::string D_WINDOW = "Debug";
 static const std::string G_WINDOW = "Ground_Truth";
 static const std::string S_WINDOW = "Structuring Element";
-
+static const std::string P_WINDOW = "ProjectedLabeled";
 
 
 VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob): Vis_transf(nh), robot(rob)
@@ -53,6 +53,7 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob): Vis_transf(nh), rob
         {
             cv::namedWindow(L_WINDOW);
             cv::namedWindow(A_WINDOW);
+            cv::namedWindow(P_WINDOW);
             cv::namedWindow(V_WINDOW);
             if(this->gt && this->gt_c)
                 cv::namedWindow(G_WINDOW);
@@ -72,6 +73,7 @@ VisNC_transf::~VisNC_transf()
        cv::destroyWindow(D_WINDOW);
        cv::destroyWindow(L_WINDOW);
        cv::destroyWindow(A_WINDOW);
+       cv::destroyWindow(P_WINDOW);
        cv::destroyWindow(V_WINDOW);
        cv::destroyWindow(G_WINDOW);
 
@@ -98,6 +100,7 @@ void VisNC_transf::show(void)
         {
             cv::imshow(L_WINDOW,this->map_label);
             cv::imshow(A_WINDOW,this->map_act);
+            cv::imshow(P_WINDOW,this->map_act);
             cv::imshow(V_WINDOW,this->map_vis);
             if(this->gt && this->gt_c)
             {
@@ -128,6 +131,8 @@ void VisNC_transf::show(void)
        cv::destroyWindow(L_WINDOW);
        cv::waitKey(2);
        cv::destroyWindow(A_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(P_WINDOW);
        cv::waitKey(2);
        cv::destroyWindow(V_WINDOW);
        cv::waitKey(2);
@@ -174,29 +179,7 @@ void VisNC_transf::conf_space(void)
 
     double rtrd=angle_debug;
 
-    if(rtrd<0)
-        rtrd+=360;
-
-    double min_err;
-    int m_a=0;
-
-    for(int i=0;i<angle_res;i++)
-    {
-        if(i==0)
-        {
-            m_a=i;
-            min_err=abs(360.0/angle_res*i-rtrd);
-        }
-        else
-        {
-            if( abs(360.0/angle_res*i-rtrd)<min_err  )
-            {
-                m_a=i;
-                min_err=abs(360.0/angle_res*i-rtrd);
-            }
-        }
-
-    }
+    int m_a=angleD2I(rtrd, angle_res);
 
     er_map=mer_map[m_a].clone();
     cl_map=mcl_map[m_a].clone();
@@ -211,6 +194,8 @@ void VisNC_transf::conf_space(void)
     this->map_closeOp=cl_map(rec);
 
     struct_elem=robot_or.elems[m_a]*255;
+
+    this->multi_er_map=mer_map;
 }
 
 void VisNC_transf::getPosition(cv::Point3d &p)
@@ -220,7 +205,7 @@ void VisNC_transf::getPosition(cv::Point3d &p)
     p.z=this->rtr;
 }
 
-void VisNC_transf::get2DPosition(cv::Point2i& pos, double& theta, cv::Point3d p)
+void VisNC_transf::get2DPosition(cv::Point3i& pos, cv::Point3d p)
 {
     pos.x=(int) round((p.x-this->or_x)/this->res)+this->robot_or.pu;
     pos.y=(int) round((p.y-this->or_y)/this->res)+this->robot_or.pl;
@@ -228,21 +213,63 @@ void VisNC_transf::get2DPosition(cv::Point2i& pos, double& theta, cv::Point3d p)
     pos.x=boundPos(pos.x, this->map_or.rows+this->robot_or.pb+this->robot_or.pu);
     pos.y=boundPos(pos.y,this-> map_or.cols+this->robot_or.pl+this->robot_or.pr);
 
-    theta=p.z;
+    pos.z=angleD2I(p.z, angle_res);
 }
 
+bool VisNC_transf::valid_pos(cv::Point3i pos)
+{
+   return (multi_er_map[pos.z].at<uchar>(pos.x,pos.y)!=0);
+}
 
-
-void VisNC_transf::visibility(cv::Point2i pos, bool proc, ros::Time t01)
+void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 {
     int pos_x=pos.x, pos_y=pos.y;
-    cv::Mat temp_labelling, temp;
 
-    std::vector<std::vector<cv::Point> > labels=label(this->map_erosionOp.clone()/255,8);
+    vector<cv::Point3i> cf, reach;
+    bool found=false;
+    multi_labl_map.resize(multi_er_map.size());
+    multi_act_map.resize(multi_er_map.size());
+    for(int i=0; i<(int)multi_er_map.size(); i++){
+        multi_labl_map[i]=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
+        multi_act_map[i]=multi_er_map[i].clone();
+        for(int j=0; j<multi_er_map[i].rows; j++){
+            for(int k=0; k<multi_er_map[i].cols; k++){
+                if( multi_er_map[i].at<uchar>(j,k)!=0 )
+                    cf.push_back(cv::Point3i(j,k,i));
+            }
+        }
+    }
+    cout<<"map..."<<endl;
 
-    //for(int i=0; i<map_erosionOp.rows; i++)
-    //    cluster_points()
+    vector<cv::Point3i>::iterator index=cf.begin();
 
+    while(index!=cf.end())
+    {
+        if(index->x==pos.x && index->y==pos.y && index->z==pos.z)
+        {
+            found=true;
+            break;
+        }
+        index++;
+    }
+
+    cout<<"Pos?"<<endl;
+    if(found)
+    {
+        cout<<":)"<<endl;
+        reach=cluster_points(cf,index, angle_res);
+        cout<<"Clustered!"<<endl;
+    }
+    else
+    {
+        cout<<"Erro... :("<<endl;
+    }
+
+
+
+
+
+    std::vector<std::vector<cv::Point> > labels=label(this->multi_er_map[pos.z].clone()/255,8);
 
     unsigned int label_pos=0, prev_label=0;
     bool found_pos=false, found_prev=false;
@@ -273,19 +300,32 @@ void VisNC_transf::visibility(cv::Point2i pos, bool proc, ros::Time t01)
 
     if( ( (prev_label!=label_pos) && found_pos) || (prev_x<0) || (prev_y<0) || proc)
     {
-        cv::Mat l_map=this->map_erosionOp.clone(), unreach_map, regions, act_map=this->map_or.clone(), vis_map=this->map_or.clone();
+        cv::Mat l_map=this->multi_er_map[pos.z].clone(), unreach_map, regions, act_map=this->map_or.clone(), vis_map=this->map_or.clone();
 
-        for (unsigned int i=0;i<labels.size();i++){
-            if( i!=(label_pos-1) ){
-                for(unsigned int j=0;j<labels[i].size();j++){
-                    l_map.at<uchar>(labels[i][j].x,labels[i][j].y)=0;
-                }
-            }
+//        for (unsigned int i=0;i<labels.size();i++){
+//            if( i!=(label_pos-1) ){
+//                for(unsigned int j=0;j<labels[i].size();j++){
+//                    l_map.at<uchar>(labels[i][j].x,labels[i][j].y)=0;
+//                }
+//            }
+//        }
+
+        l_map=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
+
+        for(unsigned int i=0; i<reach.size(); i++)
+        {
+            l_map.at<uchar>(reach[i].x,reach[i].y)=255;
+            //cout<<reach[i].z<<endl;
+            multi_labl_map[reach[i].z].at<uchar>(reach[i].x,reach[i].y)=255;
+
         }
 
-        this->map_label=l_map;
-        this->map_act=act_map;
+        int m_a=angleD2I(angle_debug, angle_res);
+
+        this->map_label=multi_labl_map[m_a].clone();
+        this->map_act=multi_act_map[m_a].clone();
         this->map_vis=vis_map;
+        this->map_projLabel=l_map;
 
 
         vector<cv::Mat> channels(3);

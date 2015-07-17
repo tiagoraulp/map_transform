@@ -316,4 +316,14 @@ OrderedCresc<T,T2>::OrderedCresc(void)
 
 int boundPos(int x, int max);
 
+double boundAngleR(double x);
+
+double boundAngleD(double x);
+
+double boundAngleRN(double x);
+
+double boundAngleDN(double x);
+
+int angleD2I(double rtrd, int angle_res);
+
 #endif // VECTOR_UTILS_HPP

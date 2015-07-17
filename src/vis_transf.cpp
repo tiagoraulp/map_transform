@@ -60,6 +60,7 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     nh_.param("y", ryr, 50.0);
     nh_.param("scale", scale, 100.0);
     scale/=100;
+    rtr=0;
 
     nh_.param("tf_prefix", tf_pref, std::string(""));
     nh_.param("ground_truth", gt, false);
@@ -257,7 +258,7 @@ void Vis_transf<T>::getPosition(cv::Point3d &p)
 }
 
 template <typename T>
-void Vis_transf<T>::get2DPosition(cv::Point2i& pos, double& theta, cv::Point3d p)
+void Vis_transf<T>::get2DPosition(cv::Point3i& pos, cv::Point3d p)
 {
     pos.x=(int) round((p.x-or_x)/res);
     pos.y=(int) round((p.y-or_y)/res);
@@ -265,11 +266,11 @@ void Vis_transf<T>::get2DPosition(cv::Point2i& pos, double& theta, cv::Point3d p
     pos.x=boundPos(pos.x, map_or.rows);
     pos.y=boundPos(pos.y, map_or.cols);
 
-    theta=p.z;
+    pos.z=angleD2I(p.z,1);
 }
 
 template <typename T>
-bool Vis_transf<T>::getPos(cv::Point2i&pos, double& theta)
+bool Vis_transf<T>::getPos(cv::Point3i&pos)
 {
     cv::Point3d p;
     if(!_debug)
@@ -282,10 +283,9 @@ bool Vis_transf<T>::getPos(cv::Point2i&pos, double& theta)
         getPosition(p);
     }
 
-    if(p.z<0)
-        p.z+=360;
+    p.z=boundAngleD(p.z);
 
-    get2DPosition(pos, theta, p);
+    get2DPosition(pos, p);
 
     return true;
 }
@@ -298,15 +298,14 @@ void Vis_transf<T>::transf_pos(void)
     {
         ros::Time t01=ros::Time::now();
 
-        cv::Point2i pos;
-        double theta;
+        cv::Point3i pos;
 
-        if(!getPos(pos, theta))
+        if(!getPos(pos))
             return;
 
         bool proc=checkProceed();
 
-        if(map_erosionOp.at<uchar>(pos.x,pos.y)==0)  //invalid center position of the robot (touching obstacles or walls)
+        if(!valid_pos(pos))  //invalid center position of the robot (touching obstacles or walls)
         {
             gt_c=false;
 
@@ -319,12 +318,12 @@ void Vis_transf<T>::transf_pos(void)
             map_label=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
             map_act=map_label;
             map_vis=map_label;
-            map_debug=map_label;
+            //map_debug=map_label;
 
             bool print=true;
 
             if (prev.x>=0 && prev.y>=0 && prev.x<map_erosionOp.rows && prev.y<map_erosionOp.cols)
-                if (map_erosionOp.at<uchar>(prev.x,prev.y)==0 && !proc)
+                if (!valid_pos(prev) && !proc)
                 {
                     print=false;
                 }
