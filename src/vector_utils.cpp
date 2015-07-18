@@ -14,6 +14,30 @@ int boundPos(int x, int max)
     return x;
 }
 
+int incAngle(int p, int num)
+{
+    int u;
+
+    if(p==(num-1))
+        u=0;
+    else
+        u=p+1;
+
+    return u;
+}
+
+int decAngle(int p, int num)
+{
+    int l;
+
+    if(p==0)
+        l=num-1;
+    else
+        l=p-1;
+
+    return l;
+}
+
 double boundAngle(double x, double v)
 {
     if(x<0)

@@ -326,4 +326,8 @@ double boundAngleDN(double x);
 
 int angleD2I(double rtrd, int angle_res);
 
+int incAngle(int p, int num);
+
+int decAngle(int p, int num);
+
 #endif // VECTOR_UTILS_HPP

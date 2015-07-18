@@ -23,5 +23,6 @@ std::vector<std::vector<T> > cluster_points(std::vector<T> frontiers, int num=0)
 template <typename T>
 std::vector<T> cluster_points(std::vector<T>& frontiers, typename std::vector<T>::iterator,  int num=0);
 
+std::vector<cv::Mat> cluster_points(std::vector<cv::Mat> points, cv::Point3i pos);
 
 #endif // CLUSTERING_HPP

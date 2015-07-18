@@ -1,4 +1,5 @@
 #include "clustering.hpp"
+#include "vector_utils.hpp"
 
 #include <iostream>
 
@@ -59,16 +60,8 @@ bool cond(cv::Point3i a, cv::Point3i b, int num)
 {
     int l, u;
 
-    if(b.z==(num-1))
-        u=0;
-    else
-        u=b.z+1;
-
-    if(b.z==0)
-        l=num-1;
-    else
-        l=b.z-1;
-
+    u=incAngle(b.z, num);
+    l=decAngle(b.z, num);
 
     return ( (a.x==(b.x+1)|| a.x==b.x || a.x==(b.x-1) ) && ( a.y==(b.y+1) || a.y==b.y || a.y==(b.y-1) )
              && ( a.z==(u) || a.z==b.z || a.z==(l) ) );
@@ -77,7 +70,7 @@ bool cond(cv::Point3i a, cv::Point3i b, int num)
 template <typename T>
 Cluster<T> clustering(Cluster<T>& clust, typename vector<T>::iterator index, int num=0)
 {
-    if(clust.rest.size()==0)// || index>=clust.rest.size())
+    if(clust.rest.size()==0)
     {
         return clust;
     }
@@ -160,7 +153,6 @@ vector<T> cluster_points(vector<T>& frontiers, typename vector<T>::iterator inde
     typename vector<T>::iterator it=cl.rest.begin();
     typename vector<T>::iterator itf=frontiers.begin();
 
-    cout<<"???"<<endl;
     while(it!=cl.rest.end())
     {
         if(itf==index)
@@ -171,11 +163,82 @@ vector<T> cluster_points(vector<T>& frontiers, typename vector<T>::iterator inde
     }
 
 
-    cout<<"Let+s cluster!!!!"<<endl;
-
     cl=clustering(cl,it, num);
 
     return cl.frontier;
+}
+
+vector<cv::Mat> cluster_points(vector<cv::Mat> points, cv::Point3i pos)
+{
+    vector<cv::Mat> result;
+
+    result.resize(points.size());
+    if(points.size()>0)
+    {
+        for(unsigned int i=0;i<points.size();i++)
+        {
+            result[i]=cv::Mat(points[0].rows,points[0].cols,CV_8UC1, 0.0);
+        }
+    }
+    else
+        result.clear();
+
+
+    if(pos.z>=(int)points.size())
+
+        return result;
+    if(pos.x<0 || pos.x>=points[pos.z].rows || pos.y<0 || pos.y>=points[pos.z].cols)
+        return result;
+
+
+    vector<cv::Point3i> vc;
+    vc.clear();
+    vc.push_back(pos);
+
+    result[pos.z].at<uchar>(pos.x,pos.y)=255;
+    points[pos.z].at<uchar>(pos.x,pos.y)=0;
+
+    while(vc.size()!=0)
+    {
+        int lx=boundPos(vc[0].x-1,points[vc[0].z].rows);
+        int ux=boundPos(vc[0].x+1,points[vc[0].z].rows);
+        int ly=boundPos(vc[0].y-1,points[vc[0].z].cols);
+        int uy=boundPos(vc[0].y+1,points[vc[0].z].cols);
+
+        for(int i=lx; i<=ux; i++)
+        {
+            for(int j=ly; j<=uy; j++)
+            {
+                int la=decAngle(vc[0].z,points.size());
+                int ua=incAngle(vc[0].z,points.size());
+
+                if( points[la].at<uchar>(i,j)==255)
+                {
+                    vc.push_back(cv::Point3i(i,j,la));
+                    points[la].at<uchar>(i,j)=0;
+                    result[la].at<uchar>(i,j)=255;
+                }
+
+                if( points[vc[0].z].at<uchar>(i,j)==255 && (vc[0].x!=i || vc[0].y!=j) )
+                {
+                    vc.push_back(cv::Point3i(i,j,vc[0].z));
+                    points[vc[0].z].at<uchar>(i,j)=0;
+                    result[vc[0].z].at<uchar>(i,j)=255;
+                }
+
+                if( points[ua].at<uchar>(i,j)==255)
+                {
+                    vc.push_back(cv::Point3i(i,j,ua));
+                    points[ua].at<uchar>(i,j)=0;
+                    result[ua].at<uchar>(i,j)=255;
+                }
+            }
+        }
+
+        vc.erase(vc.begin());
+    }
+
+    return result;
 }
 
 template vector<vector<cv::Point> > cluster_points<cv::Point>(vector<cv::Point> frontiers,  int num=0);

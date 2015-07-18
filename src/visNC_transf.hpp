@@ -23,7 +23,9 @@ protected:
 
     Elem robot_or;
 
-    cv::Mat struct_elem, map_projLabel;
+    cv::Rect rec;
+
+    cv::Mat struct_elem, map_projLabel, map_projAct, map_projEros, map_projClose;
 
     std::vector<cv::Mat> multi_er_map, multi_labl_map, multi_act_map;
 

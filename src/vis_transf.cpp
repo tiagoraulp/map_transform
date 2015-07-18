@@ -171,15 +171,6 @@ void Vis_transf<T>::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 
     msg_rcv=*msg;
 
-    //cv_map=scaling(cv_map, scale);
-
-    //res=res/scale;
-    //height= cv_map.cols;
-    //width= cv_map.rows;
-
-    //or_x= msg->info.origin.position.x;
-    //or_y= msg->info.origin.position.y;
-
     treated2=treated;
 }
 
@@ -318,7 +309,6 @@ void Vis_transf<T>::transf_pos(void)
             map_label=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
             map_act=map_label;
             map_vis=map_label;
-            //map_debug=map_label;
 
             bool print=true;
 

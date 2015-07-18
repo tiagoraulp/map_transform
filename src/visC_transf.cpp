@@ -311,7 +311,12 @@ vector<cv::Point> VisC_transf::getExtremeFromObstacles(vector<cv::Point> occ, cv
 
 bool VisC_transf::valid_pos(cv::Point3i pos)
 {
-   return (map_erosionOp.at<uchar>(pos.x,pos.y)!=0);
+    bool value=(map_erosionOp.at<uchar>(pos.x,pos.y)!=0);
+    if(!value)
+    {
+        map_debug=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
+    }
+    return value;
 }
 
 void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
