@@ -3,7 +3,7 @@
 
 using namespace std;
 
-cv::Mat printPoint(cv::Mat img, cv::Point3i pos, unsigned char* color)
+cv::Mat printPoint(cv::Mat img, cv::Point pos, unsigned char* color)
 {
     vector<cv::Mat> channels(3);
 

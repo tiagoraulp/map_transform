@@ -2,7 +2,6 @@
 
 Reads and maintains the following parameters on the ROS server
 
-- \b "~scale" : \b [double] Scale min: 10.0, default: 50.0, max: 100.0
 - \b "~infl" : \b [int] Robot size in cells min: 1, default: 5, max: 50
 - \b "~defl" : \b [int] Sensing radius in cells min: 1, default: 3, max: 200
 - \b "~debug" : \b [bool] Debugging with images min: False, default: True, max: True

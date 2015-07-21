@@ -5,7 +5,7 @@
 
 using namespace std;
 
-static string filename;
+static string filename_r, filename_s;
 
 int main(int argc, char **argv)
 {
@@ -24,18 +24,20 @@ int main(int argc, char **argv)
 
     ros::init(argc, argv, "visNC");
 
-    if(argc==2)
+    if(argc==3)
     {
-        filename=string(argv[1]);
+        filename_r=string(argv[1]);
+        filename_s=string(argv[2]);
     }
     else
         return -1;
 
 
-    cv::Mat robot=cv::imread(filename, CV_LOAD_IMAGE_GRAYSCALE);
+    cv::Mat robot=cv::imread(filename_r, CV_LOAD_IMAGE_GRAYSCALE);
+    cv::Mat sensor=cv::imread(filename_s, CV_LOAD_IMAGE_GRAYSCALE);
 
 
-    if(robot.empty())
+    if(robot.empty() || sensor.empty())
         return -2;
 
 
@@ -50,9 +52,20 @@ int main(int argc, char **argv)
         }
     }
 
+    for(int i=0;i<sensor.rows;i++)
+    {
+        for(int j=0;j<sensor.cols;j++)
+        {
+            if (sensor.at<uchar>(i,j)>128)
+                sensor.at<uchar>(i,j)=255;
+            else
+                sensor.at<uchar>(i,j)=0;
+        }
+    }
+
     ros::NodeHandle nh("~");
 
-    VisNC_transf visNC(nh,robot);
+    VisNC_transf visNC(nh,robot, sensor);
 
     ros::Rate loop_rate(10);
 

@@ -1,12 +1,14 @@
 \subsubsection usage Usage
 \verbatim
 <node name="visNC" pkg="map_transform" type="visNC">
-  <param name="scale" type="double" value="50.0" />
   <param name="rinfl" type="double" value="100.0" />
   <param name="sdefl" type="double" value="100.0" />
   <param name="rx" type="double" value="50.0" />
   <param name="ry" type="double" value="50.0" />
   <param name="rt" type="double" value="0.0" />
+  <param name="sx" type="double" value="50.0" />
+  <param name="sy" type="double" value="50.0" />
+  <param name="st" type="double" value="0.0" />
   <param name="angle_res" type="int" value="32" />
   <param name="debug" type="bool" value="True" />
   <param name="ground_truth" type="bool" value="False" />

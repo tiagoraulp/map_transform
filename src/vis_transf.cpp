@@ -58,8 +58,6 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     sub = nh_.subscribe("map", 1, &Vis_transf::rcv_map, this);
     nh_.param("x", rxr, 50.0);
     nh_.param("y", ryr, 50.0);
-    nh_.param("scale", scale, 100.0);
-    scale/=100;
     rtr=0;
 
     nh_.param("tf_prefix", tf_pref, std::string(""));
@@ -304,7 +302,7 @@ void Vis_transf<T>::transf_pos(void)
 
             unsigned char color[3]={255,0,0};
 
-            map_erosionOpPrintColor=printPoint(map_erosionOp, pos, color);
+            map_erosionOpPrintColor=printPoint(map_erosionOp, cv::Point(pos.x,pos.y), color);
 
             map_label=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
             map_act=map_label;

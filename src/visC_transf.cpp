@@ -34,7 +34,6 @@ void VisC_transf::update_config(map_transform::ParametersConfig config)
     gt=config.ground_truth;
     rxr=config.x;
     ryr=config.y;
-    scale=config.scale;
 }
 
 
@@ -355,7 +354,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         unsigned char color[3]={0,255,0};
 
-        map_erosionOpPrintColor=printPoint(map_erosionOp, pos, color);
+        map_erosionOpPrintColor=printPoint(map_erosionOp, cv::Point(pos.x,pos.y), color);
 
         ros::Duration diff = ros::Time::now() - t01;
 

@@ -7,7 +7,7 @@
     <remap from="map" to="/visibility_NC/map" />
  </node>
 
- <node pkg="map_transform" type="visNC" name="visibility_NC" output="screen" args="$(find map_transform)/robots/robot.png"> 
+ <node pkg="map_transform" type="visNC" name="visibility_NC" output="screen" args="$(find map_transform)/robots/robot.png $(find map_transform)/robots/sensor.png"> 
     <param name="defl" value="80" />
     <param name="infl" value="9" />
     <param name="sdefl" value="$(arg d)" />
@@ -16,6 +16,9 @@
     <param name="rx" value="50" />
     <param name="ry" value="50" />
     <param name="rt" value="0" />
+    <param name="sx" value="51" />
+    <param name="sy" value="67" />
+    <param name="st" value="-90" />
     <param name="x" value="50" />
     <param name="y" value="50" />
     <param name="theta" value="0" />

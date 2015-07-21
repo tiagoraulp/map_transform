@@ -9,23 +9,23 @@
 
 class VisNC_transf: public Vis_transf<map_transform::ParametersncConfig>{
 protected:
-    cv::Mat robot;
+    cv::Mat robot, sensor;
 
     double rinfl;
 
     double sdefl;
 
-    double rcx, rcy, rct;
+    double rcx, rcy, rct, scx, scy, sct;
 
     int angle_res;
 
     double angle_debug;
 
-    Elem robot_or;
+    Elem robot_or, robot_act, sensor_or;
 
     cv::Rect rec;
 
-    cv::Mat struct_elem, map_projLabel, map_projAct, map_projEros, map_projClose;
+    cv::Mat struct_elemR, struct_elemS, struct_elemA, map_projLabel, map_projAct, map_projEros, map_projClose;
 
     std::vector<cv::Mat> multi_er_map, multi_labl_map, multi_act_map;
 
@@ -37,7 +37,7 @@ protected:
     void get2DPosition(cv::Point3i&pos, cv::Point3d p);
     bool valid_pos(cv::Point3i pos);
 public:
-    VisNC_transf(ros::NodeHandle nh, cv::Mat rob);
+    VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens);
     virtual ~VisNC_transf();
 };
 

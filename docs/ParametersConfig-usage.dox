@@ -1,7 +1,6 @@
 \subsubsection usage Usage
 \verbatim
 <node name="visibility" pkg="map_transform" type="visibility">
-  <param name="scale" type="double" value="50.0" />
   <param name="infl" type="int" value="5" />
   <param name="defl" type="int" value="3" />
   <param name="debug" type="bool" value="True" />

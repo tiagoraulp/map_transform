@@ -22,12 +22,14 @@ static const std::string A_WINDOW = "Actuation";
 static const std::string V_WINDOW = "Visibility";
 static const std::string D_WINDOW = "Debug";
 static const std::string G_WINDOW = "Ground_Truth";
-static const std::string S_WINDOW = "Structuring Element";
+static const std::string SR_WINDOW = "Structuring Robot";
+static const std::string S_WINDOW = "Structuring Act";
+static const std::string SS_WINDOW = "Structuring Sensor";
 static const std::string P_WINDOW = "ProjectedLabeled";
 static const std::string R_WINDOW = "ProjectedActuation";
 
 
-VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob): Vis_transf(nh), robot(rob)
+VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_transf(nh), robot(rob), sensor(sens)
 {
 
     this->nh_.param("rinfl", rinfl, 100.0);
@@ -39,6 +41,12 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob): Vis_transf(nh), rob
     this->nh_.param("ry", rcy, 50.0);
     rcy/=100;
     this->nh_.param("rt", rct, 0.0);
+
+    this->nh_.param("sx", scx, 50.0);
+    scx/=100;
+    this->nh_.param("sy", scy, 50.0);
+    scy/=100;
+    this->nh_.param("st", sct, 0.0);
 
     this->nh_.param("theta", this->rtr, 0.0);
 
@@ -52,7 +60,9 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob): Vis_transf(nh), rob
         cv::namedWindow(PE_WINDOW);
         cv::namedWindow(C_WINDOW);
         cv::namedWindow(PC_WINDOW);
+        cv::namedWindow(SR_WINDOW);
         cv::namedWindow(S_WINDOW);
+        cv::namedWindow(SS_WINDOW);
         cv::namedWindow(D_WINDOW);
         if(this->pos_rcv)
         {
@@ -77,7 +87,9 @@ VisNC_transf::~VisNC_transf()
        cv::destroyWindow(PE_WINDOW);
        cv::destroyWindow(C_WINDOW);
        cv::destroyWindow(PC_WINDOW);
+       cv::destroyWindow(SR_WINDOW);
        cv::destroyWindow(S_WINDOW);
+       cv::destroyWindow(SS_WINDOW);
        cv::destroyWindow(D_WINDOW);
        cv::destroyWindow(L_WINDOW);
        cv::destroyWindow(A_WINDOW);
@@ -98,7 +110,9 @@ void VisNC_transf::show(void)
         cv::imshow(PE_WINDOW,this->map_projEros);
         cv::imshow(C_WINDOW,this->map_closeOp);
         cv::imshow(PC_WINDOW,this->map_projClose);
-        cv::imshow(S_WINDOW,this->struct_elem);
+        cv::imshow(SR_WINDOW,this->struct_elemR);
+        cv::imshow(S_WINDOW,this->struct_elemA);
+        cv::imshow(SS_WINDOW,this->struct_elemS);
         cv::imshow(D_WINDOW,this->map_debug);
         if(this->pos_rcv)
         {
@@ -133,7 +147,11 @@ void VisNC_transf::show(void)
        cv::waitKey(2);
        cv::destroyWindow(PC_WINDOW);
        cv::waitKey(2);
+       cv::destroyWindow(SR_WINDOW);
+       cv::waitKey(2);
        cv::destroyWindow(S_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(SS_WINDOW);
        cv::waitKey(2);
        cv::destroyWindow(D_WINDOW);
        cv::waitKey(2);
@@ -162,16 +180,21 @@ void VisNC_transf::conf_space(void)
 
     cv::Mat elem = this->robot.clone();
 
-    cv::Point2f pt=cv::Point2f(elem.cols*rcx,elem.rows*rcy);
+    cv::Point2f pt=cv::Point2f(elem.rows*rcx,elem.cols*rcy);
 
     robot_or=multiElem(elem, pt,this->rct, this->rinfl, this->angle_res);
 
+    pt=cv::Point2f(sensor.rows*scx,sensor.cols*scy);
+
+    sensor_or=multiElem(this->sensor.clone(), pt,this->sct, this->sdefl, this->angle_res);
+
+    robot_act=multiMerge(robot_or, sensor_or);
 
     cv::copyMakeBorder(or_map,or_mapN,this->robot_or.pu,this->robot_or.pb,this->robot_or.pl,robot_or.pr,cv::BORDER_CONSTANT,cv::Scalar(0));
 
     vector<cv::Mat> mer_map=multiErosion(or_mapN, robot_or);
 
-    vector<cv::Mat> mcl_map=multiDilation(mer_map, robot_or);
+    vector<cv::Mat> mcl_map=multiDilation(mer_map, robot_act);
 
 
     unsigned char c123[3]={0,0,255};
@@ -200,7 +223,11 @@ void VisNC_transf::conf_space(void)
     rec=cv::Rect(robot_or.pl,robot_or.pu, or_map.cols, or_map.rows);
     this->map_closeOp=cl_map(rec);
 
-    struct_elem=robot_or.elems[m_a]*255;
+    unsigned char color[3]={255,0,0};
+
+    struct_elemR=printPoint(robot_or.elems[m_a]*255,robot_or.pt, color);
+    struct_elemS=printPoint(sensor_or.elems[m_a]*255,sensor_or.pt, color);
+    struct_elemA=printPoint(robot_act.elems[m_a]*255,robot_act.pt, color);
 
     this->multi_er_map=mer_map;
 
@@ -304,7 +331,7 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         cv::Mat l_map=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
         cv::Mat act_map=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
 
-        multi_act_map=multiDilation(multi_labl_map, robot_or);
+        multi_act_map=multiDilation(multi_labl_map, robot_act);
 
         for(int i=0; i<(int)multi_labl_map.size(); i++){
             for(int j=0; j<multi_labl_map[i].rows; j++){
@@ -399,6 +426,9 @@ void VisNC_transf::update_config(map_transform::ParametersncConfig config)
     rcx=config.rx/100;
     rcy=config.ry/100;
     rct=config.rt;
+    scx=config.sx/100;
+    scy=config.sy/100;
+    sct=config.st;
     angle_res=config.angle_res;
     this->_debug=config.debug;
     this->gt=config.ground_truth;
