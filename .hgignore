@@ -19,3 +19,5 @@ cfg/Parametersnc.cfgc
 docs/Parameters-ncConfig-usage.dox
 docs/Parameters-ncConfig.dox
 docs/Parameters-ncConfig.wikidoc
+frames.gv
+frames.pdf

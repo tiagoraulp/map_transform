@@ -9,6 +9,7 @@
 #include "ray.hpp"
 #include "color.hpp"
 #include "vector_utils.hpp"
+#include "unreachable.hpp"
 
 using namespace std;
 
@@ -25,8 +26,10 @@ static const std::string G_WINDOW = "Ground_Truth";
 static const std::string SR_WINDOW = "Structuring Robot";
 static const std::string S_WINDOW = "Structuring Act";
 static const std::string SS_WINDOW = "Structuring Sensor";
+static const std::string EV_WINDOW = "Structuring Ext Vis";
 static const std::string P_WINDOW = "ProjectedLabeled";
 static const std::string R_WINDOW = "ProjectedActuation";
+static const std::string DP_WINDOW = "Debug Pos";
 
 
 VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_transf(nh), robot(rob), sensor(sens)
@@ -63,6 +66,7 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
         cv::namedWindow(SR_WINDOW);
         cv::namedWindow(S_WINDOW);
         cv::namedWindow(SS_WINDOW);
+        cv::namedWindow(EV_WINDOW);
         cv::namedWindow(D_WINDOW);
         if(this->pos_rcv)
         {
@@ -71,6 +75,7 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
             cv::namedWindow(P_WINDOW);
             cv::namedWindow(R_WINDOW);
             cv::namedWindow(V_WINDOW);
+            cv::namedWindow(DP_WINDOW);
             if(this->gt && this->gt_c)
                 cv::namedWindow(G_WINDOW);
         }
@@ -90,6 +95,7 @@ VisNC_transf::~VisNC_transf()
        cv::destroyWindow(SR_WINDOW);
        cv::destroyWindow(S_WINDOW);
        cv::destroyWindow(SS_WINDOW);
+       cv::destroyWindow(EV_WINDOW);
        cv::destroyWindow(D_WINDOW);
        cv::destroyWindow(L_WINDOW);
        cv::destroyWindow(A_WINDOW);
@@ -97,7 +103,7 @@ VisNC_transf::~VisNC_transf()
        cv::destroyWindow(R_WINDOW);
        cv::destroyWindow(V_WINDOW);
        cv::destroyWindow(G_WINDOW);
-
+       cv::destroyWindow(DP_WINDOW);
     }
 }
 
@@ -106,21 +112,23 @@ void VisNC_transf::show(void)
 {
     if(this->count>0 && this->_debug){
         cv::imshow(M_WINDOW,this->map_or);
-        cv::imshow(E_WINDOW,this->map_erosionOpPrintColor);
         cv::imshow(PE_WINDOW,this->map_projEros);
         cv::imshow(C_WINDOW,this->map_closeOp);
         cv::imshow(PC_WINDOW,this->map_projClose);
         cv::imshow(SR_WINDOW,this->struct_elemR);
         cv::imshow(S_WINDOW,this->struct_elemA);
         cv::imshow(SS_WINDOW,this->struct_elemS);
+        cv::imshow(EV_WINDOW,this->struct_elemEV);
         cv::imshow(D_WINDOW,this->map_debug);
         if(this->pos_rcv)
         {
+            cv::imshow(E_WINDOW,this->map_erosionOpPrintColor);
             cv::imshow(L_WINDOW,this->map_label);
             cv::imshow(A_WINDOW,this->map_act);
             cv::imshow(P_WINDOW,this->map_projLabel);
             cv::imshow(R_WINDOW,this->map_projAct);
             cv::imshow(V_WINDOW,this->map_vis);
+            cv::imshow(DP_WINDOW,this->map_debug_pos);
             if(this->gt && this->gt_c)
             {
                 cv::imshow(G_WINDOW,this->map_truth);
@@ -130,6 +138,10 @@ void VisNC_transf::show(void)
                 cv::destroyWindow(G_WINDOW);
                 cv::waitKey(2);
             }
+        }
+        else
+        {
+            cv::imshow(E_WINDOW,map_erosionOp);
         }
         cv::waitKey(3);
     }
@@ -153,6 +165,8 @@ void VisNC_transf::show(void)
        cv::waitKey(2);
        cv::destroyWindow(SS_WINDOW);
        cv::waitKey(2);
+       cv::destroyWindow(EV_WINDOW);
+       cv::waitKey(2);
        cv::destroyWindow(D_WINDOW);
        cv::waitKey(2);
        cv::destroyWindow(L_WINDOW);
@@ -166,6 +180,8 @@ void VisNC_transf::show(void)
        cv::destroyWindow(V_WINDOW);
        cv::waitKey(2);
        cv::destroyWindow(G_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(DP_WINDOW);
        cv::waitKey(2);
     }
 }
@@ -188,7 +204,7 @@ void VisNC_transf::conf_space(void)
 
     sensor_or=multiElem(this->sensor.clone(), pt,this->sct, this->sdefl, this->angle_res);
 
-    robot_act=multiMerge(robot_or, sensor_or);
+    multiMerge(robot_or, sensor_or, robot_act, sensor_ev);
 
     cv::copyMakeBorder(or_map,or_mapN,this->robot_or.pu,this->robot_or.pb,this->robot_or.pl,robot_or.pr,cv::BORDER_CONSTANT,cv::Scalar(0));
 
@@ -228,6 +244,7 @@ void VisNC_transf::conf_space(void)
     struct_elemR=printPoint(robot_or.elems[m_a]*255,robot_or.pt, color);
     struct_elemS=printPoint(sensor_or.elems[m_a]*255,sensor_or.pt, color);
     struct_elemA=printPoint(robot_act.elems[m_a]*255,robot_act.pt, color);
+    struct_elemEV=printPoint(sensor_ev.elems[m_a]*255,sensor_ev.pt, color);
 
     this->multi_er_map=mer_map;
 
@@ -280,14 +297,13 @@ bool VisNC_transf::valid_pos(cv::Point3i pos)
     {
         map_projAct=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
         map_projLabel=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
+        map_debug_pos=cv::Mat::zeros(map_closeOp.rows, map_closeOp.cols, CV_8UC1);
     }
     return value;
 }
 
 void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 {
-    int pos_x=pos.x, pos_y=pos.y;
-
     multi_labl_map.resize(multi_er_map.size());
     for(int i=0; i<(int)multi_er_map.size(); i++){
         multi_labl_map[i]=multi_er_map[i].clone();
@@ -295,38 +311,22 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
     multi_labl_map=cluster_points(multi_labl_map, pos);
 
-    std::vector<std::vector<cv::Point> > labels=label(this->multi_er_map[pos.z].clone()/255,8);
+    bool labels=true;
 
-    unsigned int label_pos=0, prev_label=0;
-    bool found_pos=false, found_prev=false;
-
-
-    int prev_x=this->prev.x;
-    int prev_y=this->prev.y;
-
-    for (unsigned int i=0;i<labels.size();i++){
-        for(unsigned int j=0;j<labels[i].size();j++){
-            if( pos_x==labels[i][j].x && pos_y==labels[i][j].y){
-                label_pos=i+1;
-                found_pos=true;
-            }
-            if(prev_x>=0 &&  prev_y>=0)
+    if( prev.z<(int)multi_labl_map.size() && prev.z>=0 )
+    {
+        if( prev.x<multi_labl_map[prev.z].rows && prev.x>=0 && prev.y<multi_labl_map[prev.z].cols && prev.y>=0  )
+        {
+            if( multi_labl_map[prev.z].at<uchar>(prev.x, prev.y)!=0 )
             {
-                if( prev_x==labels[i][j].x && prev_y==labels[i][j].y){
-                    prev_label=i+1;
-                    found_prev=true;
-                }
+                labels=false;
             }
-            if(found_pos && ( (found_prev) || (prev_x<0) || (prev_y<0) ) )
-                break;
         }
-        if(found_pos && ( (found_prev) || (prev_x<0) || (prev_y<0) ) )
-            break;
     }
 
-    if( ( (prev_label!=label_pos) && found_pos) || (prev_x<0) || (prev_y<0) || proc)
+    if( labels || (prev.x<0) || (prev.y<0) || proc)
     {
-        cv::Mat unreach_map, regions, vis_map=this->map_or.clone(), temp;
+        cv::Mat regions, vis_map=this->map_or.clone(), temp;
 
         cv::Mat l_map=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
         cv::Mat act_map=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
@@ -353,45 +353,17 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         this->map_projAct=act_map(rec);
         this->map_vis=vis_map;
 
+        Unreachable unreach(map_or, act_map(rec));
 
-        vector<cv::Mat> channels(3);
+        map_debug_pos=unreach.unreach_map;
 
-        channels[0]=this->map_erosionOp.clone();
-        channels[1]=this->map_erosionOp.clone();
-        channels[2]=this->map_erosionOp.clone();
+        unreach.getFrontiers();
 
-        channels[1].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=255;
-        channels[1].at<uchar>(max(pos_x-1,0),pos_y)=255;
-        channels[1].at<uchar>(max(pos_x-1,0),min(pos_y+1,this->map_erosionOp.cols-1))=255;
-        channels[1].at<uchar>(pos_x,max(pos_y-1,0))=255;
-        channels[1].at<uchar>(pos_x,pos_y)=255;
-        channels[1].at<uchar>(pos_x,min(pos_y+1,this->map_erosionOp.cols-1))=255;
-        channels[1].at<uchar>(min(pos_x+1,this->map_erosionOp.rows-1),max(pos_y-1,0))=255;
-        channels[1].at<uchar>(min(pos_x+1,this->map_erosionOp.rows-1),pos_y)=255;
-        channels[1].at<uchar>(min(pos_x+1,this->map_erosionOp.rows-1),min(pos_y+1,this->map_erosionOp.cols-1))=255;
+        regions=unreach.regions;
 
-        channels[2].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
-        channels[2].at<uchar>(max(pos_x-1,0),pos_y)=0;
-        channels[2].at<uchar>(max(pos_x-1,0),min(pos_y+1,this->map_erosionOp.cols-1))=0;
-        channels[2].at<uchar>(pos_x,max(pos_y-1,0))=0;
-        channels[2].at<uchar>(pos_x,pos_y)=0;
-        channels[2].at<uchar>(pos_x,min(pos_y+1,this->map_erosionOp.cols-1))=0;
-        channels[2].at<uchar>(min(pos_x+1,this->map_erosionOp.rows-1),max(pos_y-1,0))=0;
-        channels[2].at<uchar>(min(pos_x+1,this->map_erosionOp.rows-1),pos_y)=0;
-        channels[2].at<uchar>(min(pos_x+1,this->map_erosionOp.rows-1),min(pos_y+1,this->map_erosionOp.cols-1))=0;
+        unsigned char color[3]={0,255,0};
 
-        channels[0].at<uchar>(max(pos_x-1,0),max(pos_y-1,0))=0;
-        channels[0].at<uchar>(max(pos_x-1,0),pos_y)=0;
-        channels[0].at<uchar>(max(pos_x-1,0),min(pos_y+1,this->map_erosionOp.cols-1))=0;
-        channels[0].at<uchar>(pos_x,max(pos_y-1,0))=0;
-        channels[0].at<uchar>(pos_x,pos_y)=0;
-        channels[0].at<uchar>(pos_x,min(pos_y+1,this->map_erosionOp.cols-1))=0;
-        channels[0].at<uchar>(min(pos_x+1,this->map_erosionOp.rows-1),max(pos_y-1,0))=0;
-        channels[0].at<uchar>(min(pos_x+1,this->map_erosionOp.rows-1),pos_y)=0;
-        channels[0].at<uchar>(min(pos_x+1,this->map_erosionOp.rows-1),min(pos_y+1,this->map_erosionOp.cols-1))=0;
-
-
-        cv::merge(channels, this->map_erosionOpPrintColor);
+        map_erosionOpPrintColor=printPoint(map_erosionOp, cv::Point(pos.x,pos.y), color);
 
         ros::Duration diff = ros::Time::now() - t01;
 
@@ -412,8 +384,7 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
     }
 
-    this->prev.x=pos_x;
-    this->prev.y=pos_y;
+    prev=pos;
 }
 
 

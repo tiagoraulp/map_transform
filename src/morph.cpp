@@ -112,9 +112,8 @@ vector<cv::Mat> multiDilation(vector<cv::Mat> map_er, Elem robot_or )
 
 }
 
-Elem multiMerge(Elem robot_or, Elem sensor_or)
+void multiMerge(Elem robot_or, Elem sensor_or, Elem& result, Elem& rev)
 {
-    Elem result;
     result.pb=robot_or.pb;
     result.pu=robot_or.pu;
     result.pl=robot_or.pl;
@@ -151,5 +150,35 @@ Elem multiMerge(Elem robot_or, Elem sensor_or)
         }
     }
 
-    return result;
+    rev.pb=sensor_or.pb;
+    rev.pu=sensor_or.pu;
+    rev.pl=sensor_or.pl;
+    rev.pr=sensor_or.pr;
+    rev.pt=sensor_or.pt;
+    rev.elems.resize(sensor_or.elems.size());
+
+    for(unsigned int i=0; i<sensor_or.elems.size();i++)
+    {
+        rev.elems[i]=sensor_or.elems[i].clone();
+
+        for(int j=0; j<sensor_or.elems[i].rows;j++)
+        {
+            for(int k=0; k<sensor_or.elems[i].cols;k++)
+            {
+                if(sensor_or.elems[i].at<uchar>(j,k)!=0)
+                {
+                    int x=j-sensor_or.pt.x+robot_or.pt.x;
+                    int y=k-sensor_or.pt.y+robot_or.pt.y;
+
+                    if(x>=0 && x<robot_or.elems[i].rows && y>=0 && y<robot_or.elems[i].cols)
+                    {
+                        if(robot_or.elems[i].at<uchar>(x,y)!=0)
+                        {
+                            rev.elems[i].at<uchar>(j,k)=0;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

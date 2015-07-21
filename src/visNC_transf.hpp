@@ -21,11 +21,11 @@ protected:
 
     double angle_debug;
 
-    Elem robot_or, robot_act, sensor_or;
+    Elem robot_or, robot_act, sensor_or, sensor_ev;
 
     cv::Rect rec;
 
-    cv::Mat struct_elemR, struct_elemS, struct_elemA, map_projLabel, map_projAct, map_projEros, map_projClose;
+    cv::Mat struct_elemR, struct_elemS, struct_elemA, struct_elemEV, map_projLabel, map_projAct, map_projEros, map_projClose,map_debug_pos;
 
     std::vector<cv::Mat> multi_er_map, multi_labl_map, multi_act_map;
 

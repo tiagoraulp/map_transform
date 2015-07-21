@@ -78,10 +78,10 @@ void VisC_transf::show(void)
 {
     if(count>0 && _debug){
         cv::imshow(M_WINDOW,map_or);
-        cv::imshow(E_WINDOW,map_erosionOpPrintColor);
         cv::imshow(C_WINDOW,map_closeOp);
         if(pos_rcv)
         {
+            cv::imshow(E_WINDOW,map_erosionOpPrintColor);
             cv::imshow(L_WINDOW,map_label);
             cv::imshow(A_WINDOW,map_act);
             cv::imshow(V_WINDOW,map_vis);
@@ -94,6 +94,10 @@ void VisC_transf::show(void)
             {
                 cv::destroyWindow(G_WINDOW);
             }
+        }
+        else
+        {
+            cv::imshow(E_WINDOW,map_erosionOp);
         }
         cv::waitKey(3);
     }

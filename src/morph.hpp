@@ -18,7 +18,7 @@ std::vector<cv::Mat> multiErosion(cv::Mat map, Elem robot_or);
 
 std::vector<cv::Mat> multiDilation(std::vector<cv::Mat> map_er, Elem robot_or );
 
-Elem multiMerge(Elem robot_or,Elem sensor_or);
+void multiMerge(Elem robot_or,Elem sensor_or, Elem& result, Elem& rev);
 
 
 #endif // MORPH_H

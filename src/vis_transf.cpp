@@ -63,7 +63,7 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     nh_.param("tf_prefix", tf_pref, std::string(""));
     nh_.param("ground_truth", gt, false);
     nh_.param("debug", _debug, true);
-    prev.x=-1; prev.y=-1;
+    prev.x=-1; prev.y=-1; prev.z=-1;
     count=0;
     func = boost::bind(&Vis_transf::callbackParameters, this,_1, _2);
     server.setCallback(func);
@@ -235,6 +235,7 @@ bool Vis_transf<T>::getTFPosition(cv::Point3d &p)
     p.x=transform.getOrigin().x();
     p.y=transform.getOrigin().y();
     p.z=tf::getYaw(transform.getRotation())/2/PI*360;
+    p.z=boundAngleD(p.z);
     return true;
 }
 
@@ -271,8 +272,6 @@ bool Vis_transf<T>::getPos(cv::Point3i&pos)
     {
         getPosition(p);
     }
-
-    p.z=boundAngleD(p.z);
 
     get2DPosition(pos, p);
 
