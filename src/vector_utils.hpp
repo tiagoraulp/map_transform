@@ -3,6 +3,8 @@
 
 #include <vector>
 
+#include <opencv2/core/core.hpp>
+
 template <typename T, typename T2=T>
 class FindElem
 {
@@ -329,5 +331,7 @@ int angleD2I(double rtrd, int angle_res);
 int incAngle(int p, int num);
 
 int decAngle(int p, int num);
+
+cv::Point2f operator*(cv::Mat M, const cv::Point2f p);
 
 #endif // VECTOR_UTILS_HPP

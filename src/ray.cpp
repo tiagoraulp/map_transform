@@ -1,4 +1,5 @@
 #include "ray.hpp"
+#include "morph.hpp"
 
 #include <cmath>
 
@@ -134,6 +135,15 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
     return raytracing(&map, cv::Point2i(opt_x,opt_y), cv::Point2i(opt_x,opt_y), cv::Point2i(dest_x,dest_y), dist_t, &checkMap);
 }
 
+bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y, bool t)
+{
+    float dist_t=sqrt( (dest_x-opt_x)*(dest_x-opt_x)+(dest_y-opt_y)*(dest_y-opt_y) );
+    if(opt_x<map.rows && opt_x>=0 && opt_y<map.cols && opt_y>=0 && dest_x<map.rows && dest_x>=0 && dest_y<map.cols && dest_y>=0)
+        return raytracing(&map, cv::Point2i(opt_x,opt_y), cv::Point2i(opt_x,opt_y), cv::Point2i(dest_x,dest_y), dist_t, &checkMap);
+    else
+        return false;
+}
+
 void raytracing(cv::Mat* map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest, float dist_t)
 {
     raytracing(map, opt, ref, dest, dist_t, &print2Map);
@@ -179,6 +189,37 @@ cv::Mat brute_force(cv::Mat map, cv::Mat reach, int defl)
     return result;
 }
 
+bool bfo_iter(cv::Mat map, cv::Mat reach, Elem sensor, int i, int j, int ii, int jj, unsigned int a)
+{
+
+    if( (ii)<map.rows &&  (ii)>=0 && (jj)<map.cols &&  (jj)>=0 )
+    {
+        if(reach.at<uchar>(ii+sensor.pu,jj+sensor.pl)==0)
+            return false;
+        else
+        {
+            if( (i-ii+sensor.pt.x)<sensor.elems[a].rows &&  (i-ii+sensor.pt.x)>=0 && (j-jj+sensor.pt.y)<sensor.elems[a].cols &&  (j-jj+sensor.pt.y)>=0 )
+            {
+                if(sensor.elems[a].at<uchar>(i-ii+sensor.pt.x, j-jj+sensor.pt.y)==0)
+                {
+                    return false;
+                }
+                else
+                {
+                    if( raytracing(map,ii+sensor.pt2[a].x-sensor.pt.x,jj+sensor.pt2[a].y-sensor.pt.y,i,j, true) )
+                    {
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
+    }
+    return false;
+}
 
 bool bfo_iter(cv::Mat map, cv::Mat reach, int defl, int i, int j, int ii, int jj)
 {
@@ -241,6 +282,49 @@ bool bfo(cv::Mat map, cv::Mat reach, int defl, int i, int j)
     return false;
 }
 
+bool bfo(cv::Mat map, vector<cv::Mat> reach, Elem sensor, int i, int j)
+{
+    int defl=sensor.pb;
+    for(int r=0; r<=defl; r++)
+    {
+        for(unsigned int a=0; a<reach.size(); a++)
+        {
+            if(r==0)
+            {
+                if(bfo_iter(map, reach[a], sensor, i, j, i, j, a))
+                    return true;
+                else
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                for(int p=-r;p<r;p++)
+                {
+                    int ii=i-r, jj=j+p;
+                    if(bfo_iter(map, reach[a], sensor, i, j, ii, jj,a))
+                        return true;
+
+                    ii=i+p, jj=j+r;
+                    if(bfo_iter(map, reach[a], sensor, i, j, ii, jj,a))
+                        return true;
+
+                    ii=i+r, jj=j-p;
+                    if(bfo_iter(map, reach[a], sensor, i, j, ii, jj,a))
+                        return true;
+
+                    ii=i-p, jj=j-r;
+                    if(bfo_iter(map, reach[a], sensor, i, j, ii, jj,a))
+                        return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 
 cv::Mat brute_force_opt(cv::Mat map, cv::Mat reach, int defl)
 {
@@ -263,7 +347,8 @@ cv::Mat brute_force_opt(cv::Mat map, cv::Mat reach, int defl)
     return result;
 }
 
-cv::Mat brute_force_opt_act(cv::Mat map, cv::Mat reach, cv::Mat act, int defl)
+template <typename T, typename T2>
+cv::Mat brute_force_opt_act(cv::Mat map, T reach, cv::Mat act, T2 defl)
 {
     cv::Mat result=map.clone();
 
@@ -284,3 +369,6 @@ cv::Mat brute_force_opt_act(cv::Mat map, cv::Mat reach, cv::Mat act, int defl)
 
     return result;
 }
+
+template cv::Mat brute_force_opt_act<cv::Mat, int>(cv::Mat map, cv::Mat reach, cv::Mat act, int defl);
+template cv::Mat brute_force_opt_act<vector<cv::Mat>, Elem>(cv::Mat map, vector<cv::Mat> reach, cv::Mat act, Elem defl);

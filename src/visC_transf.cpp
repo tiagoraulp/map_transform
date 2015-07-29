@@ -41,21 +41,6 @@ VisC_transf::VisC_transf(ros::NodeHandle nh): Vis_transf(nh)
 {
     nh_.param("infl", infl, 5);
     nh_.param("defl", defl, infl);
-
-    if(_debug){
-        cv::namedWindow(M_WINDOW);
-        cv::namedWindow(E_WINDOW);
-        cv::namedWindow(C_WINDOW);
-        if(pos_rcv)
-        {
-            cv::namedWindow(L_WINDOW);
-            cv::namedWindow(A_WINDOW);
-            cv::namedWindow(D_WINDOW);
-            cv::namedWindow(V_WINDOW);
-            if(gt && gt_c)
-                cv::namedWindow(G_WINDOW);
-        }
-    }
 }
 
 VisC_transf::~VisC_transf()
@@ -86,18 +71,32 @@ void VisC_transf::show(void)
             cv::imshow(A_WINDOW,map_act);
             cv::imshow(V_WINDOW,map_vis);
             cv::imshow(D_WINDOW,map_debug);
-            if(gt && gt_c)
+
+            if(gt)
             {
                 cv::imshow(G_WINDOW,map_truth);
+                cv::waitKey(2);
             }
             else
             {
                 cv::destroyWindow(G_WINDOW);
+                cv::waitKey(2);
             }
         }
         else
         {
             cv::imshow(E_WINDOW,map_erosionOp);
+
+            cv::destroyWindow(D_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(L_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(A_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(V_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(G_WINDOW);
+            cv::waitKey(2);
         }
         cv::waitKey(3);
     }
@@ -124,7 +123,7 @@ void VisC_transf::show(void)
     }
 }
 
-void VisC_transf::conf_space(void)
+bool VisC_transf::conf_space(void)
 {
     cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
                                            cv::Size( 2*infl + 1, 2*infl+1 ),
@@ -145,6 +144,8 @@ void VisC_transf::conf_space(void)
     map_or=or_map;
     map_erosionOp=er_map;
     map_closeOp=cr_map;
+
+    return true;
 }
 
 
@@ -429,4 +430,15 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
     }
 
     return vis_map;
+}
+
+
+void VisC_transf::clearImgs(void)
+{
+    map_debug=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
+    map_erosionOpPrintColor=map_debug;
+    map_label=map_debug;
+    map_act=map_debug;
+    map_vis=map_debug;
+    map_truth=map_debug;
 }

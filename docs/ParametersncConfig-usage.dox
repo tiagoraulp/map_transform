@@ -9,7 +9,10 @@
   <param name="sx" type="double" value="50.0" />
   <param name="sy" type="double" value="50.0" />
   <param name="st" type="double" value="0.0" />
+  <param name="dx" type="double" value="50.0" />
+  <param name="dy" type="double" value="50.0" />
   <param name="angle_res" type="int" value="32" />
+  <param name="sens_res" type="int" value="128" />
   <param name="debug" type="bool" value="True" />
   <param name="ground_truth" type="bool" value="False" />
   <param name="debug_angle" type="double" value="0.0" />

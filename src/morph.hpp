@@ -8,11 +8,14 @@ class Elem{
 public:
     std::vector<cv::Mat> elems;
     cv::Point pt;
+    std::vector <cv::Point> pt2;
     int  pu, pb, pl, pr;
 };
 
 
-Elem multiElem(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int res);
+Elem multiSensor(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int res, cv::Point2f pt2);
+
+Elem multiRobot(cv::Mat elem, cv::Point2f& pt, double orient ,double scale, int res, cv::Point2f& pt2);
 
 std::vector<cv::Mat> multiErosion(cv::Mat map, Elem robot_or);
 

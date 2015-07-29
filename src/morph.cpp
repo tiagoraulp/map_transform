@@ -2,10 +2,12 @@
 
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include "vector_utils.hpp"
+
 using namespace std;
 
 
-Elem multiElem(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int res)
+Elem multiRobot(cv::Mat elem, cv::Point2f& pt, double orient ,double scale, int res, cv::Point2f& pt2)
 {
     Elem result;
 
@@ -20,6 +22,9 @@ Elem multiElem(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int re
 
     pt.x=pt.x+pu;
     pt.y=pt.y+pl;
+
+    pt2.x=pt2.x+pu;
+    pt2.y=pt2.y+pl;
 
 
     int max_r=max(pt.x,elem.rows-pt.x), max_c=max(pt.y,elem.cols-pt.y);
@@ -36,8 +41,10 @@ Elem multiElem(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int re
     pt.x=pt.x+pu;
     pt.y=pt.y+pl;
 
+    pt2.x=pt2.x+pu;
+    pt2.y=pt2.y+pl;
 
-    result.pt=cv::Point(pt.x,pt.y);
+    result.pt=cv::Point(round(pt.x),round(pt.y));
 
     //now pu, pl, pb, and pr are extra lines to add to original map for convolution!!!
     //(different and independent meaning) -> thus they are only an approximation
@@ -53,6 +60,7 @@ Elem multiElem(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int re
     result.pb=pb;
     result.pu=pu;
 
+    cv::Point2f pt2_f;
 
     for(int i=0;i<res;i++)
     {
@@ -62,6 +70,92 @@ Elem multiElem(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int re
         cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
 
         result.elems.push_back(elem_t);
+
+        cv::Point2f pt2_t=r*cv::Point2f(pt2.y,pt2.x);
+
+        result.pt2.push_back(cv::Point(round(pt2_t.y),round(pt2_t.x)));
+
+        if(i==0)
+            pt2_f=cv::Point2f(pt2_t.y,pt2_t.x);
+    }
+
+    pt2=pt2_f;
+
+    return result;
+}
+
+Elem multiSensor(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int res, cv::Point2f pt2)
+{
+    Elem result;
+
+    int pl, pr, pu, pb; //add lines for elem to deal with scale and rotation
+
+    pu=elem.rows/2*max(0.0,scale-1);
+    pb=elem.rows/2*max(0.0,scale-1);
+    pl=elem.cols/2*max(0.0,scale-1);
+    pr=elem.cols/2*max(0.0,scale-1);
+
+    cv::copyMakeBorder(elem,elem,pu,pb,pl,pr,cv::BORDER_CONSTANT,cv::Scalar(0));
+
+    pt.x=pt.x+pu;
+    pt.y=pt.y+pl;
+
+    pt2.x=pt2.x+pu;
+    pt2.y=pt2.y+pl;
+
+
+    int max_r=max(max(pt.x,elem.rows-pt.x),max(pt2.x,elem.rows-pt2.x)), max_c=max(max(pt.y,elem.cols-pt.y),max(pt2.y,elem.cols-pt2.y));
+
+    int max_d=(int)(sqrt(max_r*max_r+max_c*max_c));
+
+    pl=max_d-pt.y+1;
+    pr=max_d-elem.cols+pt.y+1;
+    pu=max_d-pt.x+1;
+    pb=max_d-elem.rows+pt.x+1;
+
+    cv::copyMakeBorder(elem,elem,pu,pb,pl,pr,cv::BORDER_CONSTANT,cv::Scalar(0));
+
+    pt.x=pt.x+pu;
+    pt.y=pt.y+pl;
+
+    pt2.x=pt2.x+pu;
+    pt2.y=pt2.y+pl;
+
+    result.pt=cv::Point(round(pt2.x),round(pt2.y));
+
+    //now pu, pl, pb, and pr are extra lines to add to original map for convolution!!!
+    //(different and independent meaning) -> thus they are only an approximation
+
+
+    pu=pt.x+1;
+    pb=elem.rows-pt.x+1;
+    pl=pt.y+1;
+    pr=elem.cols-pt.y+1;
+
+    result.pl=pl;
+    result.pr=pr;
+    result.pb=pb;
+    result.pu=pu;
+
+    cv::Mat r = cv::getRotationMatrix2D(cv::Point2f(pt.y,pt.x), -orient, scale);
+
+    cv::Mat elem_t;
+
+    cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
+
+
+    for(int i=0;i<res;i++)
+    {
+        cv::Mat elem_f;
+        r = cv::getRotationMatrix2D(cv::Point2f(pt2.y,pt2.x), (360.0/res*i), 1.0);
+
+        cv::warpAffine(elem_t, elem_f, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
+
+        result.elems.push_back(elem_f);
+
+        cv::Point2f pt_f=r*cv::Point2f(pt.y,pt.x);
+
+        result.pt2.push_back(cv::Point(round(pt_f.y),round(pt_f.x)));
     }
 
     return result;
@@ -119,6 +213,7 @@ void multiMerge(Elem robot_or, Elem sensor_or, Elem& result, Elem& rev)
     result.pl=robot_or.pl;
     result.pr=robot_or.pr;
     result.pt=robot_or.pt;
+    result.pt2=robot_or.pt2;
     result.elems.resize(robot_or.elems.size());
 
     for(unsigned int i=0; i<robot_or.elems.size();i++)
@@ -150,12 +245,15 @@ void multiMerge(Elem robot_or, Elem sensor_or, Elem& result, Elem& rev)
         }
     }
 
-    rev.pb=sensor_or.pb;
-    rev.pu=sensor_or.pu;
-    rev.pl=sensor_or.pl;
-    rev.pr=sensor_or.pr;
+    rev.pb=robot_or.pb;
+    rev.pu=robot_or.pu;
+    rev.pl=robot_or.pl;
+    rev.pr=robot_or.pr;
     rev.pt=sensor_or.pt;
+    rev.pt2=sensor_or.pt2;
     rev.elems.resize(sensor_or.elems.size());
+
+    FindMax<float> maxd_center, maxd_sensor;
 
     for(unsigned int i=0; i<sensor_or.elems.size();i++)
     {
@@ -167,6 +265,11 @@ void multiMerge(Elem robot_or, Elem sensor_or, Elem& result, Elem& rev)
             {
                 if(sensor_or.elems[i].at<uchar>(j,k)!=0)
                 {
+                    float dist_c=(j-sensor_or.pt.x)*(j-sensor_or.pt.x)+(k-sensor_or.pt.y)*(k-sensor_or.pt.y);
+                    maxd_center.iter( sqrt(dist_c) );
+                    float dist_s=(j-sensor_or.pt2[i].x)*(j-sensor_or.pt2[i].x)+(k-sensor_or.pt2[i].y)*(k-sensor_or.pt2[i].y);
+                    maxd_sensor.iter( sqrt(dist_s) );
+
                     int x=j-sensor_or.pt.x+robot_or.pt.x;
                     int y=k-sensor_or.pt.y+robot_or.pt.y;
 
@@ -181,4 +284,7 @@ void multiMerge(Elem robot_or, Elem sensor_or, Elem& result, Elem& rev)
             }
         }
     }
+
+    rev.pb=(int)(round(maxd_center.getVal())+1);
+    rev.pr=(int)(round(maxd_sensor.getVal())+1);
 }

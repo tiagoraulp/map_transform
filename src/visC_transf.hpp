@@ -16,9 +16,10 @@ protected:
     virtual cv::Mat ext_vis(Unreachable, cv::Mat, cv::Mat);
     virtual void update_config(map_transform::ParametersConfig config);
     virtual void show(void);
-    virtual void conf_space(void);
+    virtual bool conf_space(void);
     virtual void visibility(cv::Point3i, bool, ros::Time);
     virtual bool valid_pos(cv::Point3i pos);
+    virtual void clearImgs(void);
 public:
     VisC_transf(ros::NodeHandle nh);
     virtual ~VisC_transf();

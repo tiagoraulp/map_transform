@@ -9,7 +9,8 @@ cv::Mat brute_force(cv::Mat map, cv::Mat reach, int defl);
 
 cv::Mat brute_force_opt(cv::Mat map, cv::Mat reach, int defl);
 
-cv::Mat brute_force_opt_act(cv::Mat map, cv::Mat reach, cv::Mat act, int defl);
+template <typename T, typename T2>
+cv::Mat brute_force_opt_act(cv::Mat map, T reach, cv::Mat act, T2 defl);
 
 
 #endif // RAY_HPP

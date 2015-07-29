@@ -15,9 +15,9 @@ protected:
 
     double sdefl;
 
-    double rcx, rcy, rct, scx, scy, sct;
+    double rcx, rcy, rct, scx, scy, sct, dx, dy;
 
-    int angle_res;
+    int angle_res, angle_sens_res;
 
     double angle_debug;
 
@@ -31,11 +31,13 @@ protected:
 
     void update_config(map_transform::ParametersncConfig config);
     void show(void);
-    void conf_space(void);
+    bool conf_space(void);
     void visibility(cv::Point3i, bool, ros::Time);
     void getPosition(cv::Point3d&p);
     void get2DPosition(cv::Point3i&pos, cv::Point3d p);
     bool valid_pos(cv::Point3i pos);
+    void clearImgs();
+    bool testConf();
 public:
     VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens);
     virtual ~VisNC_transf();

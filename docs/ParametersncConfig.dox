@@ -10,7 +10,10 @@ Reads and maintains the following parameters on the ROS server
 - \b "~sx" : \b [double] Sensor center x (%) min: 0.0, default: 50.0, max: 100.0
 - \b "~sy" : \b [double] Sensor center y (%) min: 0.0, default: 50.0, max: 100.0
 - \b "~st" : \b [double] Sensor center theta min: -180.0, default: 0.0, max: 180.0
+- \b "~dx" : \b [double] Sensor displacement x (%) min: 0.0, default: 50.0, max: 100.0
+- \b "~dy" : \b [double] Sensor displacement y (%) min: 0.0, default: 50.0, max: 100.0
 - \b "~angle_res" : \b [int] Orientation resolution min: 4, default: 32, max: 256
+- \b "~sens_res" : \b [int] Sensing resolution min: 4, default: 128, max: 256
 - \b "~debug" : \b [bool] Debugging with images min: False, default: True, max: True
 - \b "~ground_truth" : \b [bool] Ground Truth min: False, default: False, max: True
 - \b "~debug_angle" : \b [double] Debug of Infl+Defl for angle min: -180.0, default: 0.0, max: 180.0

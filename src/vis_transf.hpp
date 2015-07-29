@@ -22,6 +22,7 @@ protected:
     typename dynamic_reconfigure::Server<T>::CallbackType func;
     tf::TransformListener pos_listener;
     int count;
+    bool resCS;
     bool pos_rcv;
     bool treated, treated2;
     cv::Point3i prev;
@@ -50,9 +51,10 @@ protected:
     virtual void publish(void);
     virtual void transf(void);
     virtual void transf_pos(void);
-    virtual void conf_space(void)=0;
+    virtual bool conf_space(void)=0;
     virtual bool valid_pos(cv::Point3i pos)=0;
     virtual void visibility(cv::Point3i, bool, ros::Time)=0;
+    virtual void clearImgs(void)=0;
 public:
     Vis_transf(ros::NodeHandle nh);
     virtual ~Vis_transf();

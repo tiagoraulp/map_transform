@@ -65,6 +65,7 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     nh_.param("debug", _debug, true);
     prev.x=-1; prev.y=-1; prev.z=-1;
     count=0;
+    res=false;
     func = boost::bind(&Vis_transf::callbackParameters, this,_1, _2);
     server.setCallback(func);
     treated=false;
@@ -74,8 +75,6 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     changed=false;
     changed2=false;
     changed_p=false;
-
-
 }
 
 template <typename T>
@@ -88,8 +87,6 @@ Vis_transf<T>::~Vis_transf()
 template <typename T>
 nav_msgs::OccupancyGrid Vis_transf<T>::Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg)
 {
-    //map=scaling(map, 1/scale);
-
     nav_msgs::OccupancyGrid n_msg;
     n_msg.header.stamp = ros::Time::now();
     n_msg.header.frame_id = msg.header.frame_id;
@@ -213,11 +210,18 @@ void Vis_transf<T>::transf(void)
     {
         ros::Time t01=ros::Time::now();
 
-        conf_space();
+        resCS=conf_space();
 
         ros::Duration diff = ros::Time::now() - t01;
 
-        ROS_INFO("%s - Time for configuration space: %f", tf_pref.c_str(), diff.toSec());
+        if(!resCS)
+        {
+            ROS_INFO("%s - Time for configuration space (invalid configuration): %f", tf_pref.c_str(), diff.toSec());
+        }
+        else
+        {
+            ROS_INFO("%s - Time for configuration space: %f", tf_pref.c_str(), diff.toSec());
+        }
     }
 }
 
@@ -282,30 +286,35 @@ bool Vis_transf<T>::getPos(cv::Point3i&pos)
 template <typename T>
 void Vis_transf<T>::transf_pos(void)
 {
-    if(count>0)
+    gt_c=false;
+    pos_rcv=false;
+
+    if(count>0 && resCS)
     {
         ros::Time t01=ros::Time::now();
 
         cv::Point3i pos;
 
         if(!getPos(pos))
+        {
+            clearImgs();
             return;
+        }
+
+        pos_rcv=true;
 
         bool proc=checkProceed();
 
         if(!valid_pos(pos))  //invalid center position of the robot (touching obstacles or walls)
         {
-            gt_c=false;
-
-            pos_rcv=true;
-
             unsigned char color[3]={255,0,0};
 
             map_erosionOpPrintColor=printPoint(map_erosionOp, cv::Point(pos.x,pos.y), color);
 
             map_label=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
-            map_act=map_label;
-            map_vis=map_label;
+            map_act=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
+            map_vis=map_act;
+            map_truth=map_act;
 
             bool print=true;
 
@@ -326,14 +335,20 @@ void Vis_transf<T>::transf_pos(void)
             return;
         }
 
-        visibility(pos, proc, t01);
+        if(gt)
+        {
+            gt_c=true;
+        }
 
-        pos_rcv=true;
+        visibility(pos, proc, t01);
 
         prev=pos;
     }
-    else
+    else if(count>0)
+    {
+        clearImgs();
         return;
+    }
 }
 
 

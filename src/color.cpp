@@ -5,26 +5,47 @@ using namespace std;
 
 cv::Mat printPoint(cv::Mat img, cv::Point pos, unsigned char* color)
 {
-    vector<cv::Mat> channels(3);
+    cv::Mat ret;
 
-    channels[0]=img.clone();
-    channels[1]=img.clone();
-    channels[2]=img.clone();
-
-    for(int k=0;k<3;k++)
+    if(img.type()==CV_8UC1)
     {
-        for(int i=(pos.x-1);i<=(pos.x+1);i++)
+        vector<cv::Mat> channels(3);
+
+        channels[0]=img.clone();
+        channels[1]=img.clone();
+        channels[2]=img.clone();
+
+        for(int k=0;k<3;k++)
         {
-            for(int j=(pos.y-1);j<=(pos.y+1);j++)
+            for(int i=(pos.x-1);i<=(pos.x+1);i++)
             {
-                channels[k].at<uchar>(boundPos(i,img.rows),boundPos(j,img.cols))=color[2-k];
+                for(int j=(pos.y-1);j<=(pos.y+1);j++)
+                {
+                    channels[k].at<uchar>(boundPos(i,img.rows),boundPos(j,img.cols))=color[2-k];
+                }
+            }
+        }
+
+        cv::merge(channels, ret);
+    }
+    else if(img.type()==CV_8UC3)
+    {
+        ret=img.clone();
+        for(int k=0;k<3;k++)
+        {
+            for(int i=(pos.x-1);i<=(pos.x+1);i++)
+            {
+                for(int j=(pos.y-1);j<=(pos.y+1);j++)
+                {
+                    ret.at<cv::Vec3b>(boundPos(i,img.rows),boundPos(j,img.cols))[k]=color[2-k];
+                }
             }
         }
     }
-
-    cv::Mat ret;
-
-    cv::merge(channels, ret);
+    else
+    {
+        ret=img.clone();
+    }
 
     return ret;
 }

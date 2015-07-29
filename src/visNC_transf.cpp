@@ -51,36 +51,18 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
     scy/=100;
     this->nh_.param("st", sct, 0.0);
 
+    this->nh_.param("dx", dx, 50.0);
+    dx/=100;
+    this->nh_.param("dy", dy, 50.0);
+    dy/=100;
+
     this->nh_.param("theta", this->rtr, 0.0);
 
     this->nh_.param("angle_res", this->angle_res, 32);
 
+    this->nh_.param("angle_sens_res", this->angle_sens_res, 128);
+
     this->nh_.param("debug_angle", this->angle_debug, 0.0);
-
-    if(this->_debug){
-        cv::namedWindow(M_WINDOW);
-        cv::namedWindow(E_WINDOW);
-        cv::namedWindow(PE_WINDOW);
-        cv::namedWindow(C_WINDOW);
-        cv::namedWindow(PC_WINDOW);
-        cv::namedWindow(SR_WINDOW);
-        cv::namedWindow(S_WINDOW);
-        cv::namedWindow(SS_WINDOW);
-        cv::namedWindow(EV_WINDOW);
-        cv::namedWindow(D_WINDOW);
-        if(this->pos_rcv)
-        {
-            cv::namedWindow(L_WINDOW);
-            cv::namedWindow(A_WINDOW);
-            cv::namedWindow(P_WINDOW);
-            cv::namedWindow(R_WINDOW);
-            cv::namedWindow(V_WINDOW);
-            cv::namedWindow(DP_WINDOW);
-            if(this->gt && this->gt_c)
-                cv::namedWindow(G_WINDOW);
-        }
-    }
-
 
 }
 
@@ -129,7 +111,7 @@ void VisNC_transf::show(void)
             cv::imshow(R_WINDOW,this->map_projAct);
             cv::imshow(V_WINDOW,this->map_vis);
             cv::imshow(DP_WINDOW,this->map_debug_pos);
-            if(this->gt && this->gt_c)
+            if(this->gt)
             {
                 cv::imshow(G_WINDOW,this->map_truth);
             }
@@ -142,6 +124,21 @@ void VisNC_transf::show(void)
         else
         {
             cv::imshow(E_WINDOW,map_erosionOp);
+
+            cv::destroyWindow(DP_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(L_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(A_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(V_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(P_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(R_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(G_WINDOW);
+            cv::waitKey(2);
         }
         cv::waitKey(3);
     }
@@ -186,7 +183,23 @@ void VisNC_transf::show(void)
     }
 }
 
-void VisNC_transf::conf_space(void)
+bool VisNC_transf::testConf(void)
+{
+    if(robot_or.pt2.size()>0)
+    {
+        cv::Point pt=robot_or.pt2[0];
+        if(pt.x>=0 && pt.x<robot_or.elems[0].rows && pt.y>=0 && pt.y<robot_or.elems[0].cols)
+        {
+            if(robot_or.elems[0].at<uchar>(pt.x,pt.y)!=0)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool VisNC_transf::conf_space(void)
 {
     cv::Mat or_map, er_map, cl_map, or_mapN;
 
@@ -198,55 +211,34 @@ void VisNC_transf::conf_space(void)
 
     cv::Point2f pt=cv::Point2f(elem.rows*rcx,elem.cols*rcy);
 
-    robot_or=multiElem(elem, pt,this->rct, this->rinfl, this->angle_res);
+    cv::Point2f pt2=cv::Point2f(elem.rows*dx,elem.cols*dy);
 
-    pt=cv::Point2f(sensor.rows*scx,sensor.cols*scy);
+    robot_or=multiRobot(elem, pt,this->rct, this->rinfl, this->angle_res, pt2);
 
-    sensor_or=multiElem(this->sensor.clone(), pt,this->sct, this->sdefl, this->angle_res);
+    cv::Point2f pt3=cv::Point2f(sensor.rows*scx,sensor.cols*scy);
+    pt2=pt-pt2+pt3;
 
-    multiMerge(robot_or, sensor_or, robot_act, sensor_ev);
+    sensor_or=multiSensor(this->sensor.clone(), pt3,this->sct, this->sdefl, this->angle_res, pt2);
 
     cv::copyMakeBorder(or_map,or_mapN,this->robot_or.pu,this->robot_or.pb,this->robot_or.pl,robot_or.pr,cv::BORDER_CONSTANT,cv::Scalar(0));
 
+    sensor_or.pu=robot_or.pu;
+    sensor_or.pl=robot_or.pl;
+    sensor_or.pb=robot_or.pb;
+    sensor_or.pr=robot_or.pr;
+
     vector<cv::Mat> mer_map=multiErosion(or_mapN, robot_or);
 
-    vector<cv::Mat> mcl_map=multiDilation(mer_map, robot_act);
-
-
-    unsigned char c123[3]={0,0,255};
-    unsigned char c12[3]={255,255,0};
-    unsigned char c13[3]={255,0,255};
-    unsigned char c23[3]={0,255,255};
-    unsigned char c1[3]={0,255,0};
-    unsigned char c2[3]={255,255,255};
-    unsigned char c3[3]={255,0,0};
-    unsigned char c0[3]={0,0,0};
-
+    this->multi_er_map=mer_map;
+    this->map_or=or_map;
 
     double rtrd=angle_debug;
 
     int m_a=angleD2I(rtrd, angle_res);
 
     er_map=mer_map[m_a].clone();
-    cl_map=mcl_map[m_a].clone();
 
-
-    this->map_debug=color_print3(er_map, cl_map, or_mapN, c123, c12, c13, c23, c1, c2, c3, c0 );
-
-    this->map_or=or_map;
     this->map_erosionOp=er_map;
-
-    rec=cv::Rect(robot_or.pl,robot_or.pu, or_map.cols, or_map.rows);
-    this->map_closeOp=cl_map(rec);
-
-    unsigned char color[3]={255,0,0};
-
-    struct_elemR=printPoint(robot_or.elems[m_a]*255,robot_or.pt, color);
-    struct_elemS=printPoint(sensor_or.elems[m_a]*255,sensor_or.pt, color);
-    struct_elemA=printPoint(robot_act.elems[m_a]*255,robot_act.pt, color);
-    struct_elemEV=printPoint(sensor_ev.elems[m_a]*255,sensor_ev.pt, color);
-
-    this->multi_er_map=mer_map;
 
     this->map_projEros=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
 
@@ -259,6 +251,50 @@ void VisNC_transf::conf_space(void)
         }
     }
 
+    unsigned char color[3]={255,0,0};
+    unsigned char color2[3]={0,255,0};
+
+    struct_elemR=printPoint(robot_or.elems[m_a]*255,robot_or.pt, color);
+    struct_elemS=printPoint(sensor_or.elems[m_a]*255,sensor_or.pt2[m_a], color2);
+
+    multiMerge(robot_or, sensor_or, robot_act, sensor_ev);
+
+    struct_elemA=printPoint(robot_act.elems[m_a]*255,robot_act.pt, color);
+    struct_elemA=printPoint(struct_elemA, robot_or.pt2[m_a], color2);
+
+
+    if(!testConf())
+    {
+        struct_elemEV=cv::Mat::zeros(struct_elemS.rows,struct_elemS.cols,CV_8UC1);
+        map_debug=cv::Mat::zeros(map_erosionOp.rows,map_erosionOp.cols,CV_8UC1);
+        map_closeOp=cv::Mat::zeros(map_or.rows,map_or.cols,CV_8UC1);
+        map_projClose=cv::Mat::zeros(map_or.rows,map_or.cols,CV_8UC1);
+        return false;
+    }
+
+    struct_elemEV=printPoint(sensor_ev.elems[m_a]*255,sensor_ev.pt, color);
+    struct_elemEV=printPoint(struct_elemEV,sensor_or.pt2[m_a], color2);
+
+    vector<cv::Mat> mcl_map=multiDilation(mer_map, robot_act);
+
+    cl_map=mcl_map[m_a].clone();
+
+    unsigned char c123[3]={0,0,255};
+    unsigned char c12[3]={255,255,0};
+    unsigned char c13[3]={255,0,255};
+    unsigned char c23[3]={0,255,255};
+    unsigned char c1[3]={0,255,0};
+    unsigned char c2[3]={255,255,255};
+    unsigned char c3[3]={255,0,0};
+    unsigned char c0[3]={0,0,0};
+
+
+    this->map_debug=color_print3(er_map, cl_map, or_mapN, c123, c12, c13, c23, c1, c2, c3, c0 );
+
+
+    rec=cv::Rect(robot_or.pl,robot_or.pu, or_map.cols, or_map.rows);
+    this->map_closeOp=cl_map(rec);
+
     this->map_projClose=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
 
     for(int i=0; i<(int)mcl_map.size(); i++){
@@ -270,6 +306,8 @@ void VisNC_transf::conf_space(void)
         }
     }
     this->map_projClose=map_projClose(rec);
+
+    return true;
 }
 
 void VisNC_transf::getPosition(cv::Point3d &p)
@@ -295,7 +333,7 @@ bool VisNC_transf::valid_pos(cv::Point3i pos)
     bool value=(multi_er_map[pos.z].at<uchar>(pos.x,pos.y)!=0);
     if(!value)
     {
-        map_projAct=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
+        map_projAct=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
         map_projLabel=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
         map_debug_pos=cv::Mat::zeros(map_closeOp.rows, map_closeOp.cols, CV_8UC1);
     }
@@ -373,7 +411,8 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         {
             ros::Time t3=ros::Time::now();
 
-            this->map_truth=brute_force_opt(this->map_or, this->map_label, this->sdefl*30);
+            this->map_truth=brute_force_opt_act(map_or, multi_labl_map , map_projAct , sensor_ev);
+            //this->map_truth=brute_force_opt_act(map_or, map_projLabel , map_projAct , angle_sens_res);
 
             diff = ros::Time::now() - t3;
 
@@ -399,12 +438,28 @@ void VisNC_transf::update_config(map_transform::ParametersncConfig config)
     rct=config.rt;
     scx=config.sx/100;
     scy=config.sy/100;
+    dx=config.dx/100;
+    dy=config.dy/100;
     sct=config.st;
     angle_res=config.angle_res;
+    angle_sens_res=config.sens_res;
     this->_debug=config.debug;
     this->gt=config.ground_truth;
     angle_debug=config.debug_angle;
     this->rxr=config.x;
     this->ryr=config.y;
     this->rtr=config.theta;
+}
+
+
+void VisNC_transf::clearImgs(void)
+{
+    map_debug_pos=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
+    map_label=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
+    map_projLabel=map_label;
+    map_erosionOpPrintColor=map_label;
+    map_act=map_debug_pos;
+    map_projAct=map_debug_pos;
+    map_vis=map_debug_pos;
+    map_truth=map_debug_pos;
 }

@@ -11,6 +11,7 @@
   <depend package="nav_msgs"/>
   <depend package="std_msgs"/>
   <depend package="std_srvs"/>
+  <depend package="map_server"/>
   <depend package="visualization_msgs"/>
   <depend package="cv_bridge"/>
   <depend package="roscpp"/>
