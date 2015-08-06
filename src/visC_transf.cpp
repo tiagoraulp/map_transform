@@ -367,13 +367,95 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         if(gt)
         {
+            vector<cv::Point> reach_list;
+            reach_list.clear();
+
+            for(int i=0; i<r_map.rows;i++)
+            {
+                for(int j=0; j<r_map.cols;j++)
+                {
+                    if(r_map.at<uchar>(i,j)!=0)
+                        reach_list.push_back(cv::Point(i,j));
+                }
+            }
+
+            ////////////////////////////
+
             ros::Time t3=ros::Time::now();
 
-            map_truth=brute_force_opt_act(map_or, map_label, map_act ,defl);
+            map_truth=brute_force(map_or, map_label,defl, true, map_act);
 
             diff = ros::Time::now() - t3;
 
-            ROS_INFO("%s - Time for  Optimized brute force: %f", tf_pref.c_str(), diff.toSec());
+            ROS_INFO("%s - Time for  Optimized brute force sq with act: %f", tf_pref.c_str(), diff.toSec());
+
+            cv::imshow("TestSQwA",this->map_truth);
+            cv::waitKey(3);
+
+//            ////////////////////////////
+
+//            t3=ros::Time::now();
+
+//            map_truth=brute_force(map_or, map_label,defl, true);
+
+//            diff = ros::Time::now() - t3;
+
+//            ROS_INFO("%s - Time for  Optimized brute force sq without act: %f", tf_pref.c_str(), diff.toSec());
+
+//            cv::imshow("TestSQ",this->map_truth);
+//            cv::waitKey(3);
+
+            ////////////////////////////
+
+            t3=ros::Time::now();
+
+            map_truth=brute_force(map_or, map_label,defl, false, map_act);
+
+            diff = ros::Time::now() - t3;
+
+            ROS_INFO("%s - Time for  Optimized brute force grid with act: %f", tf_pref.c_str(), diff.toSec());
+
+            cv::imshow("TestGwA",this->map_truth);
+            cv::waitKey(3);
+
+//            ////////////////////////////
+
+//            t3=ros::Time::now();
+
+//            map_truth=brute_force(map_or, map_label,defl, false);
+
+//            diff = ros::Time::now() - t3;
+
+//            ROS_INFO("%s - Time for  Optimized brute force grid without act: %f", tf_pref.c_str(), diff.toSec());
+
+//            cv::imshow("TestG",this->map_truth);
+//            cv::waitKey(3);
+
+            ////////////////////////////
+
+            t3=ros::Time::now();
+
+            map_truth=brute_force(map_or, reach_list,defl, true, map_act);
+
+            diff = ros::Time::now() - t3;
+
+            ROS_INFO("%s - Time for  Optimized brute force list with act: %f", tf_pref.c_str(), diff.toSec());
+
+            cv::imshow("TestLwA",this->map_truth);
+            cv::waitKey(3);
+
+//            ////////////////////////////
+
+//            t3=ros::Time::now();
+
+//            map_truth=brute_force(map_or, reach_list,defl, true);
+
+//            diff = ros::Time::now() - t3;
+
+//            ROS_INFO("%s - Time for  Optimized brute force list without act: %f", tf_pref.c_str(), diff.toSec());
+
+//            cv::imshow("TestL",this->map_truth);
+//            cv::waitKey(3);
 
             gt_c=true;
         }

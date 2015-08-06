@@ -409,14 +409,34 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         if(this->gt)
         {
+            vector<cv::Point3i> reach_list;
+            reach_list.clear();
+
+            for(unsigned int a=0; a<multi_labl_map.size();a++)
+            {
+                for(int i=0; i<multi_labl_map[a].rows;i++)
+                {
+                    for(int j=0; j<multi_labl_map[a].cols;j++)
+                    {
+                        if(multi_labl_map[a].at<uchar>(i,j)!=0)
+                            reach_list.push_back(cv::Point3i(i,j,a));
+                    }
+                }
+            }
+
+            /////////////////
+
             ros::Time t3=ros::Time::now();
 
-            this->map_truth=brute_force_opt_act(map_or, multi_labl_map , map_projAct , sensor_ev);
-            //this->map_truth=brute_force_opt_act(map_or, map_projLabel , map_projAct , angle_sens_res);
+
+            this->map_truth=brute_force(map_or, multi_labl_map , sensor_or, false, map_projAct);//);//
+            //this->map_truth=brute_force(map_or, reach_list , sensor_or, true, map_projAct);
 
             diff = ros::Time::now() - t3;
 
-            ROS_INFO("%s - Time for Optimized brute force: %f", this->tf_pref.c_str(), diff.toSec());
+            ROS_INFO("%s - Time for Optimized brute force grid with act: %f", this->tf_pref.c_str(), diff.toSec());
+
+            ////////////////////////
 
             this->gt_c=true;
         }

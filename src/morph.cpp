@@ -206,7 +206,7 @@ vector<cv::Mat> multiDilation(vector<cv::Mat> map_er, Elem robot_or )
 
 }
 
-void multiMerge(Elem robot_or, Elem sensor_or, Elem& result, Elem& rev)
+void multiMerge(Elem robot_or, Elem& sensor_or, Elem& result, Elem& rev)
 {
     result.pb=robot_or.pb;
     result.pu=robot_or.pu;
@@ -287,4 +287,7 @@ void multiMerge(Elem robot_or, Elem sensor_or, Elem& result, Elem& rev)
 
     rev.pb=(int)(round(maxd_center.getVal())+1);
     rev.pr=(int)(round(maxd_sensor.getVal())+1);
+
+    sensor_or.pb=(int)(round(maxd_center.getVal())+1);
+    sensor_or.pr=(int)(round(maxd_sensor.getVal())+1);
 }

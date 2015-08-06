@@ -9,7 +9,6 @@ static string filename_r, filename_s;
 
 int main(int argc, char **argv)
 {
-
     //        vector<int> compression_params;
     //        compression_params.push_back(CV_IMWRITE_PNG_COMPRESSION);
     //        compression_params.push_back(9);
