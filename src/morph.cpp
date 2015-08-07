@@ -181,29 +181,28 @@ vector<cv::Mat> multiErosion(cv::Mat map, Elem robot_or)
 
 vector<cv::Mat> multiDilation(vector<cv::Mat> map_er, Elem robot_or )
 {
-
-
     vector<cv::Mat> result;
 
     cv::Point pr;
     pr.y=robot_or.elems[0].cols-1-robot_or.pt.y;
     pr.x=robot_or.elems[0].rows-1-robot_or.pt.x;
 
+    double rob=cv::sum(robot_or.elems[0])[0];
+
     for(unsigned int i=0;i<robot_or.elems.size();i++)
     {
         cv::Mat temp, elem_t;
         flip(robot_or.elems[i], elem_t, -1);
 
-
-        cv::dilate(map_er[i], temp, elem_t, cv::Point(pr.y, pr.x) );
+        if(rob>0)
+            cv::dilate(map_er[i], temp, elem_t, cv::Point(pr.y, pr.x) );
+        else
+            temp=cv::Mat::zeros(map_er[i].rows, map_er[i].cols, CV_8UC1);
 
         result.push_back(temp);
-
-
     }
 
     return result;
-
 }
 
 void multiMerge(Elem robot_or, Elem& sensor_or, Elem& result, Elem& rev)
