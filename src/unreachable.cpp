@@ -10,7 +10,6 @@ Unreachable::Unreachable(cv::Mat map_or, cv::Mat act_map) {
     getRegions(map_or, act_map);
 }
 
-
 void Unreachable::getFrontiers(void)
 {
     frontiers.clear();
@@ -41,6 +40,46 @@ void Unreachable::getFrontiers(void)
         frontiers.push_back(frontiers_c);
     }
 }
+
+void Unreachable::getFrontiers2(void)
+{
+    clusters.clear();
+    for (unsigned int k=0;k<labels_unreach.size();k++){
+        cv::Mat frontiers_t=cv::Mat::zeros(unreach_map.rows, unreach_map.cols, CV_8UC1);
+        for(unsigned int j=0;j<labels_unreach[k].size();j++){
+            bool stop=false;
+            for(int a=labels_unreach[k][j].x-1;a<=(labels_unreach[k][j].x+1);a++){
+                for(int b=labels_unreach[k][j].y-1;b<=(labels_unreach[k][j].y+1);b++){
+                    if ((a>=0)&&(b>=0)&&(a<act.rows)&&(b<act.cols) )
+                    {
+                        int aa=a-labels_unreach[k][j].x;
+                        int bb=b-labels_unreach[k][j].y;
+                        if((abs(aa)+abs(bb))==1)   ///TODO: check connectivity, if 4 is enough!!!
+                            if(act.at<uchar>(a,b)==255)
+                            {
+                                frontiers_t.at<uchar>(labels_unreach[k][j].x,labels_unreach[k][j].y)=255;
+                                stop=true;
+                                break;
+                            }
+                    }
+                }
+                if(stop)
+                    break;
+            }
+        }
+
+        vector<ClusterLists> clusters_c=cluster_points(frontiers_t);
+        clusters.push_back(clusters_c);
+        vector<vector<cv::Point> > frontiers_c;
+        frontiers_c.clear();
+        for(unsigned int i=0; i<clusters_c.size();i++)
+        {
+            frontiers_c.push_back(clusters_c[i].cluster);
+        }
+        frontiers.push_back(frontiers_c);
+    }
+}
+
 
 void Unreachable::getRegions(cv::Mat map_or, cv::Mat act_map)
 {

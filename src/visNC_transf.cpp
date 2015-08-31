@@ -427,7 +427,7 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         map_debug_pos=unreach.unreach_map;
 
-        unreach.getFrontiers();
+        unreach.getFrontiers2();
 
         regions=unreach.regions;
 

@@ -346,7 +346,7 @@ cv::Mat list2Mat(vector<cv::Point> points, cv::Point size)
         return cv::Mat(0,0,CV_8UC1);
     }
 
-    cv::Mat orig(size.x, size.y, CV_8UC1);
+    cv::Mat orig=cv::Mat::zeros(size.x, size.y, CV_8UC1);
 
     for(unsigned int i=0;i<points.size();i++)
     {

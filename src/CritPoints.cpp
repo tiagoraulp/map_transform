@@ -10,10 +10,12 @@ CritPointsAS::CritPointsAS(cv::Mat map, vector<cv::Mat> reach, int rs): CritPoin
 {
 }
 
-cv::Point3i CritPointsAS::find_crit_point(vector<cv::Point> frontier_p)
+cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 {
     FindMin<int> min_y, min_x;
     FindMax<int> max_y, max_x;
+
+    vector<cv::Point> frontier_p=cluster_p.cluster;
 
     for(unsigned int j=0;j<frontier_p.size();j++){
         max_x.iter(frontier_p[j].x);
