@@ -461,8 +461,6 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
 //            ////////////////////////////////
 
-
-
             gt_c=true;
         }
     }

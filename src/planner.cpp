@@ -189,9 +189,9 @@ public:
 
         sub_goals = nh_.subscribe("/move_base_simple/goal", 1, &Planner::rcv_goal, this);
 
-        count.resize(2,0);
+        count.assign(2,0);
 
-        map_rcv.resize(2,false);
+        map_rcv.assign(2,false);
 
         msg_rcv.resize(2);
 
@@ -216,7 +216,7 @@ public:
 
 void Planner::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
-    msg_rcv[0].resize(msg->info.width, vector<bool>(msg->info.height,false));
+    msg_rcv[0].assign(msg->info.width, vector<bool>(msg->info.height,false));
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
     for(unsigned int i=0;i<msg->info.height;i++){
@@ -246,7 +246,7 @@ void Planner::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 
 void Planner::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
-    msg_rcv[1].resize(msg->info.width, vector<bool>(msg->info.height,false));
+    msg_rcv[1].assign(msg->info.width, vector<bool>(msg->info.height,false));
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
     for(unsigned int i=0;i<msg->info.height;i++){
@@ -329,9 +329,9 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
     const int n=width;
     const int m=height;
-    vector<vector<int> > closed_nodes_map;closed_nodes_map.resize(n,vector<int>(m,0));
-    vector<vector<int> > open_nodes_map;open_nodes_map.resize(n,vector<int>(m,0));
-    vector<vector<int> > dir_map;dir_map.resize(n,vector<int>(m,0));
+    vector<vector<int> > closed_nodes_map;closed_nodes_map.assign(n,vector<int>(m,0));
+    vector<vector<int> > open_nodes_map;open_nodes_map.assign(n,vector<int>(m,0));
+    vector<vector<int> > dir_map;dir_map.assign(n,vector<int>(m,0));
 
     static priority_queue<node> pq[2];
     static int pqi;

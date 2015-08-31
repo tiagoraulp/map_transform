@@ -6,6 +6,45 @@ using namespace std;
 
 static const double PI = 3.141592653589793;
 
+CritPointsAS::CritPointsAS(cv::Mat map, vector<cv::Mat> reach, int rs): CritPoints(map, reach[0], rs), reach3(reach)
+{
+}
+
+cv::Point3i CritPointsAS::find_crit_point(vector<cv::Point> frontier_p)
+{
+    FindMin<int> min_y, min_x;
+    FindMax<int> max_y, max_x;
+
+    for(unsigned int j=0;j<frontier_p.size();j++){
+        max_x.iter(frontier_p[j].x);
+        min_x.iter(frontier_p[j].x);
+        max_y.iter(frontier_p[j].y);
+        min_y.iter(frontier_p[j].y);
+    }
+
+    FindMin<double, cv::Point3i> crit;
+
+    for(int x=max(min_x.getVal()-infl,0);x<min(max_x.getVal()+infl,r_map.rows);x++)
+    {
+        for(int y=max(min_y.getVal()-infl,0);y<min(max_y.getVal()+infl,r_map.cols);y++)
+        {
+            if(r_map.at<uchar>(x,y)==255)
+            {
+                double sum=0;
+                for(unsigned int l=0;l<frontier_p.size();l++){
+                    sum+=(frontier_p[l].x-x)*(frontier_p[l].x-x)+(frontier_p[l].y-y)*(frontier_p[l].y-y);
+                }
+                crit.iter(sum,cv::Point3i(x,y,0));
+            }
+        }
+    }
+
+    critP3=crit.getP();
+    frontier=frontier_p;
+
+    return critP3;
+}
+
 CritPoints::CritPoints(cv::Mat map, cv::Mat reach, int rs): r_map(reach), map_or(map), infl(rs)
 {
 }

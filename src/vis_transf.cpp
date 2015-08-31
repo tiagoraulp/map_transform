@@ -92,7 +92,7 @@ nav_msgs::OccupancyGrid Vis_transf<T>::Mat2RosMsg(cv::Mat map ,const nav_msgs::O
     n_msg.header.frame_id = msg.header.frame_id;
     n_msg.info=msg.info;
 
-    n_msg.data.resize(msg.data.size(),-1);
+    n_msg.data.assign(msg.data.size(),-1);
     std::vector<signed char>::const_iterator mapDataIter = msg.data.begin();
     std::vector<signed char>::iterator n_mapDataIter = n_msg.data.begin();
     for(unsigned int i=0;i<msg.info.height;i++){

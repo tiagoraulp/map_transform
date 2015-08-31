@@ -6,7 +6,7 @@
 
 class CritPoints
 {
-private:
+protected:
     cv::Mat r_map, map_or;
     int infl;
     cv::Point2i critP;
@@ -25,6 +25,16 @@ public:
     std::vector<float> getExtremes(void);
     std::vector<cv::Point2i> getExtremesP(void);
     unsigned int getObt(void);
+};
+
+class CritPointsAS: public CritPoints
+{
+private:
+    std::vector<cv::Mat> reach3;
+    cv::Point3i critP3;
+public:
+    CritPointsAS(cv::Mat map, std::vector<cv::Mat> reach, int rs);
+    cv::Point3i find_crit_point(std::vector<cv::Point> frontier_p);
 };
 
 #endif // CRITPOINTS_HPP

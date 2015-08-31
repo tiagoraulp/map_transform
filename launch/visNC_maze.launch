@@ -26,7 +26,7 @@
     <param name="theta" value="0" />
     <param name="ground_truth" value="false" />
     <param name="angle_res" value="32" />
-    <param name="angle_sens_res" value="128" />
+    <param name="sens_res" value="128" />
     <param name="debug_angle" value="0" />
  </node>
 

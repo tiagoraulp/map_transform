@@ -13,6 +13,8 @@
 
 using namespace std;
 
+static const double PI = 3.141592653589793;
+
 static const std::string M_WINDOW = "Map";
 static const std::string E_WINDOW = "Erosion";
 static const std::string PE_WINDOW = "ProjectedErosion";
@@ -60,10 +62,11 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
 
     this->nh_.param("angle_res", this->angle_res, 32);
 
-    this->nh_.param("angle_sens_res", this->angle_sens_res, 128);
+    this->nh_.param("sens_res", this->sens_res, 128);
 
     this->nh_.param("debug_angle", this->angle_debug, 0.0);
 
+    sens_area.assign(sens_res, 0);
 }
 
 VisNC_transf::~VisNC_transf()
@@ -254,12 +257,12 @@ bool VisNC_transf::conf_space(void)
     unsigned char color[3]={255,0,0};
     unsigned char color2[3]={0,255,0};
 
-    struct_elemR=printPoint(robot_or.elems[m_a]*255,robot_or.pt, color);
-    struct_elemS=printPoint(sensor_or.elems[m_a]*255,sensor_or.pt2[m_a], color2);
+    struct_elemR=printPoint(robot_or.elems[m_a],robot_or.pt, color);
+    struct_elemS=printPoint(sensor_or.elems[m_a],sensor_or.pt2[m_a], color2);
 
     multiMerge(robot_or, sensor_or, robot_act, sensor_ev);
 
-    struct_elemA=printPoint(robot_act.elems[m_a]*255,robot_act.pt, color);
+    struct_elemA=printPoint(robot_act.elems[m_a],robot_act.pt, color);
     struct_elemA=printPoint(struct_elemA, robot_or.pt2[m_a], color2);
 
 
@@ -272,7 +275,9 @@ bool VisNC_transf::conf_space(void)
         return false;
     }
 
-    struct_elemEV=printPoint(sensor_ev.elems[m_a]*255,sensor_ev.pt, color);
+    calcSensArea(sensor_ev);
+
+    struct_elemEV=printPoint(sensor_ev.elems[m_a],sensor_ev.pt, color);
     struct_elemEV=printPoint(struct_elemEV,sensor_or.pt2[m_a], color2);
 
     vector<cv::Mat> mcl_map=multiDilation(mer_map, robot_act);
@@ -308,6 +313,33 @@ bool VisNC_transf::conf_space(void)
     this->map_projClose=map_projClose(rec);
 
     return true;
+}
+
+void VisNC_transf::calcSensArea(Elem sens)
+{
+    sens_area.assign(sens_res, 0);
+
+    for(int i=0; i<sens.elems[0].rows; i++)
+    {
+        for(int j=0; j<sens.elems[0].cols; j++)
+        {
+            if(sens.elems[0].at<uchar>(i,j)!=0)
+            {
+                int x=i-sens.pt.x, y=j-sens.pt.y;
+
+                if(x==0 && y==0)
+                {
+                    sens_area[0]+=1;
+                }
+                else
+                {
+                    int angle=angleD2I(atan2(y,x)/PI*180, sens_res);
+
+                    sens_area[angle]+=1;
+                }
+            }
+        }
+    }
 }
 
 void VisNC_transf::getPosition(cv::Point3d &p)
@@ -403,12 +435,14 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         map_erosionOpPrintColor=printPoint(map_erosionOp, cv::Point(pos.x,pos.y), color);
 
-        ros::Duration diff = ros::Time::now() - t01, diff1, diff2, diff3, diff4, diff5, diff6;
+        ros::Duration diff = ros::Time::now() - t01;
 
         ROS_INFO("%s - Time for visibility: %f", this->tf_pref.c_str(), diff.toSec());
 
         if(this->gt)
         {
+            ros::Time t3;
+
             vector<cv::Point3i> reach_list;
             reach_list.clear();
 
@@ -425,8 +459,6 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             }
 
             /////////////////
-
-            ros::Time t3;
 
 //            t3=ros::Time::now();
 
@@ -531,7 +563,7 @@ void VisNC_transf::update_config(map_transform::ParametersncConfig config)
     dy=config.dy/100;
     sct=config.st;
     angle_res=config.angle_res;
-    angle_sens_res=config.sens_res;
+    sens_res=config.sens_res;
     this->_debug=config.debug;
     this->gt=config.ground_truth;
     angle_debug=config.debug_angle;

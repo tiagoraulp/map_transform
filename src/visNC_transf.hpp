@@ -17,9 +17,11 @@ protected:
 
     double rcx, rcy, rct, scx, scy, sct, dx, dy;
 
-    int angle_res, angle_sens_res;
+    int angle_res, sens_res;
 
     double angle_debug;
+
+    std::vector<int> sens_area;
 
     Elem robot_or, robot_act, sensor_or, sensor_ev;
 
@@ -38,6 +40,7 @@ protected:
     bool valid_pos(cv::Point3i pos);
     void clearImgs();
     bool testConf();
+    void calcSensArea(Elem sens);
 public:
     VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens);
     virtual ~VisNC_transf();

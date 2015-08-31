@@ -185,7 +185,6 @@ vector<cv::Mat> cluster_points(vector<cv::Mat> points, cv::Point3i pos)
 
 
     if(pos.z>=(int)points.size())
-
         return result;
     if(pos.x<0 || pos.x>=points[pos.z].rows || pos.y<0 || pos.y>=points[pos.z].cols)
         return result;
@@ -236,6 +235,175 @@ vector<cv::Mat> cluster_points(vector<cv::Mat> points, cv::Point3i pos)
         }
 
         vc.erase(vc.begin());
+    }
+
+    return result;
+}
+
+
+ClusterLists::ClusterLists()
+{
+    cluster.clear();
+    extremes.clear();
+}
+
+ClusterLists cluster_points(cv::Mat orig, cv::Point pos)
+{
+    ClusterLists result;
+
+    if(pos.x<0 || pos.x>=orig.rows || pos.y<0 || pos.y>=orig.cols)
+        return result;
+
+    cv::Mat mem(orig.rows,orig.cols,CV_8UC1, 0.0), points=orig.clone();
+
+    vector<cv::Point> vc;
+    vc.clear();
+    vc.push_back(pos);
+
+    result.cluster.push_back(pos);
+
+    mem.at<uchar>(pos.x,pos.y)=255;
+    points.at<uchar>(pos.x,pos.y)=0;
+
+    while(vc.size()!=0)
+    {
+        int lx=boundPos(vc[0].x-1,points.rows);
+        int ux=boundPos(vc[0].x+1,points.rows);
+        int ly=boundPos(vc[0].y-1,points.cols);
+        int uy=boundPos(vc[0].y+1,points.cols);
+
+        for(int i=lx; i<=ux; i++)
+        {
+            for(int j=ly; j<=uy; j++)
+            {
+                if( points.at<uchar>(i,j)==255 && (vc[0].x!=i || vc[0].y!=j) )
+                {
+                    vc.push_back(cv::Point(i,j));
+                    result.cluster.push_back(cv::Point(i,j));
+                    points.at<uchar>(i,j)=0;
+                    mem.at<uchar>(i,j)=255;
+                }
+            }
+        }
+
+        vc.erase(vc.begin());
+    }
+
+    result.img=mem.clone();
+
+    for(unsigned int k=0; k<result.cluster.size();k++)
+    {
+        int lx=boundPos(result.cluster[k].x-1,result.img.rows);
+        int ux=boundPos(result.cluster[k].x+1,result.img.rows);
+        int ly=boundPos(result.cluster[k].y-1,result.img.cols);
+        int uy=boundPos(result.cluster[k].y+1,result.img.cols);
+
+        int sum=0;
+
+        for(int i=lx; i<=ux; i++)
+        {
+            for(int j=ly; j<=uy; j++)
+            {
+                if( result.img.at<uchar>(i,j)==255 && (result.cluster[k].x!=i || result.cluster[k].y!=j) )
+                {
+                    sum++;
+                }
+            }
+        }
+
+        if(sum==1)
+            result.extremes.push_back(result.cluster[k]);
+    }
+
+    result.rest=points;
+
+    return result;
+}
+
+vector<ClusterLists> cluster_points(cv::Mat orig)
+{
+    vector<ClusterLists> result;
+
+    for(int i=0;i<orig.rows;i++)
+    {
+        for(int j=0;j<orig.cols;j++)
+        {
+            if(orig.at<uchar>(i,j)!=0)
+            {
+                ClusterLists temp=cluster_points(orig, cv::Point(i,j));
+                orig=temp.rest;
+                result.push_back(temp);
+            }
+        }
+    }
+    return result;
+}
+
+cv::Mat list2Mat(vector<cv::Point> points, cv::Point size)
+{
+    if(size.x<=0 || size.y<=0)
+    {
+        return cv::Mat(0,0,CV_8UC1);
+    }
+
+    cv::Mat orig(size.x, size.y, CV_8UC1);
+
+    for(unsigned int i=0;i<points.size();i++)
+    {
+        orig.at<uchar>(points[i].x,points[i].y)=255;
+    }
+
+    return orig;
+}
+
+vector<ClusterLists> cluster_points(vector<cv::Point> points, cv::Point size)
+{
+    vector<ClusterLists> result;
+    result.clear();
+
+    cv::Mat orig=list2Mat(points,size);
+    if(orig.rows==0 || orig.cols==0)
+    {
+        return result;
+    }
+
+    return cluster_points(orig);
+}
+
+ClusterLists cluster_points(vector<cv::Point> points, cv::Point size, cv::Point pos)
+{
+    ClusterLists result;
+
+    cv::Mat orig=list2Mat(points,size);
+    if(orig.rows==0 || orig.cols==0)
+    {
+        return result;
+    }
+
+    return cluster_points(orig, pos);
+}
+
+vector<cv::Point> extremes_cluster(vector<cv::Point> points)
+{
+    vector<cv::Point> result;
+    result.clear();
+
+    for(unsigned int i=0;i<points.size();i++)
+    {
+        unsigned int sum=0;
+
+        for(unsigned int j=0;j<points.size();j++)
+        {
+            if(max(abs(points[i].x-points[j].x),abs(points[i].y-points[j].y))==1)
+            {
+                sum++;
+            }
+        }
+
+        if(sum==1)
+        {
+            result.push_back(points[i]);
+        }
     }
 
     return result;
