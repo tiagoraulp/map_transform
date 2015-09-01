@@ -247,7 +247,7 @@ ClusterLists::ClusterLists()
     extremes.clear();
 }
 
-ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map)
+ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map, cv::Mat act)
 {
     ClusterLists result;
 
@@ -255,7 +255,7 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map)
         return result;
 
     bool method;
-    if(map.rows!=orig.rows || map.cols!=orig.cols)
+    if(map.rows!=orig.rows || map.cols!=orig.cols || act.rows!=orig.rows || act.cols!=orig.cols)
         method=true;
     else
         method=false;
@@ -334,8 +334,24 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map)
                 {
                     if( map.at<uchar>(i,j)==0 && (result.cluster[k].x!=i || result.cluster[k].y!=j) )
                     {
-                        stop=true;
-                        break;
+                        for(int ii=lx; ii<=ux; ii++)
+                        {
+                            for(int jj=ly; jj<=uy; jj++)
+                            {
+                                if( act.at<uchar>(ii,jj)==255 && (result.cluster[k].x!=i || result.cluster[k].y!=j) && (i!=ii || j!=jj) )
+                                {
+                                    if( max( abs(ii-i),abs(jj-j) )==1 )
+                                    {
+                                        stop=true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if(stop)
+                                break;
+                        }
+                        if(stop)
+                            break;
                     }
                 }
                 if(stop)
@@ -347,7 +363,8 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map)
                 result.extremes.push_back(result.cluster[k]);
             }
 
-            //// Possibly more than 2 points...
+            //// Possibly more than 2 points if just searching for obstacle
+            /// solved with search for actuation point as neighbor. Needs Proof!!!!!!!
         }
     }
 
@@ -356,7 +373,7 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map)
     return result;
 }
 
-vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map)
+vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map, cv::Mat act)
 {
     vector<ClusterLists> result;
 
@@ -366,7 +383,7 @@ vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map)
         {
             if(orig.at<uchar>(i,j)!=0)
             {
-                ClusterLists temp=cluster_points(orig, cv::Point(i,j), map);
+                ClusterLists temp=cluster_points(orig, cv::Point(i,j), map, act);
                 orig=temp.rest;
                 result.push_back(temp);
             }
@@ -392,7 +409,7 @@ cv::Mat list2Mat(vector<cv::Point> points, cv::Point size)
     return orig;
 }
 
-vector<ClusterLists> cluster_points(vector<cv::Point> points, cv::Point size, cv::Mat map)
+vector<ClusterLists> cluster_points(vector<cv::Point> points, cv::Point size, cv::Mat map, cv::Mat act)
 {
     vector<ClusterLists> result;
     result.clear();
@@ -403,10 +420,10 @@ vector<ClusterLists> cluster_points(vector<cv::Point> points, cv::Point size, cv
         return result;
     }
 
-    return cluster_points(orig, map);
+    return cluster_points(orig, map, act);
 }
 
-ClusterLists cluster_points(vector<cv::Point> points, cv::Point size, cv::Point pos, cv::Mat map)
+ClusterLists cluster_points(vector<cv::Point> points, cv::Point size, cv::Point pos, cv::Mat map, cv::Mat act)
 {
     ClusterLists result;
 
@@ -416,7 +433,7 @@ ClusterLists cluster_points(vector<cv::Point> points, cv::Point size, cv::Point 
         return result;
     }
 
-    return cluster_points(orig, pos, map);
+    return cluster_points(orig, pos, map, act);
 }
 
 vector<cv::Point> extremes_cluster(vector<cv::Point> points)

@@ -68,7 +68,7 @@ void Unreachable::getFrontiers2(void)
             }
         }
 
-        vector<ClusterLists> clusters_c=cluster_points(frontiers_t, map);
+        vector<ClusterLists> clusters_c=cluster_points(frontiers_t, map, act);
         clusters.push_back(clusters_c);
         vector<vector<cv::Point> > frontiers_c;
         frontiers_c.clear();
