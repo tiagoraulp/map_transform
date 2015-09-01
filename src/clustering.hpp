@@ -34,13 +34,13 @@ public:
     ClusterLists();
 };
 
-ClusterLists cluster_points(cv::Mat orig, cv::Point pos);
+ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map=cv::Mat(0,0,CV_8UC1));
 
-std::vector<ClusterLists> cluster_points(cv::Mat orig);
+std::vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map=cv::Mat(0,0,CV_8UC1));
 
-ClusterLists cluster_points(std::vector<cv::Point> points, cv::Point size, cv::Point pos);
+ClusterLists cluster_points(std::vector<cv::Point> points, cv::Point size, cv::Point pos, cv::Mat map=cv::Mat(0,0,CV_8UC1));
 
-std::vector<ClusterLists> cluster_points(std::vector<cv::Point> points, cv::Point size);
+std::vector<ClusterLists> cluster_points(std::vector<cv::Point> points, cv::Point size, cv::Mat map=cv::Mat(0,0,CV_8UC1));
 
 std::vector<cv::Point> extremes_cluster(std::vector<cv::Point> points);
 

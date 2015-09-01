@@ -10,6 +10,7 @@
 #include "color.hpp"
 #include "vector_utils.hpp"
 #include "unreachable.hpp"
+#include "CritPoints.hpp"
 
 using namespace std;
 
@@ -430,6 +431,25 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         unreach.getFrontiers2();
 
         regions=unreach.regions;
+
+        CritPointsAS critP(map_or, multi_labl_map, sensor_ev, sens_area);
+
+        for (unsigned int k=0;k<unreach.clusters.size();k++){//2;k++){//
+            for(unsigned int ff=0;ff<unreach.clusters[k].size();ff++)
+            {
+                vector<cv::Point> frontier=unreach.clusters[k][ff].cluster;
+
+                if(frontier.size()>0)
+                {
+                    cv::Point3i crit=critP.find_crit_point(unreach.clusters[k][ff]);
+
+                    cout<<unreach.clusters[k][ff].extremes.size()<<endl;
+
+                    map_debug_pos.at<uchar>(crit.x, crit.y)=0;
+
+                }
+            }
+        }
 
         unsigned char color[3]={0,255,0};
 

@@ -3,6 +3,7 @@
 
 #include <opencv2/core/core.hpp>
 #include "clustering.hpp"
+#include "morph.hpp"
 
 class CritPoints
 {
@@ -32,8 +33,10 @@ class CritPointsAS: public CritPoints
 private:
     std::vector<cv::Mat> reach3;
     cv::Point3i critP3;
+    Elem sensor;
+    std::vector<int> sens_hist;
 public:
-    CritPointsAS(cv::Mat map, std::vector<cv::Mat> reach, int rs);
+    CritPointsAS(cv::Mat map, std::vector<cv::Mat> reach, Elem sensor_ev, std::vector<int> sens_area);
     cv::Point3i find_crit_point(ClusterLists frontier_p);
 };
 

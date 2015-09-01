@@ -247,12 +247,18 @@ ClusterLists::ClusterLists()
     extremes.clear();
 }
 
-ClusterLists cluster_points(cv::Mat orig, cv::Point pos)
+ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map)
 {
     ClusterLists result;
 
     if(pos.x<0 || pos.x>=orig.rows || pos.y<0 || pos.y>=orig.cols)
         return result;
+
+    bool method;
+    if(map.rows!=orig.rows || map.cols!=orig.cols)
+        method=true;
+    else
+        method=false;
 
     cv::Mat mem(orig.rows,orig.cols,CV_8UC1, 0.0), points=orig.clone();
 
@@ -298,21 +304,51 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos)
         int ly=boundPos(result.cluster[k].y-1,result.img.cols);
         int uy=boundPos(result.cluster[k].y+1,result.img.cols);
 
-        int sum=0;
-
-        for(int i=lx; i<=ux; i++)
+        if(method)
         {
-            for(int j=ly; j<=uy; j++)
+            int sum=0;
+
+            for(int i=lx; i<=ux; i++)
             {
-                if( result.img.at<uchar>(i,j)==255 && (result.cluster[k].x!=i || result.cluster[k].y!=j) )
+                for(int j=ly; j<=uy; j++)
                 {
-                    sum++;
+                    if( result.img.at<uchar>(i,j)==255 && (result.cluster[k].x!=i || result.cluster[k].y!=j) )
+                    {
+                        sum++;
+                    }
                 }
             }
-        }
 
-        if(sum==1)
-            result.extremes.push_back(result.cluster[k]);
+            if(sum==1)
+                result.extremes.push_back(result.cluster[k]);
+
+            //// if(sum==2) test if neighbors are also neighbor points themselves
+        }
+        else
+        {
+            bool stop=false;
+
+            for(int i=lx; i<=ux; i++)
+            {
+                for(int j=ly; j<=uy; j++)
+                {
+                    if( map.at<uchar>(i,j)==0 && (result.cluster[k].x!=i || result.cluster[k].y!=j) )
+                    {
+                        stop=true;
+                        break;
+                    }
+                }
+                if(stop)
+                    break;
+            }
+
+            if(stop)
+            {
+                result.extremes.push_back(result.cluster[k]);
+            }
+
+            //// Possibly more than 2 points...
+        }
     }
 
     result.rest=points;
@@ -320,7 +356,7 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos)
     return result;
 }
 
-vector<ClusterLists> cluster_points(cv::Mat orig)
+vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map)
 {
     vector<ClusterLists> result;
 
@@ -330,7 +366,7 @@ vector<ClusterLists> cluster_points(cv::Mat orig)
         {
             if(orig.at<uchar>(i,j)!=0)
             {
-                ClusterLists temp=cluster_points(orig, cv::Point(i,j));
+                ClusterLists temp=cluster_points(orig, cv::Point(i,j), map);
                 orig=temp.rest;
                 result.push_back(temp);
             }
@@ -356,7 +392,7 @@ cv::Mat list2Mat(vector<cv::Point> points, cv::Point size)
     return orig;
 }
 
-vector<ClusterLists> cluster_points(vector<cv::Point> points, cv::Point size)
+vector<ClusterLists> cluster_points(vector<cv::Point> points, cv::Point size, cv::Mat map)
 {
     vector<ClusterLists> result;
     result.clear();
@@ -367,10 +403,10 @@ vector<ClusterLists> cluster_points(vector<cv::Point> points, cv::Point size)
         return result;
     }
 
-    return cluster_points(orig);
+    return cluster_points(orig, map);
 }
 
-ClusterLists cluster_points(vector<cv::Point> points, cv::Point size, cv::Point pos)
+ClusterLists cluster_points(vector<cv::Point> points, cv::Point size, cv::Point pos, cv::Mat map)
 {
     ClusterLists result;
 
@@ -380,7 +416,7 @@ ClusterLists cluster_points(vector<cv::Point> points, cv::Point size, cv::Point 
         return result;
     }
 
-    return cluster_points(orig, pos);
+    return cluster_points(orig, pos, map);
 }
 
 vector<cv::Point> extremes_cluster(vector<cv::Point> points)

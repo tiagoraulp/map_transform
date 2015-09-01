@@ -7,7 +7,7 @@
 class Unreachable
 {
     std::vector<std::vector<cv::Point> > labels_unreach;
-    cv::Mat act;
+    cv::Mat act, map;
     void getRegions(cv::Mat map_or, cv::Mat act_map);
 public:
     cv::Mat regions;

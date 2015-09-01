@@ -1,12 +1,13 @@
 #include "CritPoints.hpp"
 
+#include "ray.hpp"
 #include "obtuseAngle.hpp"
 
 using namespace std;
 
 static const double PI = 3.141592653589793;
 
-CritPointsAS::CritPointsAS(cv::Mat map, vector<cv::Mat> reach, int rs): CritPoints(map, reach[0], rs), reach3(reach)
+CritPointsAS::CritPointsAS(cv::Mat map, vector<cv::Mat> reach, Elem sensor_ev, std::vector<int> sens_area): CritPoints(map, reach[0], sensor.pb), reach3(reach), sensor(sensor_ev), sens_hist(sens_area)
 {
 }
 
@@ -14,6 +15,7 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 {
     FindMin<int> min_y, min_x;
     FindMax<int> max_y, max_x;
+    double mean_x=0, mean_y=0;
 
     vector<cv::Point> frontier_p=cluster_p.cluster;
 
@@ -22,21 +24,36 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
         min_x.iter(frontier_p[j].x);
         max_y.iter(frontier_p[j].y);
         min_y.iter(frontier_p[j].y);
+        mean_x+=frontier_p[j].x;
+        mean_y+=frontier_p[j].y;
     }
+    cv::Point center((int)round(mean_x/frontier_p.size()),(int)round(mean_y/frontier_p.size()));
+
+    int m_x=max(max_x.getVal()-center.x,center.x-min_x.getVal());
+    int m_y=max(max_y.getVal()-center.y,center.y-min_y.getVal());
+
+    int md=(int)sqrt(m_x*m_x+m_y*m_y);
+
+    vector<cv::Point> sq=bf_hlx(md+1+sensor.pb);
 
     FindMin<double, cv::Point3i> crit;
 
-    for(int x=max(min_x.getVal()-infl,0);x<min(max_x.getVal()+infl,r_map.rows);x++)
+    for(unsigned int r=0; r<sq.size(); r++)
     {
-        for(int y=max(min_y.getVal()-infl,0);y<min(max_y.getVal()+infl,r_map.cols);y++)
+        int i=center.x+sq[r].x, j=center.y+sq[r].y;
+
+        for(unsigned int a=0; a<reach3.size(); a++)
         {
-            if(r_map.at<uchar>(x,y)==255)
+            if( (i+sensor.pu)<reach3[a].rows &&  (i+sensor.pu)>=0 && (j+sensor.pl)<reach3[a].cols &&  (j+sensor.pl)>=0 )
             {
-                double sum=0;
-                for(unsigned int l=0;l<frontier_p.size();l++){
-                    sum+=(frontier_p[l].x-x)*(frontier_p[l].x-x)+(frontier_p[l].y-y)*(frontier_p[l].y-y);
+                if(reach3[a].at<uchar>(i+sensor.pu,j+sensor.pl)==255)
+                {
+                    double sum=0;
+                    for(unsigned int l=0;l<frontier_p.size();l++){
+                        sum+=(frontier_p[l].x-i)*(frontier_p[l].x-i)+(frontier_p[l].y-j)*(frontier_p[l].y-j);
+                    }
+                    crit.iter(sum,cv::Point3i(i,j,0));
                 }
-                crit.iter(sum,cv::Point3i(x,y,0));
             }
         }
     }

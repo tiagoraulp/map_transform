@@ -49,7 +49,7 @@ rosbuild_add_boost_directories()
 
 rosbuild_add_executable(visibility src/vis.cpp src/vis_transf.cpp src/unreachable.cpp src/labelling.cpp src/clustering.cpp src/CritPoints.cpp src/obtuseAngle.cpp src/bugfollowing.cpp src/chain.cpp src/obs_extremes.cpp src/vector_utils.cpp src/ray.cpp src/color.cpp src/visC_transf.cpp)
 
-rosbuild_add_executable(visNC src/visNC.cpp src/visNC_transf.cpp src/labelling.cpp src/vector_utils.cpp src/ray.cpp src/morph.cpp src/color.cpp src/vis_transf.cpp src/clustering.cpp src/unreachable)
+rosbuild_add_executable(visNC src/visNC.cpp src/visNC_transf.cpp src/labelling.cpp src/vector_utils.cpp src/ray.cpp src/morph.cpp src/color.cpp src/vis_transf.cpp src/clustering.cpp src/unreachable src/CritPoints.cpp src/obtuseAngle.cpp)
 
 rosbuild_add_executable(planner src/planner.cpp)
 
