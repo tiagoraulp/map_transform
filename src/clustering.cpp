@@ -323,6 +323,7 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map, cv::Mat ac
                 result.extremes.push_back(result.cluster[k]);
 
             //// if(sum==2) test if neighbors are also neighbor points themselves
+            /// But this looks difficult and possibly inaccurate
         }
         else
         {

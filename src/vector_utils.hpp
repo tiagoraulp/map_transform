@@ -332,6 +332,22 @@ int incAngle(int p, int num);
 
 int decAngle(int p, int num);
 
+double pi(void);
+
+template <typename T>
+T angleR2D(T angle)
+{
+    return angle*180/pi();
+}
+
+template <typename T>
+T angleD2R(T angle)
+{
+    return angle/180*pi();
+}
+
+int angleDiff(int a, int b, int res);
+
 cv::Point2f operator*(cv::Mat M, const cv::Point2f p);
 
 #endif // VECTOR_UTILS_HPP

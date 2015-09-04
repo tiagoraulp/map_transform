@@ -54,7 +54,39 @@ double boundAngle(double x, double v)
     return x;
 }
 
+int boundValue(int x, int v)
+{
+    if(x<0)
+    {
+        while(x<0)
+            x+=v;
+    }
+    else
+    {
+        while(x>v)
+            x-=v;
+    }
+
+    return x;
+}
+
 double boundAngleN(double x, double v)
+{
+    if(x<-v)
+    {
+        while(x<-v)
+            x+=2*v;
+    }
+    else
+    {
+        while(x>v)
+            x-=2*v;
+    }
+
+    return x;
+}
+
+int boundValueN(int x, int v)
 {
     if(x<-v)
     {
@@ -90,6 +122,16 @@ double boundAngleDN(double x)
     return boundAngleN(x, 180);
 }
 
+double angleDiff(double a, double b, int res)
+{
+    return abs(boundAngleN( (a-b),((double)res)/2.0));
+}
+
+int angleDiff(int a, int b, int res)
+{
+    return (int)round(angleDiff((double) a,(double) b, res));
+}
+
 int angleD2I(double rtrd, int angle_res)
 {
     rtrd=boundAngleD(rtrd);
@@ -119,6 +161,11 @@ int angleD2I(double rtrd, int angle_res)
     }
 
     return m_a;
+}
+
+double pi(void)
+{
+    return PI;
 }
 
 cv::Point2f operator*(cv::Mat M, const cv::Point2f p){

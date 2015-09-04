@@ -3,6 +3,8 @@
 #include "ray.hpp"
 #include "obtuseAngle.hpp"
 
+#include <iostream>
+
 using namespace std;
 
 static const double PI = 3.141592653589793;
@@ -42,17 +44,26 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
     {
         int i=center.x+sq[r].x, j=center.y+sq[r].y;
 
+        int refa=angleD2I(angleR2D(atan2(center.y-j, center.x-i)),reach3.size());
+
         for(unsigned int a=0; a<reach3.size(); a++)
         {
             if( (i+sensor.pu)<reach3[a].rows &&  (i+sensor.pu)>=0 && (j+sensor.pl)<reach3[a].cols &&  (j+sensor.pl)>=0 )
             {
                 if(reach3[a].at<uchar>(i+sensor.pu,j+sensor.pl)==255)
                 {
-                    double sum=0;
-                    for(unsigned int l=0;l<frontier_p.size();l++){
-                        sum+=(frontier_p[l].x-i)*(frontier_p[l].x-i)+(frontier_p[l].y-j)*(frontier_p[l].y-j);
+                    int angdiff=angleDiff(refa, a, reach3.size());
+
+                    if(angdiff<=( (int)round(((double)reach3.size())*0.20 )))
+                    {
+                        double sum=0;
+                        for(unsigned int l=0;l<frontier_p.size();l++){
+                            sum+=(frontier_p[l].x-i)*(frontier_p[l].x-i)+(frontier_p[l].y-j)*(frontier_p[l].y-j);
+                        }
+
+                        //double est_dist=sqrt(center.x-*m_x+m_y*m_y)
+                        crit.iter(sum,cv::Point3i(i,j,0));
                     }
-                    crit.iter(sum,cv::Point3i(i,j,0));
                 }
             }
         }
