@@ -446,7 +446,18 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             //cv::imshow("TestLwA",this->map_truth);
             //cv::waitKey(3);
 
+            unsigned char c1[3]={255,255,255};
+            unsigned char c2[3]={0,0,0};
+            unsigned char c3[3]={255,0,0};
+            unsigned char c0[3]={0,180,255};
+
+
+            cv::Mat comp=color_print(map_vis, map_truth,  c1, c2, c3, c0);
+            cv::imshow("Comparison",comp);
+            cv::waitKey(3);
             ////////////////////////////
+
+
 
 //            t3=ros::Time::now();
 
