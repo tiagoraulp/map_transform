@@ -455,6 +455,18 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             cv::Mat comp=color_print(map_vis, map_truth,  c1, c2, c3, c0);
             cv::imshow("Comparison",comp);
             cv::waitKey(3);
+
+            ROS_INFO("Precision: 1; Recall: %f", coverage(map_act,map_truth));
+
+            vector<int> cm=confusion_matrix(map_vis,map_truth);
+
+            float tt=(float)(cm[0]+cm[1]+cm[2]+cm[3]);
+
+            if(cm.size()!=0)
+                ROS_INFO("Confusion Matrix:\n     Truth\n     P      N\nV  P %.4f %.4f\nI\nS  N %.4f %.4f", cm[0]/tt,cm[1]/tt,cm[2]/tt,cm[3]/tt);
+
+            ROS_INFO("Precision: %f; Recall: %f",cm[0]/float(cm[0]+cm[1]),cm[0]/float(cm[0]+cm[2]));
+
             ////////////////////////////
 
 

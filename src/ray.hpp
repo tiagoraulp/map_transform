@@ -13,4 +13,8 @@ std::vector<cv::Point> bf_hlx(Elem sensor);
 
 std::vector<cv::Point> bf_hlx(int defl);
 
+float coverage(cv::Mat test, cv::Mat truth);
+
+std::vector<int> confusion_matrix(cv::Mat test, cv::Mat truth);
+
 #endif // RAY_HPP

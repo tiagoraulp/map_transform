@@ -437,6 +437,81 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act)
     return result;
 }
 
+float coverage(cv::Mat test, cv::Mat truth)
+{
+    if(test.size!=truth.size)
+        return 0;
+
+    long int sum_t=0, sum=0;
+
+    for(signed int i=0; i<truth.rows; i++)
+    {
+        for(signed int j=0; j<truth.cols; j++)
+        {
+            if(truth.at<uchar>(i,j)==255)
+            {
+                sum_t++;
+                if(test.at<uchar>(i,j)==255)
+                {
+                    sum++;
+                }
+            }
+        }
+    }
+
+    return (((float)sum)/((float)sum_t));
+}
+
+vector<int> confusion_matrix(cv::Mat test, cv::Mat truth)
+{
+    vector<int> result;
+    result.empty();
+    if(test.size!=truth.size)
+        return result;
+
+    result.assign(4,0);
+
+    long int sum_t=0, sumTP=0, sumTN=0, sumFP=0, sumFN=0;
+
+    for(signed int i=0; i<truth.rows; i++)
+    {
+        for(signed int j=0; j<truth.cols; j++)
+        {
+            sum_t++;
+
+            if(truth.at<uchar>(i,j)==255)
+            {
+                if(test.at<uchar>(i,j)==255)
+                {
+                    sumTP++;
+                }
+                else
+                {
+                    sumFN++;
+                }
+            }
+            else
+            {
+                if(test.at<uchar>(i,j)==255)
+                {
+                    sumFP++;
+                }
+                else
+                {
+                    sumTN++;
+                }
+            }
+        }
+    }
+
+    result[0]=sumTP;
+    result[1]=sumFP;
+    result[2]=sumFN;
+    result[3]=sumTN;
+
+    return result;
+}
+
 template cv::Mat brute_force<cv::Mat, int>(cv::Mat map, cv::Mat reach, int defl, bool opt, cv::Mat act);
 template cv::Mat brute_force<vector<cv::Mat>, Elem>(cv::Mat map, vector<cv::Mat> reach, Elem defl, bool opt, cv::Mat act);
 template cv::Mat brute_force<vector<cv::Point>, int>(cv::Mat map, vector<cv::Point> reach, int defl, bool opt, cv::Mat act);
