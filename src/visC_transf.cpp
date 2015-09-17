@@ -22,6 +22,7 @@ static const std::string A_WINDOW = "Actuation";
 static const std::string V_WINDOW = "Visibility";
 static const std::string D_WINDOW = "Debug";
 static const std::string G_WINDOW = "Ground_Truth";
+static const std::string CP_WINDOW = "Comparison";
 
 void VisC_transf::update_config(map_transform::ParametersConfig config)
 {
@@ -54,6 +55,7 @@ VisC_transf::~VisC_transf()
        cv::destroyWindow(D_WINDOW);
        cv::destroyWindow(V_WINDOW);
        cv::destroyWindow(G_WINDOW);
+       cv::destroyWindow(CP_WINDOW);
 
     }
 }
@@ -76,10 +78,14 @@ void VisC_transf::show(void)
             {
                 cv::imshow(G_WINDOW,map_truth);
                 cv::waitKey(2);
+                cv::imshow(CP_WINDOW,map_comp);
+                cv::waitKey(2);
             }
             else
             {
                 cv::destroyWindow(G_WINDOW);
+                cv::waitKey(2);
+                cv::destroyWindow(CP_WINDOW);
                 cv::waitKey(2);
             }
         }
@@ -120,6 +126,8 @@ void VisC_transf::show(void)
        cv::waitKey(2);
        cv::destroyWindow(G_WINDOW);
        cv::waitKey(2);
+       cv::destroyWindow(CP_WINDOW);
+       cv::waitKey(2);
     }
 }
 
@@ -130,8 +138,8 @@ bool VisC_transf::conf_space(void)
                                            cv::Point( infl, infl ) );
 
     cv::Mat element_d = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                           cv::Size( 2*defl + 1, 2*defl+1 ),
-                                           cv::Point( defl, defl ) );
+                                           cv::Size( 2*infl + 1, 2*infl+1 ),
+                                           cv::Point( infl, infl ) );
 
     cv::Mat or_map, er_map, cr_map;
 
@@ -365,6 +373,45 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         ROS_INFO("%s - Time for visibility: %f", tf_pref.c_str(), diff.toSec());
 
+//        unsigned char c123[3]={0,200,200};
+//        unsigned char c12[3]={255,255,0};
+//        unsigned char c13[3]={255,0,255};
+//        unsigned char c23[3]={0,0,200};
+//        unsigned char c10[3]={0,255,0};
+//        unsigned char c20[3]={255,255,255};
+//        unsigned char c30[3]={150,0,0};
+//        unsigned char c00[3]={0,0,0};
+//        unsigned char ctest[3]={18,143,226};
+
+//        unsigned char c1[3]={0,150,0};
+//        unsigned char c2[3]={0,0,0};
+//        unsigned char c3[3]={0,150,0};
+//        unsigned char c0[3]={150,0,0};
+
+
+//        cv::Mat map_debug1=color_print(map_erosionOp, map_or,  c1, c2, c3, c0);
+
+//        cv::imshow("CS",map_debug1);
+//        cv::waitKey(3);
+
+//        cv::Mat map_debug2=color_print3(map_erosionOp, map_closeOp, map_or, c123, c12, c13, c23, c10, c20, c30, c00 );
+
+//        cv::imshow("CO",map_debug2);
+//        cv::waitKey(3);
+
+
+//        cv::Mat map_debug3=color_print3(map_label, map_act, map_or, c123, c12, c13, c23, c10, c20, c30, c00 );
+
+//        cv::imshow("AS",map_debug3);
+//        cv::waitKey(3);
+
+//        cv::Mat map_debug4=color_print3(map_vis, map_act, map_or, c20, c12, ctest, c23, c10, c20, c00, c00 );
+
+//        cv::imshow("VS",map_debug4);
+//        cv::waitKey(3);
+
+
+
         if(gt)
         {
             vector<cv::Point> reach_list;
@@ -453,8 +500,9 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
 
             cv::Mat comp=color_print(map_vis, map_truth,  c1, c2, c3, c0);
-            cv::imshow("Comparison",comp);
-            cv::waitKey(3);
+            map_comp=comp.clone();
+            //cv::imshow("Comparison",comp);
+            //cv::waitKey(3);
 
             ROS_INFO("Precision: 1; Recall: %f", coverage(map_act,map_truth));
 
@@ -522,6 +570,12 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                 {
                     raytracing(&vis_map_temp, cv::Point2i(crit.x,crit.y), occ_crit_filt[c], occ_crit_filt[c], defl);
                 }
+
+//                if(k==1)
+//                {
+//                cv::imshow("Ray",vis_map_temp);
+//                cv::waitKey(3);
+//                }
 
                 for(unsigned int j=0;j<frontier.size();j++){
                     if(vis_map_temp.at<uchar>( frontier[j].x,frontier[j].y)==255)
