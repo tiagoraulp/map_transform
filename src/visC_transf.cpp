@@ -547,7 +547,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
     CritPoints critP(map_or, r_map, infl);
 
-    for (unsigned int k=0;k<unreach.frontiers.size();k++){//2;k++){//
+    for (unsigned int k=0;k<unreach.frontiers.size();k++){//1;k++){//
         for(unsigned int ff=0;ff<unreach.frontiers[k].size();ff++)
         {
             vector<cv::Point> frontier=unreach.frontiers[k][ff];

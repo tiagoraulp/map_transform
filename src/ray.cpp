@@ -404,10 +404,14 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act)
        hlx=bf_hlx(defl);
     }
 
-    for(int i=0;i<map.rows;i++)
+    for(int i=0;i<map.rows;i++)//152;i++)//
     {
-        for(int j=0;j<map.cols;j++)
+        for(int j=0;j<map.cols;j++)//117;j++)//
         {
+            //if(j<50 || i<60)
+            //    ;
+            //else
+            //    continue;
             //cout<<i<<" "<<j<<endl;
             if(map.at<uchar>(i,j)==0)
                 continue;
