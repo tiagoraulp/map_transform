@@ -4,11 +4,15 @@
 #include "vis_transf.hpp"
 #include "map_transform/ParametersConfig.h"
 #include "unreachable.hpp"
+#include "map_transform/VisCom.h"
+#include "map_transform/VisNode.h"
+
 
 class VisC_transf: public Vis_transf<map_transform::ParametersConfig>{
 protected:
     int infl;
     int defl;
+    ros::Publisher  graph_publisher;
 
     bool reachability_map(cv::Point3i pos, cv::Mat & r_map);
     std::vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp);
@@ -20,6 +24,8 @@ protected:
     virtual void visibility(cv::Point3i, bool, ros::Time);
     virtual bool valid_pos(cv::Point3i pos);
     virtual void clearImgs(void);
+    virtual void publish(void);
+    std::vector<map_transform::VisNode> vis_;
 public:
     VisC_transf(ros::NodeHandle nh);
     virtual ~VisC_transf();

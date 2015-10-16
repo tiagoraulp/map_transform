@@ -1,6 +1,7 @@
 #include "visC_transf.hpp"
 
 
+
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
@@ -42,7 +43,21 @@ VisC_transf::VisC_transf(ros::NodeHandle nh): Vis_transf(nh)
 {
     nh_.param("infl", infl, 5);
     nh_.param("defl", defl, infl);
+
+    graph_publisher = nh_.advertise<map_transform::VisCom>("graph", 10,true);
 }
+
+void VisC_transf::publish(void)
+{
+    Vis_transf::publish();
+    map_transform::VisCom graphMsg;
+      graphMsg.header.stamp = ros::Time::now();
+      graphMsg.header.frame_id = "map";
+      graphMsg.vis=vis_;
+
+      graph_publisher.publish(graphMsg);
+}
+
 
 VisC_transf::~VisC_transf()
 {
@@ -547,6 +562,8 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
     CritPoints critP(map_or, r_map, infl);
 
+    vis_.assign(vis_map.rows*vis_map.cols, map_transform::VisNode());
+
     for (unsigned int k=0;k<unreach.frontiers.size();k++){//1;k++){//
         for(unsigned int ff=0;ff<unreach.frontiers[k].size();ff++)
         {
@@ -584,6 +601,10 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                         for(unsigned int pv=0;pv<points_vis.size();pv++)
                         {
                             vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
+                            geometry_msgs::Pose pcp;
+                            pcp.position.x=critP.getCrit().x;
+                            pcp.position.y=critP.getCrit().y;
+                            vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y].points.push_back(pcp);
                         }
                         break;
                     }

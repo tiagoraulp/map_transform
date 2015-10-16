@@ -17,7 +17,7 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 #uncomment if you have defined messages
-#rosbuild_genmsg()
+rosbuild_genmsg()
 #uncomment if you have defined services
 #rosbuild_gensrv()
 
@@ -52,6 +52,8 @@ rosbuild_add_executable(visibility src/vis.cpp src/vis_transf.cpp src/unreachabl
 rosbuild_add_executable(visNC src/visNC.cpp src/visNC_transf.cpp src/labelling.cpp src/vector_utils.cpp src/ray.cpp src/morph.cpp src/color.cpp src/vis_transf.cpp src/clustering.cpp src/unreachable src/CritPoints.cpp src/obtuseAngle.cpp)
 
 rosbuild_add_executable(planner src/planner.cpp)
+
+rosbuild_add_executable(planSens src/planSensing.cpp)
 
 target_link_libraries(visibility ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 
