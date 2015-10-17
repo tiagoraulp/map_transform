@@ -4,7 +4,7 @@
  <arg name="x_1" default="10"/>
  <arg name="y_1" default="15"/>
 
- <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze5.png 0.1" respawn="false" > 
+ <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze7.png 0.1" respawn="false" > 
     <param name="frame_id" value="/map" />
  </node>
 	
@@ -12,7 +12,7 @@
 
     <node pkg="map_transform" type="visibility" name="visibility" output="screen">   
       <param name="defl" value="80" />
-      <param name="infl" value="9" />
+      <param name="infl" value="2" />
       <param name="debug" value="false" />
       <param name="ground_truth" value="false" />
 	<param name="tf_prefix" value ="/robot_0" /> 
@@ -25,7 +25,7 @@
 
  <node name="planner" pkg="map_transform" type="planSens" output="screen">
        <param name="defl" value="80" />
-       <param name="infl" value="9" />
+       <param name="infl" value="2" />
        <remap from="/robot_0/v_map" to="/robot_0/visibility/v_map"/>
        <remap from="/robot_0/e_map" to="/robot_0/visibility/e_map"/>
        <remap from="/planner/graph" to="/robot_0/visibility/graph"/>

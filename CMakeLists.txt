@@ -53,7 +53,7 @@ rosbuild_add_executable(visNC src/visNC.cpp src/visNC_transf.cpp src/labelling.c
 
 rosbuild_add_executable(planner src/planner.cpp)
 
-rosbuild_add_executable(planSens src/planSensing.cpp)
+rosbuild_add_executable(planSens src/planSensing.cpp src/ray.cpp)
 
 target_link_libraries(visibility ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 

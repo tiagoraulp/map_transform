@@ -12,6 +12,8 @@
 
 #include "std_srvs/Empty.h"
 
+#include "ray.hpp"
+
 using namespace std;
 
 const int dir=8; // number of possible directions to go at any position
@@ -53,8 +55,18 @@ public:
     }
 };
 
+double costEstimate(int x, int y, int infl=0, int defl=0)
+{
+    //return sqrt(x*x+y*y);
+    if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
+        return sqrt(x*x+y*y)-defl;
+    else
+        return 0;
+}
+
 class node
 {
+    int infl, defl;
     // current position
     int xPos;
     int yPos;
@@ -64,8 +76,8 @@ class node
     int priority;  // smaller: higher priority
 
     public:
-        node(int xp, int yp, int d, int p)
-            {xPos=xp; yPos=yp; level=d; priority=p;}
+        node(int xp, int yp, int d, int p, int inf, int def)
+            {xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;}
 
         int getxPos() const {return xPos;}
         int getyPos() const {return yPos;}
@@ -91,7 +103,7 @@ class node
             yd=yDest-yPos;
 
             // Euclidian Distance
-            d=static_cast<int>(sqrt(xd*xd+yd*yd));
+            d=static_cast<int>(costEstimate(xd,yd, infl, defl));
 
             // Manhattan distance
             //d=abs(xd)+abs(yd);
@@ -112,6 +124,13 @@ bool operator<(const node & a, const node & b)
 
 class Planner{
 private:
+    int infl;
+    int defl;
+
+    nav_msgs::Path path_0;
+
+    cv::Mat or_map;
+
     ros::NodeHandle nh_;
 
     ros::Publisher pub1;
@@ -164,6 +183,8 @@ private:
 
     Apath Astar(PointI p0, PointI p1, int r);
 
+    bool isGoal(PointI p0, PointI p1);
+
     void graphCallback(const map_transform::VisCom::ConstPtr& graph);
 
     void clearG();
@@ -186,6 +207,9 @@ public:
         sub_goals = nh_.subscribe("/move_base_simple/goal", 1, &Planner::rcv_goal, this);
 
         graph_subscriber = nh.subscribe("graph", 10 , &Planner::graphCallback, this);
+
+        nh_.param("infl", infl, 5);
+        nh_.param("defl", defl, infl);
 
         count.assign(3,0);
 
@@ -275,6 +299,7 @@ void Planner::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 void Planner::rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
     msg_rcv[2].assign(msg->info.width, vector<bool>(msg->info.height,false));
+    or_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
     for(unsigned int i=0;i<msg->info.height;i++){
@@ -282,10 +307,12 @@ void Planner::rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg)
                 if(*mapDataIterC == 0)
                 {
                     msg_rcv[2][j][i]=true;
+                    or_map.at<uchar>(j,i) = 255;
                 }
                 else
                 {
                     msg_rcv[2][j][i]=false;
+                    or_map.at<uchar>(j,i) = 0;
                 }
 
                 mapDataIterC++;
@@ -343,6 +370,20 @@ geometry_msgs::Point Planner::convertI2W(PointI p)
     return pf;
 }
 
+bool Planner::isGoal(PointI p0, PointI p1)
+{
+    //if(p0.i==p1.i && p0.j==p1.j)
+    if( ( (p0.i-p1.i)*(p0.i-p1.i)+(p0.j-p1.j)*(p0.j-p1.j) )>(defl*defl) )
+        return false;
+    else
+    {
+        if(raytracing(or_map, p0.i, p0.j, p1.i, p1.j, true))
+            return true;
+        else
+            return false;
+    }
+}
+
 Apath Planner::Astar(PointI p0, PointI p1, int r)
 {
     Apath path; path.points.clear();path.cost=0;
@@ -353,21 +394,21 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
     vector<vector<int> > open_nodes_map;open_nodes_map.assign(n,vector<int>(m,0));
     vector<vector<int> > dir_map;dir_map.assign(n,vector<int>(m,0));
 
-    static priority_queue<node> pq[2];
+    static priority_queue<node> pq[3];
     static int pqi;
     static node* n0;
     static node* m0;
     static int i, j, x, y, xdx, ydy;
     pqi=0;
 
-    n0=new node(p0.i, p0.j, 0, 0);
+    n0=new node(p0.i, p0.j, 0, 0, infl, defl);
     n0->updatePriority(p1.i, p1.j);
     pq[pqi].push(*n0);
 
     while(!pq[pqi].empty())
     {
         n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                     pq[pqi].top().getLevel(), pq[pqi].top().getPriority());
+                     pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl);
 
         x=n0->getxPos(); y=n0->getyPos();
 
@@ -376,7 +417,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
         closed_nodes_map[x][y]=1;
 
-        if(x==p1.i && y==p1.j)
+        if(isGoal(PointI(x,y),p1))
         {
             while(!(x==p0.i && y==p0.j))
             {
@@ -403,68 +444,66 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
         {
             xdx=x+dx[i]; ydy=y+dy[i];
 
-            if(!(xdx<0 || xdx>n-1 || ydy<0 || ydy>m-1 || !msg_rcv[r][xdx][ydy]
-                || closed_nodes_map[xdx][ydy]==1 || ( (dir==1 || dir==3 || dir==5 || dir==7)
-                                                      && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
-                                                      && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]]) ))
+            if(!(xdx<0 || xdx>n-1 || ydy<0 || ydy>m-1 ))
             {
-                m0=new node( xdx, ydy, n0->getLevel(),
-                             n0->getPriority());
-                m0->nextLevel(i);
-                m0->updatePriority(p1.i, p1.j);
-
-                if(open_nodes_map[xdx][ydy]==0)
+                if(!(!msg_rcv[r][xdx][ydy]
+                    || closed_nodes_map[xdx][ydy]==1 //|| ( (dir==1 || dir==3 || dir==5 || dir==7)
+                                                     //     && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
+                                                     //     && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]])
+                     ))
                 {
-                    open_nodes_map[xdx][ydy]=m0->getPriority();
-                    pq[pqi].push(*m0);
-                    dir_map[xdx][ydy]=(i+dir/2)%dir;
-                }
-                else if(open_nodes_map[xdx][ydy]>m0->getPriority())
-                {
-                    open_nodes_map[xdx][ydy]=m0->getPriority();
+                    m0=new node( xdx, ydy, n0->getLevel(),
+                                 n0->getPriority(), infl, defl);
+                    m0->nextLevel(i);
+                    m0->updatePriority(p1.i, p1.j);
 
-                    dir_map[xdx][ydy]=(i+dir/2)%dir;
-
-
-                    while(!(pq[pqi].top().getxPos()==xdx &&
-                           pq[pqi].top().getyPos()==ydy))
+                    if(open_nodes_map[xdx][ydy]==0)
                     {
-                        pq[1-pqi].push(pq[pqi].top());
-                        pq[pqi].pop();
+                        open_nodes_map[xdx][ydy]=m0->getPriority();
+                        pq[pqi].push(*m0);
+                        dir_map[xdx][ydy]=(i+dir/2)%dir;
                     }
-                    pq[pqi].pop();
-
-
-                    if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
-                    while(!pq[pqi].empty())
+                    else if(open_nodes_map[xdx][ydy]>m0->getPriority())
                     {
-                        pq[1-pqi].push(pq[pqi].top());
+                        open_nodes_map[xdx][ydy]=m0->getPriority();
+
+                        dir_map[xdx][ydy]=(i+dir/2)%dir;
+
+
+                        while(!(pq[pqi].top().getxPos()==xdx &&
+                               pq[pqi].top().getyPos()==ydy))
+                        {
+                            pq[1-pqi].push(pq[pqi].top());
+                            pq[pqi].pop();
+                        }
                         pq[pqi].pop();
+
+
+                        if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
+                        while(!pq[pqi].empty())
+                        {
+                            pq[1-pqi].push(pq[pqi].top());
+                            pq[pqi].pop();
+                        }
+                        pqi=1-pqi;
+                        pq[pqi].push(*m0);
                     }
-                    pqi=1-pqi;
-                    pq[pqi].push(*m0);
+                    else delete m0;
                 }
-                else delete m0;
             }
         }
         delete n0;
     }
+    path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
     path.cost=-2;
     return path;
 }
 
 
-double cost_function(double a, double b)
-{
-    return max(a,b);
-}
-
 void Planner::plan(void)
 {
-    if(map_rcv[0] && map_rcv[1] && graph_rcv && pl && (goals.size()>0) )
+    if(map_rcv[0] && map_rcv[1] && map_rcv[2] && graph_rcv && pl && (goals.size()>0) )
     {
-        nav_msgs::Path path_0;
-
         PointI g=convertW2I(goals[0]);
 
         if(g.i<0 || g.i>=(int)msg_rcv[0].size())
@@ -512,9 +551,21 @@ void Planner::plan(void)
 
         Apath path;
 
+        ros::Time t01=ros::Time::now();
+
         path=Astar(pi, g,1);
 
-        ROS_INFO("%f", path.cost);
+        ros::Duration diff = ros::Time::now() - t01;
+
+        ROS_INFO("Time: %f; Cost: %f",diff.toSec(),path.cost);
+
+        if(path.cost==-2)
+        {
+            clearG();
+            return;
+        }
+
+
 
 
         path_0.poses.clear();
@@ -573,10 +624,11 @@ void Planner::publish(void)
         point.scale.z = 0.001;
         geometry_msgs::Point p;
         p.x=0.0f; p.y=0.0f; p.z=0.0f;
+        point.pose.position=p;
+        p=path_0.poses[path_0.poses.size()-1].pose.position;
         point.points.clear();
         point.points.push_back(p);
         point.points.push_back(goals[0]);
-        point.pose.position=p;
         point.id = goals.size();
         points.markers.push_back(point);
     }
