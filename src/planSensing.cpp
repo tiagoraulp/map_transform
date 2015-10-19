@@ -55,13 +55,33 @@ public:
     }
 };
 
+const double k1=3;
+
+const double k2=2;
+
 double costEstimate(int x, int y, int infl=0, int defl=0)
 {
     //return sqrt(x*x+y*y);
-    if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
-        return sqrt(x*x+y*y)-defl;
+    if(k1>k2)
+    {
+        if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
+            return k1*(sqrt(x*x+y*y)-defl)+k2*defl;
+        else
+            return k2*sqrt(x*x+y*y);
+    }
     else
-        return 0;
+    {
+        return k1*sqrt(x*x+y*y);
+    }
+}
+
+double costSensing(int x, int y, int infl=0, int defl=0)
+{
+    //return sqrt(x*x+y*y);
+    if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
+        return -2;
+    else
+        return k2*sqrt(x*x+y*y);
 }
 
 class node
@@ -74,25 +94,36 @@ class node
     int level;
     // priority=level+remaining distance estimate
     int priority;  // smaller: higher priority
+    int sens;
 
     public:
-        node(int xp, int yp, int d, int p, int inf, int def)
-            {xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;}
+        node(int xp, int yp, int d, int p, int inf, int def, int ss)
+            {xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;sens=ss;}
 
         int getxPos() const {return xPos;}
         int getyPos() const {return yPos;}
         int getLevel() const {return level;}
         int getPriority() const {return priority;}
+        int getSensing() const {return sens;}
 
         void updatePriority(const int & xDest, const int & yDest)
         {
              priority=level+estimate(xDest, yDest)*10; //A*
         }
 
+        void updateSensing(const int & xDest, const int & yDest)
+        {
+            int ss=sensing(xDest, yDest);
+            if(ss<0)
+                sens=ss;
+            else
+                sens=level+ss*10; //A*
+        }
+
         // give better priority to going strait instead of diagonally
         void nextLevel(const int & i) // i: direction
         {
-             level+=(dir==8?(i%2==0?10:14):10);
+             level+=k1*(dir==8?(i%2==0?10:14):10);
         }
 
         // Estimation function for the remaining distance to the goal.
@@ -104,6 +135,24 @@ class node
 
             // Euclidian Distance
             d=static_cast<int>(costEstimate(xd,yd, infl, defl));
+
+            // Manhattan distance
+            //d=abs(xd)+abs(yd);
+
+            // Chebyshev distance
+            //d=max(abs(xd), abs(yd));
+
+            return(d);
+        }
+
+        const int & sensing(const int & xDest, const int & yDest) const
+        {
+            static int xd, yd, d;
+            xd=xDest-xPos;
+            yd=yDest-yPos;
+
+            // Euclidian Distance
+            d=static_cast<int>(costSensing(xd,yd, infl, defl));
 
             // Manhattan distance
             //d=abs(xd)+abs(yd);
@@ -401,23 +450,85 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
     static int i, j, x, y, xdx, ydy;
     pqi=0;
 
-    n0=new node(p0.i, p0.j, 0, 0, infl, defl);
+    n0=new node(p0.i, p0.j, 0, 0, infl, defl, 0);
     n0->updatePriority(p1.i, p1.j);
+    n0->updateSensing(p1.i, p1.j);
     pq[pqi].push(*n0);
+
+    bool found=false;
+    int cost=0;
 
     while(!pq[pqi].empty())
     {
-        n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                     pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl);
+        bool stop=false;
 
-        x=n0->getxPos(); y=n0->getyPos();
+        bool list2=false;
 
-        pq[pqi].pop();
+        if(pq[2].size()==0)
+        {
+            n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing());
+            x=n0->getxPos(); y=n0->getyPos();
+
+            pq[pqi].pop();
+
+            if(n0->getSensing()>0)
+                if(n0->getPriority()==n0->getSensing())
+                {
+                    if(isGoal(PointI(x,y),p1))
+                        stop=true;
+                }
+        }
+        else
+        {
+            bool cond=false;
+            if(pq[2].top().getSensing()>0)
+                if(pq[pqi].top().getPriority()>pq[2].top().getSensing())
+                {
+                    cond=true;
+                }
+
+            if(!cond)
+            {
+                n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+                             pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing());
+                x=n0->getxPos(); y=n0->getyPos();
+
+                pq[pqi].pop();
+                if(n0->getSensing()>0)
+                    if(n0->getPriority()==n0->getSensing())
+                    {
+                        if(isGoal(PointI(x,y),p1))
+                            stop=true;
+                    }
+            }
+            else
+            {
+                n0=new node( pq[2].top().getxPos(), pq[2].top().getyPos(),
+                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing());
+                x=n0->getxPos(); y=n0->getyPos();
+
+                pq[2].pop();
+
+                list2=true;
+
+                if(isGoal(PointI(x,y),p1))
+                    stop=true;
+            }
+        }
+
+
+        //n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+        //             pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing());
+
+        //x=n0->getxPos(); y=n0->getyPos();
+
+        //pq[pqi].pop();
         open_nodes_map[x][y]=0;
 
         closed_nodes_map[x][y]=1;
 
-        if(isGoal(PointI(x,y),p1))
+        if(stop)
         {
             while(!(x==p0.i && y==p0.j))
             {
@@ -439,6 +550,11 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
             return path;
         }
 
+        if(list2)
+            continue;
+
+        pq[2].push(*n0);
+
 
         for(i=0;i<dir;i++)
         {
@@ -453,9 +569,10 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
                      ))
                 {
                     m0=new node( xdx, ydy, n0->getLevel(),
-                                 n0->getPriority(), infl, defl);
+                                 n0->getPriority(), infl, defl, n0->getSensing());
                     m0->nextLevel(i);
                     m0->updatePriority(p1.i, p1.j);
+                    m0->updateSensing(p1.i, p1.j);
 
                     if(open_nodes_map[xdx][ydy]==0)
                     {
