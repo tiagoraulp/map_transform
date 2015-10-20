@@ -57,7 +57,7 @@ public:
 
 const double k1=3;
 
-const double k2=2;
+const double k2=0;
 
 double costEstimate(int x, int y, int infl=0, int defl=0)
 {
@@ -105,6 +105,11 @@ class node
         int getLevel() const {return level;}
         int getPriority() const {return priority;}
         int getSensing() const {return sens;}
+
+        void S2P(void)
+        {
+             priority=sens; //A*
+        }
 
         void updatePriority(const int & xDest, const int & yDest)
         {
@@ -455,26 +460,28 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
     n0->updateSensing(p1.i, p1.j);
     pq[pqi].push(*n0);
 
-    bool found=false;
-    int cost=0;
-
-    while(!pq[pqi].empty())
+    while(!pq[pqi].empty() || !pq[2].empty())
     {
         bool stop=false;
 
         bool list2=false;
 
+
         if(pq[2].size()==0)
         {
+
+
             n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
                          pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing());
             x=n0->getxPos(); y=n0->getyPos();
 
+
             pq[pqi].pop();
 
-            if(n0->getSensing()>0)
+            if(n0->getSensing()>=0)
                 if(n0->getPriority()==n0->getSensing())
                 {
+
                     if(isGoal(PointI(x,y),p1))
                         stop=true;
                 }
@@ -482,7 +489,8 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
         else
         {
             bool cond=false;
-            if(pq[2].top().getSensing()>0)
+
+            if(pq[2].top().getSensing()>=0)
                 if(pq[pqi].top().getPriority()>pq[2].top().getSensing())
                 {
                     cond=true;
@@ -490,12 +498,14 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
             if(!cond)
             {
+
                 n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
                              pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing());
                 x=n0->getxPos(); y=n0->getyPos();
 
+
                 pq[pqi].pop();
-                if(n0->getSensing()>0)
+                if(n0->getSensing()>=0)
                     if(n0->getPriority()==n0->getSensing())
                     {
                         if(isGoal(PointI(x,y),p1))
@@ -507,6 +517,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
                 n0=new node( pq[2].top().getxPos(), pq[2].top().getyPos(),
                              pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing());
                 x=n0->getxPos(); y=n0->getyPos();
+
 
                 pq[2].pop();
 
@@ -547,18 +558,20 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
             delete n0;
 
             while(!pq[pqi].empty()) pq[pqi].pop();
+            while(!pq[2].empty()) pq[2].pop();
             return path;
         }
 
+
         if(list2)
             continue;
-
-        pq[2].push(*n0);
 
 
         for(i=0;i<dir;i++)
         {
             xdx=x+dx[i]; ydy=y+dy[i];
+
+
 
             if(!(xdx<0 || xdx>n-1 || ydy<0 || ydy>m-1 ))
             {
@@ -568,6 +581,8 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
                                                      //     && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]])
                      ))
                 {
+
+
                     m0=new node( xdx, ydy, n0->getLevel(),
                                  n0->getPriority(), infl, defl, n0->getSensing());
                     m0->nextLevel(i);
@@ -609,6 +624,14 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
                 }
             }
         }
+
+
+        if(n0->getSensing()>=0)
+        {
+            n0->S2P();
+            pq[2].push(*n0);
+        }
+
         delete n0;
     }
     path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
