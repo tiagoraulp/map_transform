@@ -55,6 +55,8 @@ rosbuild_add_executable(planner src/planner.cpp)
 
 rosbuild_add_executable(planSens src/planSensing.cpp src/ray.cpp)
 
+rosbuild_add_executable(planSensOpt src/planSensingOpt.cpp src/ray.cpp src/vector_utils.cpp)
+
 target_link_libraries(visibility ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 
 target_link_libraries(visNC ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})

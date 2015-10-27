@@ -562,7 +562,8 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
     CritPoints critP(map_or, r_map, infl);
 
-    vis_.assign(vis_map.rows*vis_map.cols, map_transform::VisNode());
+    //vis_.assign(vis_map.rows*vis_map.cols, map_transform::VisNode());
+    vis_.assign(vis_map.rows*vis_map.cols, -2);
 
     for (unsigned int k=0;k<unreach.frontiers.size();k++){//1;k++){//
         for(unsigned int ff=0;ff<unreach.frontiers[k].size();ff++)
@@ -602,9 +603,13 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                         {
                             vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
                             geometry_msgs::Pose pcp;
-                            pcp.position.x=critP.getCrit().x;
-                            pcp.position.y=critP.getCrit().y;
-                            vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y].points.push_back(pcp);
+                            pcp.position.x=points_vis[pv].x-critP.getCrit().x;
+                            pcp.position.y=points_vis[pv].y-critP.getCrit().y;
+                            float diff=sqrt(pcp.position.x*pcp.position.x+pcp.position.y*pcp.position.y);
+                            if(vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]<0)
+                                vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=diff;
+                            else
+                                vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=min(vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y],diff);//points.push_back(pcp);
                         }
                         break;
                     }

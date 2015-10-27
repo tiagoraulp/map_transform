@@ -13,6 +13,7 @@
 #include "std_srvs/Empty.h"
 
 #include "ray.hpp"
+#include "vector_utils.hpp"
 
 using namespace std;
 
@@ -59,7 +60,7 @@ const double k1=1;
 
 const double k2=2;
 
-double costEstimate(int x, int y, int infl=0, int defl=0)
+double costEstimate(int x, int y, int infl=0, int defl=0, float opt=-3)
 {
     //return sqrt(x*x+y*y);
     if(k1>k2)
@@ -71,11 +72,19 @@ double costEstimate(int x, int y, int infl=0, int defl=0)
     }
     else
     {
-        return k1*sqrt(x*x+y*y);
+        if(opt<0)
+            return k1*sqrt(x*x+y*y);
+        else
+        {
+            if( ( (x)*(x)+(y)*(y) )>(opt*opt) )
+                return k1*(sqrt(x*x+y*y)-opt)+k2*opt;
+            else
+                return k2*opt;
+        }
     }
 }
 
-double costSensing(int x, int y, int infl=0, int defl=0)
+double costSensing(int x, int y, int infl=0, int defl=0, float opt=-3)
 {
     //return sqrt(x*x+y*y);
     if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
@@ -95,10 +104,11 @@ class node
     // priority=level+remaining distance estimate
     int priority;  // smaller: higher priority
     int sens;
+    float opt;
 
     public:
-        node(int xp, int yp, int d, int p, int inf, int def, int ss)
-            {xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;sens=ss;}
+        node(int xp, int yp, int d, int p, int inf, int def, int ss, float dist)
+            {xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;sens=ss;opt=dist;}
 
         int getxPos() const {return xPos;}
         int getyPos() const {return yPos;}
@@ -139,7 +149,7 @@ class node
             yd=yDest-yPos;
 
             // Euclidian Distance
-            d=static_cast<int>(costEstimate(xd,yd, infl, defl));
+            d=static_cast<int>(costEstimate(xd,yd, infl, defl, opt));
 
             // Manhattan distance
             //d=abs(xd)+abs(yd);
@@ -157,7 +167,7 @@ class node
             yd=yDest-yPos;
 
             // Euclidian Distance
-            d=static_cast<int>(costSensing(xd,yd, infl, defl));
+            d=static_cast<int>(costSensing(xd,yd, infl, defl, opt));
 
             // Manhattan distance
             //d=abs(xd)+abs(yd);
@@ -204,6 +214,7 @@ private:
     tf::TransformListener pos_listener;
 
     //std::vector<map_transform::VisNode> vis_;
+
     std::vector<float> vis_;
 
     void rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg);
@@ -236,7 +247,7 @@ private:
 
     geometry_msgs::Point convertI2W(PointI p);
 
-    Apath Astar(PointI p0, PointI p1, int r);
+    Apath Astar(PointI p0, PointI p1, int r,   float opt=-3);
 
     bool isGoal(PointI p0, PointI p1);
 
@@ -439,7 +450,7 @@ bool Planner::isGoal(PointI p0, PointI p1)
     }
 }
 
-Apath Planner::Astar(PointI p0, PointI p1, int r)
+Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 {
     Apath path; path.points.clear();path.cost=0;
 
@@ -449,6 +460,30 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
     vector<vector<int> > open_nodes_map;open_nodes_map.assign(n,vector<int>(m,0));
     vector<vector<int> > dir_map;dir_map.assign(n,vector<int>(m,0));
 
+    if(opt==-2)
+    {
+        if(msg_rcv[0][p1.i][p1.j] && !msg_rcv[1][p1.i][p1.j])
+        {
+            FindMin<float> crit;
+            bool found=false;
+
+            for(int x=max(p1.i-infl,0);x<min(p1.i+infl,(int)msg_rcv[0].size());x++)
+            {
+                for(int y=max(p1.j-infl,0);y<min(p1.j+infl,(int)msg_rcv[0][0].size());y++)
+                {
+                    if(msg_rcv[1][p1.i][p1.j])
+                    {
+                        found=true;
+                        float cost=(p1.i-x)*(p1.i-x)+(p1.j-y)*(p1.j-y);
+                        crit.iter(cost);
+                    }
+                }
+            }
+            if(found)
+                opt=sqrt(crit.getVal());
+        }
+    }
+
     static priority_queue<node> pq[3];
     static int pqi;
     static node* n0;
@@ -456,7 +491,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
     static int i, j, x, y, xdx, ydy;
     pqi=0;
 
-    n0=new node(p0.i, p0.j, 0, 0, infl, defl, 0);
+    n0=new node(p0.i, p0.j, 0, 0, infl, defl, 0, opt);
     n0->updatePriority(p1.i, p1.j);
     n0->updateSensing(p1.i, p1.j);
     pq[pqi].push(*n0);
@@ -475,7 +510,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
 
             n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing());
+                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt);
             x=n0->getxPos(); y=n0->getyPos();
 
 
@@ -498,7 +533,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
 
                 n0=new node( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing());
+                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt);
                 x=n0->getxPos(); y=n0->getyPos();
 
 
@@ -525,7 +560,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
                 if(!cond)
                 {
                     n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing());
+                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt);
                     x=n0->getxPos(); y=n0->getyPos();
 
 
@@ -543,7 +578,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
                 else
                 {
                     n0=new node( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing());
+                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt);
                     x=n0->getxPos(); y=n0->getyPos();
 
 
@@ -627,7 +662,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
 
                     m0=new node( xdx, ydy, n0->getLevel(),
-                                 n0->getPriority(), infl, defl, n0->getSensing());
+                                 n0->getPriority(), infl, defl, n0->getSensing(), opt);
                     m0->nextLevel(i);
                     m0->updatePriority(p1.i, p1.j);
                     m0->updateSensing(p1.i, p1.j);
@@ -687,23 +722,7 @@ void Planner::plan(void)
 {
     if(map_rcv[0] && map_rcv[1] && map_rcv[2] && graph_rcv && pl && (goals.size()>0) )
     {
-        PointI g=convertW2I(goals[0]);
 
-        if(g.i<0 || g.i>=(int)msg_rcv[0].size())
-        {
-            clearG();
-            return;
-        }
-        if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
-        {
-            clearG();
-            return;
-        }
-        if(!msg_rcv[0][g.i][g.j])
-        {
-            clearG();
-            return;
-        }
 
         path_0.poses.clear();
         path_0.header.frame_id = "/map";
@@ -732,24 +751,77 @@ void Planner::plan(void)
 
         PointI pi=convertW2I(p);
 
+
+
         Apath path;
 
         ros::Time t01=ros::Time::now();
 
-        path=Astar(pi, g,1);
+
+        for(unsigned int i=0; i<goals.size();i++)
+        {
+
+            PointI g=convertW2I(goals[i]);
+
+            if(g.i<0 || g.i>=(int)msg_rcv[0].size())
+            {
+                clearG();
+                continue;
+            }
+            if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
+            {
+                clearG();
+                continue;
+            }
+
+            path=Astar(pi, g,1);
+        }
 
         ros::Duration diff = ros::Time::now() - t01;
 
-        ROS_INFO("Time: %f; Cost: %f",diff.toSec(),path.cost);
+        ROS_INFO("Time GT: %f; Cost: %f",diff.toSec(),path.cost);
 
-        if(path.cost==-2)
+
+        t01=ros::Time::now();
+
+        if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size()))
+        {
+
+            for(unsigned int i=0; i<goals.size();i++)
+            {
+
+                PointI g=convertW2I(goals[i]);
+
+                if(g.i<0 || g.i>=(int)msg_rcv[0].size())
+                {
+                    clearG();
+                    continue;
+                }
+                if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
+                {
+                    clearG();
+                    continue;
+                }
+
+                if(!msg_rcv[0][g.i][g.j])
+                {
+                    clearG();
+                    continue;
+                }
+
+                path=Astar(pi, g,1, vis_[g.i*msg_rcv[0][0].size()+g.j]);
+            }
+
+            diff = ros::Time::now() - t01;
+
+            ROS_INFO("Time RDVM: %f; Cost: %f",diff.toSec(),path.cost);
+        }
+
+        if(path.cost<0)
         {
             clearG();
             return;
         }
-
-
-
 
         path_0.poses.clear();
         for(unsigned int p_i=0;p_i<path.points.size();p_i++)
