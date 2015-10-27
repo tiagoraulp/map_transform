@@ -55,9 +55,9 @@ public:
     }
 };
 
-const double k1=3;
+const double k1=1;
 
-const double k2=0;
+const double k2=2;
 
 double costEstimate(int x, int y, int infl=0, int defl=0)
 {
@@ -466,6 +466,8 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
         bool list2=false;
 
+        bool tested=false;
+
 
         if(pq[2].size()==0)
         {
@@ -478,42 +480,22 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
             pq[pqi].pop();
 
+            //cout<<"From H"<<endl;
+
             if(n0->getSensing()>=0)
                 if(n0->getPriority()==n0->getSensing())
                 {
-
+                    tested=true;
                     if(isGoal(PointI(x,y),p1))
                         stop=true;
                 }
         }
         else
         {
-            bool cond=false;
-
-            if(pq[2].top().getSensing()>=0)
-                if(pq[pqi].top().getPriority()>pq[2].top().getSensing())
-                {
-                    cond=true;
-                }
-
-            if(!cond)
+            if(pq[pqi].size()==0)
             {
 
-                n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                             pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing());
-                x=n0->getxPos(); y=n0->getyPos();
 
-
-                pq[pqi].pop();
-                if(n0->getSensing()>=0)
-                    if(n0->getPriority()==n0->getSensing())
-                    {
-                        if(isGoal(PointI(x,y),p1))
-                            stop=true;
-                    }
-            }
-            else
-            {
                 n0=new node( pq[2].top().getxPos(), pq[2].top().getyPos(),
                              pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing());
                 x=n0->getxPos(); y=n0->getyPos();
@@ -525,8 +507,67 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
 
                 if(isGoal(PointI(x,y),p1))
                     stop=true;
+
+
+                //cout<<"From R"<<endl;
+            }
+            else
+            {
+                bool cond=false;
+
+                if(pq[2].top().getSensing()>=0)
+                    if(pq[pqi].top().getPriority()>pq[2].top().getSensing())
+                    {
+                        cond=true;
+                    }
+
+                if(!cond)
+                {
+                    n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing());
+                    x=n0->getxPos(); y=n0->getyPos();
+
+
+                    pq[pqi].pop();
+                    if(n0->getSensing()>=0)
+                        if(n0->getPriority()==n0->getSensing())
+                        {
+                            tested=true;
+                            if(isGoal(PointI(x,y),p1))
+                                stop=true;
+                        }
+
+                    //cout<<"From H"<<endl;
+                }
+                else
+                {
+                    n0=new node( pq[2].top().getxPos(), pq[2].top().getyPos(),
+                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing());
+                    x=n0->getxPos(); y=n0->getyPos();
+
+
+                    pq[2].pop();
+
+                    list2=true;
+
+                    if(isGoal(PointI(x,y),p1))
+                        stop=true;
+
+
+                    //cout<<"From R"<<endl;
+                }
             }
         }
+        //cout<<x<<"; "<<y<<"; "<<pq[0].size()<<"; "<<pq[1].size()<<"; "<<pq[2].size()<<endl;
+
+        //if(pq[1].size()>1000000 || pq[0].size()>1000000)
+        //{
+        //    while(!pq[pqi].empty()) pq[pqi].pop();
+        //    while(!pq[2].empty()) pq[2].pop();
+        //    return path;
+        //}
+
+
 
 
         //n0=new node( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
@@ -545,10 +586,11 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
             {
                 j=dir_map[x][y];
 
-                if(j%2==0)
-                    path.cost=path.cost+1;
-                else
-                    path.cost=path.cost+1.41421356237;
+                //if(j%2==0)
+                //    path.cost=path.cost+1;
+                // else
+                //    path.cost=path.cost+1.41421356237;
+                path.cost=(double)n0->getSensing();
                 path.points.insert(path.points.begin(),PointI(x,y));
                 x+=dx[j];
                 y+=dy[j];
@@ -626,7 +668,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r)
         }
 
 
-        if(n0->getSensing()>=0)
+        if(n0->getSensing()>=0 && !tested)
         {
             n0->S2P();
             pq[2].push(*n0);
