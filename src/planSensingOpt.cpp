@@ -225,6 +225,10 @@ private:
 
     void rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg);
 
+    ros::ServiceServer service;
+
+    ros::ServiceServer service2;
+
     vector<vector<vector<bool> > >  msg_rcv;
 
     vector<int> count;
@@ -255,6 +259,10 @@ private:
 
     void clearG();
 
+    bool ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res);
+
+    bool clear(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res);
+
 public:
 
     Planner(ros::NodeHandle nh): nh_(nh)
@@ -273,6 +281,10 @@ public:
         sub_goals = nh_.subscribe("/move_base_simple/goal", 1, &Planner::rcv_goal, this);
 
         graph_subscriber = nh.subscribe("graph", 10 , &Planner::graphCallback, this);
+
+        service = nh_.advertiseService("plan", &Planner::ask_plan, this);
+
+        service2 = nh_.advertiseService("clear", &Planner::clear, this);
 
         nh_.param("infl", infl, 5);
         nh_.param("defl", defl, infl);
@@ -415,9 +427,23 @@ void Planner::clearG()
 
 void Planner::rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
-    clearG();
+    //clearG();
     goals.push_back(msg->pose.position);
+    //pl=true;
+}
+
+bool Planner::ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res)
+{
     pl=true;
+    return true;
+}
+
+
+bool Planner::clear(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res)
+{
+
+    clearG();
+    return true;
 }
 
 PointI Planner::convertW2I(geometry_msgs::Point p)
