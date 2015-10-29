@@ -56,11 +56,11 @@ public:
     }
 };
 
-const double k1=1;
+const float k1=1;
 
-const double k2=2;
+const float k2=2;
 
-double costEstimate(int x, int y, int infl=0, int defl=0, float opt=-3)
+float costEstimate(int x, int y, int infl=0, int defl=0, float opt=-3)
 {
     //return sqrt(x*x+y*y);
     if(k1>k2)
@@ -76,15 +76,15 @@ double costEstimate(int x, int y, int infl=0, int defl=0, float opt=-3)
             return k1*sqrt(x*x+y*y);
         else
         {
-            if( ( (x)*(x)+(y)*(y) )>(opt*opt) )
+            if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
                 return k1*(sqrt(x*x+y*y)-opt)+k2*opt;
             else
-                return k2*opt;
+                return k2*sqrt(x*x+y*y);
         }
     }
 }
 
-double costSensing(int x, int y, int infl=0, int defl=0, float opt=-3)
+float costSensing(int x, int y, int infl=0, int defl=0, float opt=-3)
 {
     //return sqrt(x*x+y*y);
     if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
@@ -100,21 +100,21 @@ class node
     int xPos;
     int yPos;
     // total distance already travelled to reach the node
-    int level;
+    float level;
     // priority=level+remaining distance estimate
-    int priority;  // smaller: higher priority
-    int sens;
+    float priority;  // smaller: higher priority
+    float sens;
     float opt;
 
     public:
-        node(int xp, int yp, int d, int p, int inf, int def, int ss, float dist)
+        node(int xp, int yp, float d, float p, int inf, int def, float ss, float dist)
             {xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;sens=ss;opt=dist;}
 
         int getxPos() const {return xPos;}
         int getyPos() const {return yPos;}
-        int getLevel() const {return level;}
-        int getPriority() const {return priority;}
-        int getSensing() const {return sens;}
+        float getLevel() const {return level;}
+        float getPriority() const {return priority;}
+        float getSensing() const {return sens;}
 
         void S2P(void)
         {
@@ -123,7 +123,7 @@ class node
 
         void updatePriority(const int & xDest, const int & yDest)
         {
-             priority=level+estimate(xDest, yDest)*10; //A*
+             priority=level+estimate(xDest, yDest)*1; //A*
         }
 
         void updateSensing(const int & xDest, const int & yDest)
@@ -132,24 +132,27 @@ class node
             if(ss<0)
                 sens=ss;
             else
-                sens=level+ss*10; //A*
+                sens=level+ss*1; //A*
         }
 
         // give better priority to going strait instead of diagonally
         void nextLevel(const int & i) // i: direction
         {
-             level+=k1*(dir==8?(i%2==0?10:14):10);
+             level+=k1*(dir==8?(i%2==0?1:1.414213562):1);
         }
 
         // Estimation function for the remaining distance to the goal.
-        const int & estimate(const int & xDest, const int & yDest) const
+        const float & estimate(const int & xDest, const int & yDest) const
         {
-            static int xd, yd, d;
+            static int xd, yd;
+            static float d;
             xd=xDest-xPos;
             yd=yDest-yPos;
 
             // Euclidian Distance
-            d=static_cast<int>(costEstimate(xd,yd, infl, defl, opt));
+            //d=static_cast<int>(costEstimate(xd,yd, infl, defl, opt));
+            d=static_cast<float>(costEstimate(xd,yd, infl, defl, opt));
+
 
             // Manhattan distance
             //d=abs(xd)+abs(yd);
@@ -160,14 +163,16 @@ class node
             return(d);
         }
 
-        const int & sensing(const int & xDest, const int & yDest) const
+        const float & sensing(const int & xDest, const int & yDest) const
         {
-            static int xd, yd, d;
+            static int xd, yd;
+            static float d;
             xd=xDest-xPos;
             yd=yDest-yPos;
 
             // Euclidian Distance
-            d=static_cast<int>(costSensing(xd,yd, infl, defl, opt));
+            //d=static_cast<int>(costSensing(xd,yd, infl, defl, opt));
+            d=static_cast<float>(costSensing(xd,yd, infl, defl, opt));
 
             // Manhattan distance
             //d=abs(xd)+abs(yd);
@@ -191,13 +196,13 @@ private:
     int infl;
     int defl;
 
-    nav_msgs::Path path_0;
+    nav_msgs::Path path_0, path_1;
 
     cv::Mat or_map;
 
     ros::NodeHandle nh_;
 
-    ros::Publisher pub1;
+    ros::Publisher pub1, pub2;
 
     ros::Publisher pub_markers;
     
@@ -269,6 +274,7 @@ public:
     {
 
         pub1 = nh_.advertise<nav_msgs::Path>("path0", 1,true);
+        pub2 = nh_.advertise<nav_msgs::Path>("path1", 1,true);
 
         pub_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1,true);
 
@@ -414,7 +420,8 @@ void Planner::clearG()
     pl=false;
     goals.clear();
 
-    nav_msgs::Path path_0,path_1;
+
+    //nav_msgs::Path path_0,path_1;
     path_0.poses.clear();
     path_0.header.frame_id = "/map";
     path_0.header.stamp =  ros::Time::now();
@@ -422,6 +429,7 @@ void Planner::clearG()
     path_1=path_0;
 
     pub1.publish(path_0);
+    pub2.publish(path_1);
 }
 
 
@@ -429,12 +437,12 @@ void Planner::rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
     //clearG();
     goals.push_back(msg->pose.position);
-    //pl=true;
+    pl=true;
 }
 
 bool Planner::ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res)
 {
-    pl=true;
+    //pl=true;
     return true;
 }
 
@@ -521,6 +529,8 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
     n0->updatePriority(p1.i, p1.j);
     n0->updateSensing(p1.i, p1.j);
     pq[pqi].push(*n0);
+
+    int counter=0;
 
     while(!pq[pqi].empty() || !pq[2].empty())
     {
@@ -644,6 +654,10 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
         if(stop)
         {
+            cout<<n0->getSensing()<<": "<<sqrt((x-p1.i)*(x-p1.i)+(y-p1.j)*(y-p1.j))<<"; "<<opt<<endl;
+            cout<<n0->getLevel()<<endl;
+            cout<<n0->getxPos()<<";"<<n0->getyPos()<<endl;
+            cout<<p1.i<<";"<<p1.j<<endl;
             while(!(x==p0.i && y==p0.j))
             {
                 j=dir_map[x][y];
@@ -663,6 +677,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
             while(!pq[pqi].empty()) pq[pqi].pop();
             while(!pq[2].empty()) pq[2].pop();
+            cout<<counter<<endl;
             return path;
         }
 
@@ -698,6 +713,9 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
                         open_nodes_map[xdx][ydy]=m0->getPriority();
                         pq[pqi].push(*m0);
                         dir_map[xdx][ydy]=(i+dir/2)%dir;
+
+                        if(closed_nodes_map[xdx][ydy]==1)
+                            counter++;
                     }
                     else if(open_nodes_map[xdx][ydy]>m0->getPriority())
                     {
@@ -740,15 +758,17 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
     }
     path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
     path.cost=-2;
+    cout<<counter<<endl;
+
     return path;
 }
 
 
 void Planner::plan(void)
 {
+//cout<<map_rcv[0]<<" "<< map_rcv[1]<<" "<<map_rcv[2] <<" "<<graph_rcv <<" "<< pl <<" "<< goals.size()<<endl;
     if(map_rcv[0] && map_rcv[1] && map_rcv[2] && graph_rcv && pl && (goals.size()>0) )
     {
-
 
         path_0.poses.clear();
         path_0.header.frame_id = "/map";
@@ -757,7 +777,6 @@ void Planner::plan(void)
         geometry_msgs::PoseStamped pw;
         pw.header.frame_id   = "/map";
         pw.header.stamp =  ros::Time::now();
-
         pw.pose.orientation.w=1;
 
         tf::StampedTransform transform;
@@ -768,7 +787,6 @@ void Planner::plan(void)
           ROS_INFO("%s",ex.what());
           return ;
         }
-
         //PointI pi( (int) round((transform.getOrigin().x())/res), (int) round((transform.getOrigin().y())/res) );
 
         geometry_msgs::Point p;
@@ -781,6 +799,8 @@ void Planner::plan(void)
 
         Apath path;
 
+
+
         ros::Time t01=ros::Time::now();
 
 
@@ -791,12 +811,21 @@ void Planner::plan(void)
 
             if(g.i<0 || g.i>=(int)msg_rcv[0].size())
             {
-                clearG();
+                //clearG();
+                path.cost=-2;
                 continue;
             }
             if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
             {
-                clearG();
+                //clearG();
+                path.cost=-2;
+                continue;
+            }
+
+            if(!msg_rcv[2][g.i][g.j])
+            {
+                //clearG();
+                path.cost=-2;
                 continue;
             }
 
@@ -806,6 +835,27 @@ void Planner::plan(void)
         ros::Duration diff = ros::Time::now() - t01;
 
         ROS_INFO("Time GT: %f; Cost: %f",diff.toSec(),path.cost);
+
+        path_0.poses.clear();
+
+        path_1=path_0;
+
+        if(path.cost>0)
+        {
+            //clearG();
+
+
+            for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+            {
+                pw.pose.position=convertI2W(path.points[p_i]);
+
+                path_0.poses.push_back(pw);
+            }
+
+
+        }
+
+        pub1.publish(path_0);
 
 
         t01=ros::Time::now();
@@ -820,18 +870,21 @@ void Planner::plan(void)
 
                 if(g.i<0 || g.i>=(int)msg_rcv[0].size())
                 {
-                    clearG();
+                    //clearG();
+                    path.cost=-2;
                     continue;
                 }
                 if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
                 {
-                    clearG();
+                    //clearG();
+                    path.cost=-2;
                     continue;
                 }
 
                 if(!msg_rcv[0][g.i][g.j])
                 {
-                    clearG();
+                    //clearG();
+                    path.cost=-2;
                     continue;
                 }
 
@@ -843,21 +896,25 @@ void Planner::plan(void)
             ROS_INFO("Time RDVM: %f; Cost: %f",diff.toSec(),path.cost);
         }
 
-        if(path.cost<0)
+
+        if(path.cost>0)
         {
-            clearG();
-            return;
+            //clearG();
+
+
+            for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+            {
+                pw.pose.position=convertI2W(path.points[p_i]);
+
+                path_1.poses.push_back(pw);
+            }
+
+
         }
 
-        path_0.poses.clear();
-        for(unsigned int p_i=0;p_i<path.points.size();p_i++)
-        {
-            pw.pose.position=convertI2W(path.points[p_i]);
+        pub2.publish(path_1);
 
-            path_0.poses.push_back(pw);
-        }
 
-        pub1.publish(path_0);
 
         pl=false;
     }
@@ -897,21 +954,43 @@ void Planner::publish(void)
           points.markers.push_back(point);
         }
 
-        point.type=visualization_msgs::Marker::LINE_STRIP;
-        point.color.r = 1.0f;
-        point.color.g = 0.0;
-        point.scale.x = 0.03;
-        point.scale.y = 0.02;
-        point.scale.z = 0.001;
-        geometry_msgs::Point p;
-        p.x=0.0f; p.y=0.0f; p.z=0.0f;
-        point.pose.position=p;
-        p=path_0.poses[path_0.poses.size()-1].pose.position;
-        point.points.clear();
-        point.points.push_back(p);
-        point.points.push_back(goals[0]);
-        point.id = goals.size();
-        points.markers.push_back(point);
+        if(path_0.poses.size()>0)
+        {
+            point.type=visualization_msgs::Marker::LINE_STRIP;
+            point.color.r = 1.0f;
+            point.color.g = 0.0;
+            point.scale.x = 0.03;
+            point.scale.y = 0.02;
+            point.scale.z = 0.001;
+            geometry_msgs::Point p;
+            p.x=0.0f; p.y=0.0f; p.z=0.0f;
+            point.pose.position=p;
+            p=path_0.poses[path_0.poses.size()-1].pose.position;
+            point.points.clear();
+            point.points.push_back(p);
+            point.points.push_back(goals[goals.size()-1]);
+            point.id = goals.size();
+            points.markers.push_back(point);
+        }
+
+        if(path_1.poses.size()>0)
+        {
+            point.type=visualization_msgs::Marker::LINE_STRIP;
+            point.color.r = 1.0f;
+            point.color.g = 0.0;
+            point.scale.x = 0.03;
+            point.scale.y = 0.02;
+            point.scale.z = 0.001;
+            geometry_msgs::Point p;
+            p.x=0.0f; p.y=0.0f; p.z=0.0f;
+            point.pose.position=p;
+            p=path_1.poses[path_1.poses.size()-1].pose.position;
+            point.points.clear();
+            point.points.push_back(p);
+            point.points.push_back(goals[goals.size()-1]);
+            point.id = goals.size();
+            points.markers.push_back(point);
+        }
     }
     else
     {
