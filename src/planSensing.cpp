@@ -39,8 +39,6 @@ public:
         i=0;
         j=0;
     }
-
-
 };
 
 class Apath{

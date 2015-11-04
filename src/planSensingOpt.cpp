@@ -294,6 +294,119 @@ bool operator<(const node<T> & a, const node<T> & b)
 }
 
 
+class nodeMP
+{
+    // current position
+    int xPos;
+    int yPos;
+    // total distance already travelled to reach the node
+    int level;
+    // priority=level+remaining distance estimate
+    int priority;  // smaller: higher priority
+
+    public:
+        nodeMP(int xp, int yp, int d, int p)
+            {xPos=xp; yPos=yp; level=d; priority=p;}
+
+        int getxPos() const {return xPos;}
+        int getyPos() const {return yPos;}
+        int getLevel() const {return level;}
+        int getPriority() const {return priority;}
+
+        void updatePriority(const int & xDest, const int & yDest)
+        {
+             priority=level+estimate(xDest, yDest)*10; //A*
+        }
+
+        // give better priority to going strait instead of diagonally
+        void nextLevel(const int & i) // i: direction
+        {
+             level+=(dir==8?(i%2==0?10:14):10);
+        }
+
+        // Estimation function for the remaining distance to the goal.
+        const int & estimate(const int & xDest, const int & yDest) const
+        {
+            static int xd, yd, d;
+            xd=xDest-xPos;
+            yd=yDest-yPos;
+
+            // Euclidian Distance
+            d=static_cast<int>(sqrt(xd*xd+yd*yd));
+
+            // Manhattan distance
+            //d=abs(xd)+abs(yd);
+
+            // Chebyshev distance
+            //d=max(abs(xd), abs(yd));
+
+            return(d);
+        }
+
+};
+
+bool operator<(const nodeMP & a, const nodeMP & b)
+{
+  return a.getPriority() > b.getPriority();
+}
+
+class nodeMP0
+{
+    // current position
+    int xPos;
+    int yPos;
+    // total distance already travelled to reach the node
+    int level;
+    // priority=level+remaining distance estimate
+    int priority;  // smaller: higher priority
+
+    public:
+        nodeMP0(int xp, int yp, int d, int p)
+            {xPos=xp; yPos=yp; level=d; priority=p;}
+
+        int getxPos() const {return xPos;}
+        int getyPos() const {return yPos;}
+        int getLevel() const {return level;}
+        int getPriority() const {return priority;}
+
+        void updatePriority(const int & xDest, const int & yDest)
+        {
+             priority=level+estimate(xDest, yDest)*0; //A*
+        }
+
+        // give better priority to going strait instead of diagonally
+        void nextLevel(const int & i) // i: direction
+        {
+             level+=(dir==8?(i%2==0?10:14):10);
+        }
+
+        // Estimation function for the remaining distance to the goal.
+        const int & estimate(const int & xDest, const int & yDest) const
+        {
+            static int xd, yd, d;
+            xd=xDest-xPos;
+            yd=yDest-yPos;
+
+            // Euclidian Distance
+            d=static_cast<int>(sqrt(xd*xd+yd*yd));
+
+            // Manhattan distance
+            //d=abs(xd)+abs(yd);
+
+            // Chebyshev distance
+            //d=max(abs(xd), abs(yd));
+
+            return(d);
+        }
+
+};
+
+bool operator<(const nodeMP0 & a, const nodeMP0 & b)
+{
+  return a.getPriority() > b.getPriority();
+}
+
+
 class Planner{
 private:
     int infl;
@@ -361,6 +474,9 @@ private:
 
     template <typename T=float>
     Apath Astar(PointI p0, PointI p1, int r,   float opt=-3);
+
+    Apath AstarMP(PointI p0, PointI p1, int r);
+    Apath AstarMP0(PointI p0, PointI p1, int r);
 
     bool isGoal(PointI p0, PointI p1);
 
@@ -587,6 +703,228 @@ bool Planner::isGoal(PointI p0, PointI p1)
             return false;
     }
 }
+
+
+Apath Planner::AstarMP(PointI p0, PointI p1, int r)
+{
+    Apath path; path.points.clear();path.cost=0;
+
+    const int n=width;
+    const int m=height;
+    vector<vector<int> > closed_nodes_map;closed_nodes_map.assign(n,vector<int>(m,0));
+    vector<vector<int> > open_nodes_map;open_nodes_map.assign(n,vector<int>(m,0));
+    vector<vector<int> > dir_map;dir_map.assign(n,vector<int>(m,0));
+
+    static priority_queue<nodeMP> pq[2];
+    static int pqi;
+    static nodeMP* n0;
+    static nodeMP* m0;
+    static int i, j, x, y, xdx, ydy;
+    pqi=0;
+
+    n0=new nodeMP(p0.i, p0.j, 0, 0);
+    n0->updatePriority(p1.i, p1.j);
+    pq[pqi].push(*n0);
+
+    while(!pq[pqi].empty())
+    {
+        n0=new nodeMP( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+                     pq[pqi].top().getLevel(), pq[pqi].top().getPriority());
+
+        x=n0->getxPos(); y=n0->getyPos();
+
+        pq[pqi].pop();
+        open_nodes_map[x][y]=0;
+
+        closed_nodes_map[x][y]=1;
+
+        if(x==p1.i && y==p1.j)
+        {
+            while(!(x==p0.i && y==p0.j))
+            {
+                j=dir_map[x][y];
+
+                if(j%2==0)
+                    path.cost=path.cost+1;
+                else
+                    path.cost=path.cost+1.41421356237;
+                path.points.insert(path.points.begin(),PointI(x,y));
+                x+=dx[j];
+                y+=dy[j];
+            }
+
+            delete n0;
+
+            while(!pq[pqi].empty()) pq[pqi].pop();
+            return path;
+        }
+
+
+        for(i=0;i<dir;i++)
+        {
+            xdx=x+dx[i]; ydy=y+dy[i];
+
+            if(!(xdx<0 || xdx>n-1 || ydy<0 || ydy>m-1 || !msg_rcv[r][xdx][ydy]
+                || closed_nodes_map[xdx][ydy]==1 ))//|| ( (dir==1 || dir==3 || dir==5 || dir==7)
+                                                   //   && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
+                                                   //   && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]]) ))
+            {
+                m0=new nodeMP( xdx, ydy, n0->getLevel(),
+                             n0->getPriority());
+                m0->nextLevel(i);
+                m0->updatePriority(p1.i, p1.j);
+
+                if(open_nodes_map[xdx][ydy]==0)
+                {
+                    open_nodes_map[xdx][ydy]=m0->getPriority();
+                    pq[pqi].push(*m0);
+                    dir_map[xdx][ydy]=(i+dir/2)%dir;
+                }
+                else if(open_nodes_map[xdx][ydy]>m0->getPriority())
+                {
+                    open_nodes_map[xdx][ydy]=m0->getPriority();
+
+                    dir_map[xdx][ydy]=(i+dir/2)%dir;
+
+
+                    while(!(pq[pqi].top().getxPos()==xdx &&
+                           pq[pqi].top().getyPos()==ydy))
+                    {
+                        pq[1-pqi].push(pq[pqi].top());
+                        pq[pqi].pop();
+                    }
+                    pq[pqi].pop();
+
+
+                    if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
+                    while(!pq[pqi].empty())
+                    {
+                        pq[1-pqi].push(pq[pqi].top());
+                        pq[pqi].pop();
+                    }
+                    pqi=1-pqi;
+                    pq[pqi].push(*m0);
+                }
+                else delete m0;
+            }
+        }
+        delete n0;
+    }
+    path.cost=-2;
+    return path;
+}
+
+
+Apath Planner::AstarMP0(PointI p0, PointI p1, int r)
+{
+    Apath path; path.points.clear();path.cost=0;
+
+    const int n=width;
+    const int m=height;
+    vector<vector<int> > closed_nodes_map;closed_nodes_map.assign(n,vector<int>(m,0));
+    vector<vector<int> > open_nodes_map;open_nodes_map.assign(n,vector<int>(m,0));
+    vector<vector<int> > dir_map;dir_map.assign(n,vector<int>(m,0));
+
+    static priority_queue<nodeMP0> pq[2];
+    static int pqi;
+    static nodeMP0* n0;
+    static nodeMP0* m0;
+    static int i, j, x, y, xdx, ydy;
+    pqi=0;
+
+    n0=new nodeMP0(p0.i, p0.j, 0, 0);
+    n0->updatePriority(p1.i, p1.j);
+    pq[pqi].push(*n0);
+
+    while(!pq[pqi].empty())
+    {
+        n0=new nodeMP0( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+                     pq[pqi].top().getLevel(), pq[pqi].top().getPriority());
+
+        x=n0->getxPos(); y=n0->getyPos();
+
+        pq[pqi].pop();
+        open_nodes_map[x][y]=0;
+
+        closed_nodes_map[x][y]=1;
+
+        if(x==p1.i && y==p1.j)
+        {
+            while(!(x==p0.i && y==p0.j))
+            {
+                j=dir_map[x][y];
+
+                if(j%2==0)
+                    path.cost=path.cost+1;
+                else
+                    path.cost=path.cost+1.41421356237;
+                path.points.insert(path.points.begin(),PointI(x,y));
+                x+=dx[j];
+                y+=dy[j];
+            }
+
+            delete n0;
+
+            while(!pq[pqi].empty()) pq[pqi].pop();
+            return path;
+        }
+
+
+        for(i=0;i<dir;i++)
+        {
+            xdx=x+dx[i]; ydy=y+dy[i];
+
+            if(!(xdx<0 || xdx>n-1 || ydy<0 || ydy>m-1 || !msg_rcv[r][xdx][ydy]
+                || closed_nodes_map[xdx][ydy]==1 ))//|| ( (dir==1 || dir==3 || dir==5 || dir==7)
+                                                   //   && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
+                                                   //   && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]]) ))
+            {
+                m0=new nodeMP0( xdx, ydy, n0->getLevel(),
+                             n0->getPriority());
+                m0->nextLevel(i);
+                m0->updatePriority(p1.i, p1.j);
+
+                if(open_nodes_map[xdx][ydy]==0)
+                {
+                    open_nodes_map[xdx][ydy]=m0->getPriority();
+                    pq[pqi].push(*m0);
+                    dir_map[xdx][ydy]=(i+dir/2)%dir;
+                }
+                else if(open_nodes_map[xdx][ydy]>m0->getPriority())
+                {
+                    open_nodes_map[xdx][ydy]=m0->getPriority();
+
+                    dir_map[xdx][ydy]=(i+dir/2)%dir;
+
+
+                    while(!(pq[pqi].top().getxPos()==xdx &&
+                           pq[pqi].top().getyPos()==ydy))
+                    {
+                        pq[1-pqi].push(pq[pqi].top());
+                        pq[pqi].pop();
+                    }
+                    pq[pqi].pop();
+
+
+                    if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
+                    while(!pq[pqi].empty())
+                    {
+                        pq[1-pqi].push(pq[pqi].top());
+                        pq[pqi].pop();
+                    }
+                    pqi=1-pqi;
+                    pq[pqi].push(*m0);
+                }
+                else delete m0;
+            }
+        }
+        delete n0;
+    }
+    path.cost=-2;
+    return path;
+}
+
+
 
 template <typename T>
 Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
@@ -914,7 +1252,7 @@ void Planner::plan(void)
         ros::Time t01=ros::Time::now();
 
 
-        for(unsigned int i=0; i<goals.size();i++)
+        for(unsigned int i=goals.size()-1; i<goals.size();i++)//0; i<goals.size();i++)
         {
 
             PointI g=convertW2I(goals[i]);
@@ -932,15 +1270,17 @@ void Planner::plan(void)
                 continue;
             }
 
-            if(!msg_rcv[2][g.i][g.j])
+            //if(!msg_rcv[2][g.i][g.j])
+            if(!msg_rcv[1][g.i][g.j])
             {
                 //clearG();
                 path.cost=-3;
                 continue;
             }
-
-            path=Astar(pi, g,1);
-            cout<<path.cost<<endl;
+t01=ros::Time::now();
+            //path=Astar(pi, g,1);
+            path=AstarMP0(pi, g,1);
+            //cout<<path.cost<<endl;
         }
 
         ros::Duration diff = ros::Time::now() - t01;
@@ -982,7 +1322,7 @@ void Planner::plan(void)
         if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size()))
         {
 
-            for(unsigned int i=0; i<goals.size();i++)
+            for(unsigned int i=(goals.size()-1); i<goals.size();i++)//0; i<goals.size();i++)
             {
 
                 PointI g=convertW2I(goals[i]);
@@ -1000,15 +1340,17 @@ void Planner::plan(void)
                     continue;
                 }
 
-                if(!msg_rcv[0][g.i][g.j])
+                //if(!msg_rcv[0][g.i][g.j])
+                if(!msg_rcv[1][g.i][g.j])
                 {
                     //clearG();
                     path.cost=-3;
                     continue;
                 }
-
-                path=Astar(pi, g,1, vis_[g.i*msg_rcv[0][0].size()+g.j]);
-                cout<<path.cost<<endl;
+t01=ros::Time::now();
+                //path=Astar(pi, g,1, vis_[g.i*msg_rcv[0][0].size()+g.j]);
+                path=AstarMP(pi, g,1);
+                //cout<<path.cost<<endl;
             }
 
             diff = ros::Time::now() - t01;
