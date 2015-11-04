@@ -101,7 +101,7 @@ class node
     }
 
 
-    float costEstimateDist(const float d, const int ss) const
+    inline float costEstimateDist(const float d, const int ss) const
     {
         return d/14.14213562*14;
     }
@@ -221,7 +221,7 @@ class node
 
         void updatePriority(const int & xDest, const int & yDest)
         {
-             priority=level+estimate(xDest, yDest)*0; //A*
+             priority=level+estimate(xDest, yDest)*1; //A*
         }
 
         void updateSensing(const int & xDest, const int & yDest)
@@ -265,7 +265,7 @@ class node
 
         const T & sensing(const int & xDest, const int & yDest) const
         {
-            static int xd, yd;
+            int xd, yd;
             static T d;
             xd=xDest-xPos;
             yd=yDest-yPos;
@@ -310,29 +310,29 @@ class nodeMP
 
         int getxPos() const {return xPos;}
         int getyPos() const {return yPos;}
-        int getLevel() const {return level;}
+        int getLevel() const  {return level;}
         int getPriority() const {return priority;}
 
-        void updatePriority(const int & xDest, const int & yDest)
+        void updatePriority(const int xDest, const int yDest)
         {
              priority=level+estimate(xDest, yDest)*10; //A*
         }
 
         // give better priority to going strait instead of diagonally
-        void nextLevel(const int & i) // i: direction
+        void nextLevel(const int i) // i: direction
         {
              level+=(dir==8?(i%2==0?10:14):10);
         }
 
         // Estimation function for the remaining distance to the goal.
-        const int & estimate(const int & xDest, const int & yDest) const
+        int estimate(const int xDest, const int yDest)
         {
-            static int xd, yd, d;
+            int xd, yd, d;
             xd=xDest-xPos;
             yd=yDest-yPos;
 
             // Euclidian Distance
-            d=static_cast<int>(sqrt(xd*xd+yd*yd));
+            d=(int)(sqrt(xd*xd+yd*yd));
 
             // Manhattan distance
             //d=abs(xd)+abs(yd);
@@ -340,12 +340,12 @@ class nodeMP
             // Chebyshev distance
             //d=max(abs(xd), abs(yd));
 
-            return(d);
+            return d;
         }
 
 };
 
-bool operator<(const nodeMP & a, const nodeMP & b)
+bool operator<(const nodeMP a,const nodeMP b)
 {
   return a.getPriority() > b.getPriority();
 }
@@ -367,28 +367,28 @@ class nodeMP0
         int getxPos() const {return xPos;}
         int getyPos() const {return yPos;}
         int getLevel() const {return level;}
-        int getPriority() const {return priority;}
+        int getPriority() const  {return priority;}
 
-        void updatePriority(const int & xDest, const int & yDest)
+        void updatePriority(const int xDest,const int yDest)
         {
              priority=level+estimate(xDest, yDest)*0; //A*
         }
 
         // give better priority to going strait instead of diagonally
-        void nextLevel(const int & i) // i: direction
+        void nextLevel(const int i) // i: direction
         {
              level+=(dir==8?(i%2==0?10:14):10);
         }
 
         // Estimation function for the remaining distance to the goal.
-        const int & estimate(const int & xDest, const int & yDest) const
+        int estimate(const int xDest,const int yDest)
         {
-            static int xd, yd, d;
+            int xd, yd, d;
             xd=xDest-xPos;
             yd=yDest-yPos;
 
             // Euclidian Distance
-            d=static_cast<int>(sqrt(xd*xd+yd*yd));
+            d=(int)(sqrt(xd*xd+yd*yd));
 
             // Manhattan distance
             //d=abs(xd)+abs(yd);
@@ -401,7 +401,7 @@ class nodeMP0
 
 };
 
-bool operator<(const nodeMP0 & a, const nodeMP0 & b)
+bool operator<(const nodeMP0 a,const nodeMP0 b)
 {
   return a.getPriority() > b.getPriority();
 }
@@ -708,33 +708,35 @@ bool Planner::isGoal(PointI p0, PointI p1)
 Apath Planner::AstarMP(PointI p0, PointI p1, int r)
 {
     Apath path; path.points.clear();path.cost=0;
-
     const int n=width;
     const int m=height;
     vector<vector<int> > closed_nodes_map;closed_nodes_map.assign(n,vector<int>(m,0));
     vector<vector<int> > open_nodes_map;open_nodes_map.assign(n,vector<int>(m,0));
     vector<vector<int> > dir_map;dir_map.assign(n,vector<int>(m,0));
 
-    static priority_queue<nodeMP> pq[2];
-    static int pqi;
-    static nodeMP* n0;
-    static nodeMP* m0;
-    static int i, j, x, y, xdx, ydy;
+    priority_queue<nodeMP> pq[2];
+    int pqi;
+    nodeMP n0(p0.i, p0.j, 0, 0);
+
+    int i, j, x, y, xdx, ydy;
     pqi=0;
 
-    n0=new nodeMP(p0.i, p0.j, 0, 0);
-    n0->updatePriority(p1.i, p1.j);
-    pq[pqi].push(*n0);
+    n0.updatePriority(p1.i, p1.j);
+    pq[pqi].push(n0);
 
     while(!pq[pqi].empty())
     {
-        n0=new nodeMP( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+
+        n0=nodeMP( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
                      pq[pqi].top().getLevel(), pq[pqi].top().getPriority());
 
-        x=n0->getxPos(); y=n0->getyPos();
+        x=n0.getxPos(); y=n0.getyPos();
 
         pq[pqi].pop();
         open_nodes_map[x][y]=0;
+
+        if(closed_nodes_map[x][y]==1)
+            continue;
 
         closed_nodes_map[x][y]=1;
 
@@ -753,9 +755,7 @@ Apath Planner::AstarMP(PointI p0, PointI p1, int r)
                 y+=dy[j];
             }
 
-            delete n0;
-
-            while(!pq[pqi].empty()) pq[pqi].pop();
+            //while(!pq[pqi].empty()) pq[pqi].pop();
             return path;
         }
 
@@ -769,46 +769,45 @@ Apath Planner::AstarMP(PointI p0, PointI p1, int r)
                                                    //   && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
                                                    //   && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]]) ))
             {
-                m0=new nodeMP( xdx, ydy, n0->getLevel(),
-                             n0->getPriority());
-                m0->nextLevel(i);
-                m0->updatePriority(p1.i, p1.j);
+                nodeMP m0( xdx, ydy, n0.getLevel(),
+                             n0.getPriority());
+                m0.nextLevel(i);
+                m0.updatePriority(p1.i, p1.j);
 
                 if(open_nodes_map[xdx][ydy]==0)
                 {
-                    open_nodes_map[xdx][ydy]=m0->getPriority();
-                    pq[pqi].push(*m0);
+                    open_nodes_map[xdx][ydy]=m0.getPriority();
+                    pq[pqi].push(m0);
                     dir_map[xdx][ydy]=(i+dir/2)%dir;
                 }
-                else if(open_nodes_map[xdx][ydy]>m0->getPriority())
+                else if(open_nodes_map[xdx][ydy]>m0.getPriority())
                 {
-                    open_nodes_map[xdx][ydy]=m0->getPriority();
+                    open_nodes_map[xdx][ydy]=m0.getPriority();
 
                     dir_map[xdx][ydy]=(i+dir/2)%dir;
 
 
-                    while(!(pq[pqi].top().getxPos()==xdx &&
-                           pq[pqi].top().getyPos()==ydy))
-                    {
-                        pq[1-pqi].push(pq[pqi].top());
-                        pq[pqi].pop();
-                    }
-                    pq[pqi].pop();
+                    //while(!(pq[pqi].top().getxPos()==xdx &&
+                    //       pq[pqi].top().getyPos()==ydy))
+                    //{
+                    //    count++;
+                    //    pq[1-pqi].push(pq[pqi].top());
+                    //    pq[pqi].pop();
+                    //}
+                    //pq[pqi].pop();
 
 
-                    if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
-                    while(!pq[pqi].empty())
-                    {
-                        pq[1-pqi].push(pq[pqi].top());
-                        pq[pqi].pop();
-                    }
-                    pqi=1-pqi;
-                    pq[pqi].push(*m0);
+                    //if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
+                    //while(!pq[pqi].empty())
+                    //{
+                    //    pq[1-pqi].push(pq[pqi].top());
+                    //    pq[pqi].pop();
+                    //}
+                    //pqi=1-pqi;
+                    pq[pqi].push(m0);
                 }
-                else delete m0;
             }
         }
-        delete n0;
     }
     path.cost=-2;
     return path;
@@ -825,26 +824,27 @@ Apath Planner::AstarMP0(PointI p0, PointI p1, int r)
     vector<vector<int> > open_nodes_map;open_nodes_map.assign(n,vector<int>(m,0));
     vector<vector<int> > dir_map;dir_map.assign(n,vector<int>(m,0));
 
-    static priority_queue<nodeMP0> pq[2];
-    static int pqi;
-    static nodeMP0* n0;
-    static nodeMP0* m0;
-    static int i, j, x, y, xdx, ydy;
+    priority_queue<nodeMP0> pq[2];
+    int pqi;
+    nodeMP0 n0(p0.i, p0.j, 0, 0);
+    int i, j, x, y, xdx, ydy;
     pqi=0;
 
-    n0=new nodeMP0(p0.i, p0.j, 0, 0);
-    n0->updatePriority(p1.i, p1.j);
-    pq[pqi].push(*n0);
+    n0.updatePriority(p1.i, p1.j);
+    pq[pqi].push(n0);
 
     while(!pq[pqi].empty())
     {
-        n0=new nodeMP0( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+        n0=nodeMP0( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
                      pq[pqi].top().getLevel(), pq[pqi].top().getPriority());
 
-        x=n0->getxPos(); y=n0->getyPos();
+        x=n0.getxPos(); y=n0.getyPos();
 
         pq[pqi].pop();
         open_nodes_map[x][y]=0;
+
+        if(closed_nodes_map[x][y]==1)
+            continue;
 
         closed_nodes_map[x][y]=1;
 
@@ -863,9 +863,7 @@ Apath Planner::AstarMP0(PointI p0, PointI p1, int r)
                 y+=dy[j];
             }
 
-            delete n0;
-
-            while(!pq[pqi].empty()) pq[pqi].pop();
+            //while(!pq[pqi].empty()) pq[pqi].pop();
             return path;
         }
 
@@ -879,46 +877,45 @@ Apath Planner::AstarMP0(PointI p0, PointI p1, int r)
                                                    //   && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
                                                    //   && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]]) ))
             {
-                m0=new nodeMP0( xdx, ydy, n0->getLevel(),
-                             n0->getPriority());
-                m0->nextLevel(i);
-                m0->updatePriority(p1.i, p1.j);
+                nodeMP0 m0( xdx, ydy, n0.getLevel(),
+                             n0.getPriority());
+                m0.nextLevel(i);
+                m0.updatePriority(p1.i, p1.j);
 
                 if(open_nodes_map[xdx][ydy]==0)
                 {
-                    open_nodes_map[xdx][ydy]=m0->getPriority();
-                    pq[pqi].push(*m0);
+                    open_nodes_map[xdx][ydy]=m0.getPriority();
+                    pq[pqi].push(m0);
                     dir_map[xdx][ydy]=(i+dir/2)%dir;
                 }
-                else if(open_nodes_map[xdx][ydy]>m0->getPriority())
+                else if(open_nodes_map[xdx][ydy]>m0.getPriority())
                 {
-                    open_nodes_map[xdx][ydy]=m0->getPriority();
+                    open_nodes_map[xdx][ydy]=m0.getPriority();
 
                     dir_map[xdx][ydy]=(i+dir/2)%dir;
 
 
-                    while(!(pq[pqi].top().getxPos()==xdx &&
-                           pq[pqi].top().getyPos()==ydy))
-                    {
-                        pq[1-pqi].push(pq[pqi].top());
-                        pq[pqi].pop();
-                    }
-                    pq[pqi].pop();
+                    //while(!(pq[pqi].top().getxPos()==xdx &&
+                    //       pq[pqi].top().getyPos()==ydy))
+                    //{
+                    //    count++;
+                    //    pq[1-pqi].push(pq[pqi].top());
+                    //    pq[pqi].pop();
+                    //}
+                    //pq[pqi].pop();
 
 
-                    if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
-                    while(!pq[pqi].empty())
-                    {
-                        pq[1-pqi].push(pq[pqi].top());
-                        pq[pqi].pop();
-                    }
-                    pqi=1-pqi;
-                    pq[pqi].push(*m0);
+                    //if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
+                    //while(!pq[pqi].empty())
+                    //{
+                    //    pq[1-pqi].push(pq[pqi].top());
+                    //    pq[pqi].pop();
+                    //}
+                    //pqi=1-pqi;
+                    pq[pqi].push(m0);
                 }
-                else delete m0;
             }
         }
-        delete n0;
     }
     path.cost=-2;
     return path;
@@ -961,19 +958,17 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
         }
     }
 
-    static priority_queue<node<T> > pq[3];
-    static int pqi;
-    static node<T>* n0;
-    static node<T>* m0;
-    static int i, j, x, y, xdx, ydy;
+    priority_queue<node<T> > pq[3];
+    int pqi;
+    node<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, opt, quad);
+    int i, j, x, y, xdx, ydy;
     pqi=0;
 
-    n0=new node<T>(p0.i, p0.j, 0, 0, infl, defl, 0, opt, quad);
-    n0->updatePriority(p1.i, p1.j);
-    n0->updateSensing(p1.i, p1.j);
-    pq[pqi].push(*n0);
+    n0.updatePriority(p1.i, p1.j);
+    n0.updateSensing(p1.i, p1.j);
+    pq[pqi].push(n0);
 
-    int counter=0;
+
 
     while(!pq[pqi].empty() || !pq[2].empty())
     {
@@ -988,17 +983,17 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
         {
 
 
-            n0=new node<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+            n0=node<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
                          pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad);
-            x=n0->getxPos(); y=n0->getyPos();
+            x=n0.getxPos(); y=n0.getyPos();
 
 
             pq[pqi].pop();
 
             //cout<<"From H"<<endl;
 
-            if(n0->getSensing()>=0)
-                if(n0->getPriority()>=n0->getSensing())
+            if(n0.getSensing()>=0)
+                if(n0.getPriority()>=n0.getSensing())
                 {
                     tested=true;
                     if(isGoal(PointI(x,y),p1))
@@ -1011,9 +1006,9 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
             {
 
 
-                n0=new node<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
+                n0=node<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
                              pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad);
-                x=n0->getxPos(); y=n0->getyPos();
+                x=n0.getxPos(); y=n0.getyPos();
 
 
                 pq[2].pop();
@@ -1038,14 +1033,14 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
                 if(!cond)
                 {
-                    n0=new node<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
+                    n0=node<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
                                  pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad);
-                    x=n0->getxPos(); y=n0->getyPos();
+                    x=n0.getxPos(); y=n0.getyPos();
 
 
                     pq[pqi].pop();
-                    if(n0->getSensing()>=0)
-                        if(n0->getPriority()>=n0->getSensing())
+                    if(n0.getSensing()>=0)
+                        if(n0.getPriority()>=n0.getSensing())
                         {
                             tested=true;
                             if(isGoal(PointI(x,y),p1))
@@ -1056,9 +1051,9 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
                 }
                 else
                 {
-                    n0=new node<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
+                    n0=node<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
                                  pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad);
-                    x=n0->getxPos(); y=n0->getyPos();
+                    x=n0.getxPos(); y=n0.getyPos();
 
 
                     pq[2].pop();
@@ -1093,7 +1088,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
         //pq[pqi].pop();
         open_nodes_map[x][y]=0;
 
-        closed_nodes_map[x][y]=1;
+
 
         if(stop)
         {
@@ -1119,12 +1114,9 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
             //cout<<cost_test*k1<<endl;
             path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
-            path.cost=(double)n0->getSensing();
+            path.cost=(double)n0.getSensing();
 
-            delete n0;
 
-            while(!pq[pqi].empty()) pq[pqi].pop();
-            while(!pq[2].empty()) pq[2].pop();
             //cout<<counter<<endl;
             return path;
         }
@@ -1132,6 +1124,11 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
         if(list2)
             continue;
+
+        if(closed_nodes_map[x][y]==1)
+            continue;
+
+        closed_nodes_map[x][y]=1;
 
 
         for(i=0;i<dir;i++)
@@ -1150,63 +1147,61 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
                 {
 
 
-                    m0=new node<T>( xdx, ydy, n0->getLevel(),
-                                 n0->getPriority(), infl, defl, n0->getSensing(), opt, quad);
-                    m0->nextLevel(i);
-                    m0->updatePriority(p1.i, p1.j);
-                    m0->updateSensing(p1.i, p1.j);
+                    node<T> m0=node<T>( xdx, ydy, n0.getLevel(),
+                                 n0.getPriority(), infl, defl, n0.getSensing(), opt, quad);
+                    m0.nextLevel(i);
+                    m0.updatePriority(p1.i, p1.j);
+                    m0.updateSensing(p1.i, p1.j);
 
                     if(open_nodes_map[xdx][ydy]==0)
                     {
-                        open_nodes_map[xdx][ydy]=m0->getPriority();
-                        pq[pqi].push(*m0);
+                        open_nodes_map[xdx][ydy]=m0.getPriority();
+                        pq[pqi].push(m0);
                         dir_map[xdx][ydy]=(i+dir/2)%dir;
 
-                        if(closed_nodes_map[xdx][ydy]==1)
-                            counter++;
                     }
-                    else if(open_nodes_map[xdx][ydy]>m0->getPriority())
+                    else if(open_nodes_map[xdx][ydy]>m0.getPriority())
                     {
-                        open_nodes_map[xdx][ydy]=m0->getPriority();
+                        open_nodes_map[xdx][ydy]=m0.getPriority();
 
                         dir_map[xdx][ydy]=(i+dir/2)%dir;
 
 
-                        while(!(pq[pqi].top().getxPos()==xdx &&
-                               pq[pqi].top().getyPos()==ydy))
-                        {
-                            pq[1-pqi].push(pq[pqi].top());
-                            pq[pqi].pop();
-                        }
-                        pq[pqi].pop();
+                        //while(!(pq[pqi].top().getxPos()==xdx &&
+                        //       pq[pqi].top().getyPos()==ydy))
+                        //{
+                        //    pq[1-pqi].push(pq[pqi].top());
+                        //    pq[pqi].pop();
+                        //}
+                        //pq[pqi].pop();
 
 
-                        if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
-                        while(!pq[pqi].empty())
-                        {
-                            pq[1-pqi].push(pq[pqi].top());
-                            pq[pqi].pop();
-                        }
-                        pqi=1-pqi;
-                        pq[pqi].push(*m0);
+                        //if(pq[pqi].size()>pq[1-pqi].size()) pqi=1-pqi;
+                        //while(!pq[pqi].empty())
+                        //{
+                        //    pq[1-pqi].push(pq[pqi].top());
+                        //    pq[pqi].pop();
+                        //}
+                        //pqi=1-pqi;
+                        pq[pqi].push(m0);
                     }
-                    else delete m0;
+                    //else delete m0;
                 }
             }
         }
 
 
-        if(n0->getSensing()>=0 && !tested)
+        if(n0.getSensing()>=0 && !tested)
         {
-            n0->S2P();
-            pq[2].push(*n0);
+            n0.S2P();
+            pq[2].push(n0);
         }
 
-        delete n0;
+
     }
     path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
     path.cost=-2;
-    cout<<counter<<endl;
+    //cout<<counter<<endl;
 
     return path;
 }
@@ -1252,7 +1247,7 @@ void Planner::plan(void)
         ros::Time t01=ros::Time::now();
 
 
-        for(unsigned int i=goals.size()-1; i<goals.size();i++)//0; i<goals.size();i++)
+        for(unsigned int i=0; i<goals.size();i++)//goals.size()-1; i<goals.size();i++)//
         {
 
             PointI g=convertW2I(goals[i]);
@@ -1270,16 +1265,16 @@ void Planner::plan(void)
                 continue;
             }
 
-            //if(!msg_rcv[2][g.i][g.j])
-            if(!msg_rcv[1][g.i][g.j])
+            if(!msg_rcv[2][g.i][g.j])
+            //if(!msg_rcv[1][g.i][g.j])
             {
                 //clearG();
                 path.cost=-3;
                 continue;
             }
-t01=ros::Time::now();
-            //path=Astar(pi, g,1);
-            path=AstarMP0(pi, g,1);
+//t01=ros::Time::now();
+            path=Astar(pi, g,1);
+            //path=AstarMP0(pi, g,1);
             //cout<<path.cost<<endl;
         }
 
@@ -1322,7 +1317,7 @@ t01=ros::Time::now();
         if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size()))
         {
 
-            for(unsigned int i=(goals.size()-1); i<goals.size();i++)//0; i<goals.size();i++)
+            for(unsigned int i=0; i<goals.size();i++)//(goals.size()-1); i<goals.size();i++)//
             {
 
                 PointI g=convertW2I(goals[i]);
@@ -1340,16 +1335,16 @@ t01=ros::Time::now();
                     continue;
                 }
 
-                //if(!msg_rcv[0][g.i][g.j])
-                if(!msg_rcv[1][g.i][g.j])
+                if(!msg_rcv[0][g.i][g.j])
+                //if(!msg_rcv[1][g.i][g.j])
                 {
                     //clearG();
                     path.cost=-3;
                     continue;
                 }
-t01=ros::Time::now();
-                //path=Astar(pi, g,1, vis_[g.i*msg_rcv[0][0].size()+g.j]);
-                path=AstarMP(pi, g,1);
+//t01=ros::Time::now();
+                path=Astar(pi, g,1, vis_[g.i*msg_rcv[0][0].size()+g.j]);
+                //path=AstarMP(pi, g,1);
                 //cout<<path.cost<<endl;
             }
 
