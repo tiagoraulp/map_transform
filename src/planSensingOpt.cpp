@@ -58,7 +58,9 @@ public:
 
 const float k1=1;
 
-const float k2=2;
+const float k2=0.05;
+
+bool quad=true;
 
 template<typename T>
 class node
@@ -73,6 +75,12 @@ class node
     T priority;  // smaller: higher priority
     T sens;
     float opt;
+    float K;
+
+    float (node::*costEst) (const int x, const int y) const;
+    float (node::*costSens) (const int x, const int y) const;
+
+    bool power;
 
     float costSensing(const int x,const int y) const
     {
@@ -83,12 +91,22 @@ class node
             return k2*sqrt(x*x+y*y);
     }
 
+    float costSensing2(const int x,const int y) const
+    {
+        //return sqrt(x*x+y*y);
+        if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
+            return -2;
+        else
+            return k2*(x*x+y*y);
+    }
+
+
     float costEstimateDist(const float d, const int ss) const
     {
         return d/14.14213562*14;
     }
 
-    float costEstimateDist(const float d, const float ss) const
+    inline float costEstimateDist(const float d, const float ss) const
     {
         return d;
     }
@@ -118,6 +136,49 @@ class node
         }
     }
 
+    float costEstimate2(const int x,const int y) const
+    {
+        //return sqrt(x*x+y*y);
+        if(opt<0)
+        {
+            if(K<defl)
+                if( ( (x)*(x)+(y)*(y) )>=(K*K) )
+                    return k1*costEstimateDist((sqrt(x*x+y*y)-K),sens)+k2*K*K;
+                else
+                    return k2*(x*x+y*y);
+            else
+                if( ( (x)*(x)+(y)*(y) )>=(defl*defl) )
+                    return k1*costEstimateDist((sqrt(x*x+y*y)-defl),sens)+k2*defl*defl;
+                else
+                    return k2*(x*x+y*y);
+        }
+        else
+        {
+            if(K<defl)
+                if( K>opt )
+                    if( ( (x)*(x)+(y)*(y) )>=(K*K) )
+                        return k1*costEstimateDist((sqrt(x*x+y*y)-K),sens)+k2*K*K;
+                    else
+                        if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
+                            return k2*(x*x+y*y);
+                        else
+                            return k2*opt*opt;
+                else
+                    if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
+                        return k1*costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt*opt;
+                    else
+                        return k2*opt*opt;
+            else
+                if( ( (x)*(x)+(y)*(y) )>=(defl*defl) )
+                    return k1*costEstimateDist((sqrt(x*x+y*y)-defl),sens)+k2*defl*defl;
+                else
+                    if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
+                        return k2*(x*x+y*y);
+                    else
+                        return k2*opt*opt;
+        }
+    }
+
     const T & staticCast(const float d) const
     {
         //cout<<d<<endl;
@@ -129,8 +190,23 @@ class node
     }
 
     public:
-        node(int xp, int yp, T d, T p, int inf, int def, T ss, float dist)
-            {xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;sens=ss;opt=dist;}
+        node(int xp, int yp, T d, T p, int inf, int def, T ss, float dist, bool q)
+        {
+            xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;sens=ss;opt=dist;
+            power=q;
+
+            if(power)
+            {
+                costEst=&node::costEstimate2;
+                costSens=&node::costSensing2;
+                K=k1/(2*k2);
+            }
+            else
+            {
+                costEst=&node::costEstimate;
+                costSens=&node::costSensing;
+            }
+        }
 
         int getxPos() const {return xPos;}
         int getyPos() const {return yPos;}
@@ -145,7 +221,7 @@ class node
 
         void updatePriority(const int & xDest, const int & yDest)
         {
-             priority=level+estimate(xDest, yDest)*10; //A*
+             priority=level+estimate(xDest, yDest)*0; //A*
         }
 
         void updateSensing(const int & xDest, const int & yDest)
@@ -155,7 +231,7 @@ class node
             if(ss<0)
                 sens=ss;
             else
-                sens=level+ss*10; //A*
+                sens=level+ss; //A*
             //cout<<sens<<endl;
         }
 
@@ -175,7 +251,7 @@ class node
 
             // Euclidian Distance
             //d=static_cast<int>(costEstimate(xd,yd, infl, defl, opt));
-            d=staticCast(costEstimate(xd,yd));
+            d=staticCast((this->*costEst)(xd,yd)*10.0);
 
 
             // Manhattan distance
@@ -196,7 +272,7 @@ class node
 
             // Euclidian Distance
             //d=static_cast<int>(costSensing(xd,yd, infl, defl, opt));
-            d=staticCast(costSensing(xd,yd));
+            d=staticCast((this->*costSens)(xd,yd)*10.0);
 
             //cout<<d<<endl;
 
@@ -554,7 +630,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
     static int i, j, x, y, xdx, ydy;
     pqi=0;
 
-    n0=new node<T>(p0.i, p0.j, 0, 0, infl, defl, 0, opt);
+    n0=new node<T>(p0.i, p0.j, 0, 0, infl, defl, 0, opt, quad);
     n0->updatePriority(p1.i, p1.j);
     n0->updateSensing(p1.i, p1.j);
     pq[pqi].push(*n0);
@@ -575,7 +651,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
 
             n0=new node<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt);
+                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad);
             x=n0->getxPos(); y=n0->getyPos();
 
 
@@ -584,7 +660,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
             //cout<<"From H"<<endl;
 
             if(n0->getSensing()>=0)
-                if(n0->getPriority()==n0->getSensing())
+                if(n0->getPriority()>=n0->getSensing())
                 {
                     tested=true;
                     if(isGoal(PointI(x,y),p1))
@@ -598,7 +674,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
 
                 n0=new node<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt);
+                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad);
                 x=n0->getxPos(); y=n0->getyPos();
 
 
@@ -625,13 +701,13 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
                 if(!cond)
                 {
                     n0=new node<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt);
+                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad);
                     x=n0->getxPos(); y=n0->getyPos();
 
 
                     pq[pqi].pop();
                     if(n0->getSensing()>=0)
-                        if(n0->getPriority()==n0->getSensing())
+                        if(n0->getPriority()>=n0->getSensing())
                         {
                             tested=true;
                             if(isGoal(PointI(x,y),p1))
@@ -643,7 +719,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
                 else
                 {
                     n0=new node<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt);
+                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad);
                     x=n0->getxPos(); y=n0->getyPos();
 
 
@@ -737,7 +813,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
 
                     m0=new node<T>( xdx, ydy, n0->getLevel(),
-                                 n0->getPriority(), infl, defl, n0->getSensing(), opt);
+                                 n0->getPriority(), infl, defl, n0->getSensing(), opt, quad);
                     m0->nextLevel(i);
                     m0->updatePriority(p1.i, p1.j);
                     m0->updateSensing(p1.i, p1.j);
@@ -846,20 +922,20 @@ void Planner::plan(void)
             if(g.i<0 || g.i>=(int)msg_rcv[0].size())
             {
                 //clearG();
-                path.cost=-2;
+                path.cost=-3;
                 continue;
             }
             if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
             {
                 //clearG();
-                path.cost=-2;
+                path.cost=-3;
                 continue;
             }
 
             if(!msg_rcv[2][g.i][g.j])
             {
                 //clearG();
-                path.cost=-2;
+                path.cost=-3;
                 continue;
             }
 
@@ -879,16 +955,24 @@ void Planner::plan(void)
         {
             //clearG();
 
+            if(path.points.size()!=0)
+                for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+                {
+                    pw.pose.position=convertI2W(path.points[p_i]);
 
-            for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+                    path_0.poses.push_back(pw);
+                }
+            else
             {
-                pw.pose.position=convertI2W(path.points[p_i]);
-
-                path_0.poses.push_back(pw);
+                pw.pose.position=p;
+                path_1.poses.push_back(pw);
             }
-
-
         }
+//        else if(path.cost!=-3)
+//        {
+//            pw.pose.position=p;
+//            path_0.poses.push_back(pw);
+//        }
 
         pub1.publish(path_0);
 
@@ -906,20 +990,20 @@ void Planner::plan(void)
                 if(g.i<0 || g.i>=(int)msg_rcv[0].size())
                 {
                     //clearG();
-                    path.cost=-2;
+                    path.cost=-3;
                     continue;
                 }
                 if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
                 {
                     //clearG();
-                    path.cost=-2;
+                    path.cost=-3;
                     continue;
                 }
 
                 if(!msg_rcv[0][g.i][g.j])
                 {
                     //clearG();
-                    path.cost=-2;
+                    path.cost=-3;
                     continue;
                 }
 
@@ -937,16 +1021,23 @@ void Planner::plan(void)
         {
             //clearG();
 
+            if(path.points.size()!=0)
+                for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+                {
+                    pw.pose.position=convertI2W(path.points[p_i]);
 
-            for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+                    path_1.poses.push_back(pw);
+                }
+            else
             {
-                pw.pose.position=convertI2W(path.points[p_i]);
-
+                pw.pose.position=p;
                 path_1.poses.push_back(pw);
             }
-
-
         }
+//        else if(path.cost!=-3)
+//        {
+
+//        }
 
         pub2.publish(path_1);
 
@@ -1060,7 +1151,7 @@ int main(int argc, char **argv)
 
   ros::Rate loop_rate(10);
 
-  node<float> n0(1,1,0,0,8,80,0,20);
+  node<float> n0(1,1,0,0,8,80,0,20,false);
   n0.nextLevel(1);
   n0.updateSensing(4,4);
   cout<<n0.getxPos()+dx[1]<<" "<<n0.getyPos()+dy[1]<<" "<<n0.getSensing()<<endl;
