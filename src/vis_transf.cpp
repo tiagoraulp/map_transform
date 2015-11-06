@@ -22,7 +22,7 @@ void Vis_transf<T>::callbackParameters(T &config, uint32_t level) {
 }
 
 template <typename T>
-void Vis_transf<T>::update(void)
+void Vis_transf<T>::update(bool opt)
 {
     bool proc=false;
 
@@ -30,7 +30,7 @@ void Vis_transf<T>::update(void)
 
     mtx.lock();
 
-    if(changed_p)
+    if(changed_p || !opt)
     {
         changed_p=false;
         config=_config;
@@ -388,9 +388,9 @@ void Vis_transf<T>::publish(void)
 }
 
 template <typename T>
-void Vis_transf<T>::run(void)
+void Vis_transf<T>::run(bool opt)
 {
-    update();
+    update(!opt);
 
     transf();
 

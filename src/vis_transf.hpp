@@ -46,7 +46,7 @@ protected:
     bool getPos(cv::Point3i&pos);
     bool checkProceed(void);
     bool checkProceed2(void);
-    virtual void update(void);
+    virtual void update(bool);
     virtual void update_config(T config)=0;
     virtual void show(void)=0;
     virtual void publish(void);
@@ -60,7 +60,7 @@ public:
     Vis_transf(ros::NodeHandle nh);
     virtual ~Vis_transf();
 
-    virtual void run(void);
+    virtual void run(bool opt=false);
 };
 
 extern std::mutex mtx;

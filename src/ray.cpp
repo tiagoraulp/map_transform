@@ -148,6 +148,7 @@ void raytracing(cv::Mat* map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest
     raytracing(map, opt, ref, dest, dist_t, &print2Map);
 }
 
+
 bool bf_sq(cv::Mat map, cv::Mat reach, int defl, int i, int j)
 {
     bool stop=false;
@@ -441,6 +442,37 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act)
     return result;
 }
 
+template <typename T2>
+cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis)
+{
+    cv::Mat result=vis.clone();
+
+    vector<cv::Point> reach;
+    reach.clear();
+    reach.push_back(pt);
+
+    for(int i=0;i<vis.rows;i++)//152;i++)//
+    {
+        for(int j=0;j<vis.cols;j++)//117;j++)//
+        {
+            //if(j<50 || i<60)
+            //    ;
+            //else
+            //    continue;
+            //cout<<i<<" "<<j<<endl;
+            if(vis.at<uchar>(i,j)==0)
+                continue;
+
+            if(bf_sq( map, reach , defl, i, j) )
+                    continue;
+
+            result.at<uchar>(i,j)=0;
+        }
+    }
+
+    return result;
+}
+
 float coverage(cv::Mat test, cv::Mat truth)
 {
     if(test.size!=truth.size)
@@ -516,6 +548,7 @@ vector<int> confusion_matrix(cv::Mat test, cv::Mat truth)
     return result;
 }
 
+template cv::Mat bf_pt<int>(cv::Mat map, cv::Point pt, int defl, cv::Mat vis);
 template cv::Mat brute_force<cv::Mat, int>(cv::Mat map, cv::Mat reach, int defl, bool opt, cv::Mat act);
 template cv::Mat brute_force<vector<cv::Mat>, Elem>(cv::Mat map, vector<cv::Mat> reach, Elem defl, bool opt, cv::Mat act);
 template cv::Mat brute_force<vector<cv::Point>, int>(cv::Mat map, vector<cv::Point> reach, int defl, bool opt, cv::Mat act);

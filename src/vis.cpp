@@ -18,6 +18,10 @@ int main(int argc, char **argv)
 
         vis.run();
 
+        vis.optT(false);
+
+        vis.run();
+
         loop_rate.sleep();
     }
 

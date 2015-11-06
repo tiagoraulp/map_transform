@@ -36,6 +36,8 @@ void VisC_transf::update_config(map_transform::ParametersConfig config)
     gt=config.ground_truth;
     rxr=config.x;
     ryr=config.y;
+
+    opt=true;
 }
 
 
@@ -45,6 +47,8 @@ VisC_transf::VisC_transf(ros::NodeHandle nh): Vis_transf(nh)
     nh_.param("defl", defl, infl);
 
     graph_publisher = nh_.advertise<map_transform::VisCom>("graph", 10,true);
+
+    opt=true;
 }
 
 void VisC_transf::publish(void)
@@ -346,6 +350,16 @@ bool VisC_transf::valid_pos(cv::Point3i pos)
     return value;
 }
 
+void VisC_transf::optT(bool val)
+{
+    if(opt)
+    {
+        update(val);
+        opt=val;
+    }
+}
+
+
 void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 {
     cv::Mat r_map=map_erosionOp.clone();
@@ -371,7 +385,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         if(infl<defl)  //extended sensing radius
         {
-            vis_map=ext_vis(unreach, vis_map, r_map);
+            vis_map=ext_vis(unreach, vis_map, r_map, opt);
         }
 
         map_label=r_map;
@@ -552,7 +566,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
     }
 }
 
-cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map)
+cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map, bool optRay)
 {
     unreach.getFrontiers();
 
@@ -582,40 +596,77 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
                 vector<cv::Point> occ=expVisibility_obs(crit, defl, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
 
-                vector<cv::Point> occ_crit_filt=getExtremeFromObstacles(occ, crit);
-
-                for(unsigned int c=0;c<occ_crit_filt.size();c++)
+                if(optRay)
                 {
-                    raytracing(&vis_map_temp, cv::Point2i(crit.x,crit.y), occ_crit_filt[c], occ_crit_filt[c], defl);
-                }
+                    vector<cv::Point> occ_crit_filt=getExtremeFromObstacles(occ, crit);
 
-//                if(k==1)
-//                {
-//                cv::imshow("Ray",vis_map_temp);
-//                cv::waitKey(3);
-//                }
-
-                for(unsigned int j=0;j<frontier.size();j++){
-                    if(vis_map_temp.at<uchar>( frontier[j].x,frontier[j].y)==255)
+                    for(unsigned int c=0;c<occ_crit_filt.size();c++)
                     {
-                        std::vector<cv::Point> points_vis=label_seed(vis_map_temp.clone()/255,4,cv::Point(frontier[j].x,frontier[j].y));
-                        for(unsigned int pv=0;pv<points_vis.size();pv++)
+                        raytracing(&vis_map_temp, cv::Point2i(crit.x,crit.y), occ_crit_filt[c], occ_crit_filt[c], defl);
+                    }
+
+    //                if(k==1)
+    //                {
+    //                cv::imshow("Ray",vis_map_temp);
+    //                cv::waitKey(3);
+    //                }
+
+                    for(unsigned int j=0;j<frontier.size();j++){
+                        if(vis_map_temp.at<uchar>( frontier[j].x,frontier[j].y)==255)
                         {
-                            vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
-                            geometry_msgs::Pose pcp;
-                            pcp.position.x=points_vis[pv].x-critP.getCrit().x;
-                            pcp.position.y=points_vis[pv].y-critP.getCrit().y;
-                            float diff=sqrt(pcp.position.x*pcp.position.x+pcp.position.y*pcp.position.y);
-                            if(vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]<0)
-                                vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=diff;
-                            else
-                                vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=min(vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y],diff);//points.push_back(pcp);
+                            std::vector<cv::Point> points_vis=label_seed(vis_map_temp.clone()/255,4,cv::Point(frontier[j].x,frontier[j].y));
+                            for(unsigned int pv=0;pv<points_vis.size();pv++)
+                            {
+                                vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
+
+                                geometry_msgs::Pose pcp;
+                                pcp.position.x=points_vis[pv].x-critP.getCrit().x;
+                                pcp.position.y=points_vis[pv].y-critP.getCrit().y;
+                                float diff=sqrt(pcp.position.x*pcp.position.x+pcp.position.y*pcp.position.y);
+                                if(vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]<0)
+                                    vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=diff;
+                                else
+                                    vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=min(vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y],diff);//points.push_back(pcp);
+                            }
+                            break;
                         }
-                        break;
+                    }
+                }
+                else
+                {
+                    vis_map_temp=bf_pt(map_or, critP.getCrit(), defl, vis_map_temp);
+
+                    for(int xx=0;xx<vis_map_temp.rows;xx++)
+                    {
+                        for(int yy=0;yy<vis_map_temp.cols;yy++)
+                        {
+                            if(vis_map_temp.at<uchar>(xx,yy)==255)
+                            {
+                                vis_map.at<uchar>(xx,yy)=255;
+
+                                geometry_msgs::Pose pcp;
+                                pcp.position.x=xx-critP.getCrit().x;
+                                pcp.position.y=yy-critP.getCrit().y;
+                                float diff=sqrt(pcp.position.x*pcp.position.x+pcp.position.y*pcp.position.y);
+                                if(vis_[xx*vis_map.cols+yy]<0)
+                                    vis_[xx*vis_map.cols+yy]=diff;
+                                else
+                                    vis_[xx*vis_map.cols+yy]=min(vis_[xx*vis_map.cols+yy],diff);//points.push_back(pcp);
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+
+    if(opt)
+    {
+        ROS_INFO("Optimized");
+    }
+    else
+    {
+        ROS_INFO("Ray Casting");
     }
 
     return vis_map;
