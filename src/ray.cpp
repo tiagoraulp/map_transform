@@ -1,11 +1,16 @@
 #include "ray.hpp"
-
+#include <iostream>
+#include <opencv2/highgui/highgui.hpp>
 #include <cmath>
 
 using namespace std;
 
-bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest, float dist_t, bool (*func)(cv::Mat *,cv::Point2i,cv::Point2i))
+bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest, float dist_t, bool (*func)(cv::Mat *,cv::Point2i,cv::Point2i),  cv::Mat & test_pt)
 {
+    bool boost=true;
+    if(test_pt.rows!=map->rows && test_pt.cols!=map->cols)
+        boost=false;
+
     float angle=atan2(dest.y-opt.y, dest.x-opt.x);
 
     float cos_ang=cos(angle);
@@ -57,6 +62,9 @@ bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest
 
         if(!(*func)(map, cv::Point2i(p_x,p_y), cv::Point2i(prev_px,prev_py)))
             return false;
+
+        if(boost)
+            test_pt.at<uchar>(p_x,p_y)=0;
 
         tempx=tempx+temp*cos_ang;
         tempy=tempy+temp*sin_ang;
@@ -128,28 +136,35 @@ bool print2Map(cv::Mat *map, cv::Point2i p, cv::Point2i prev)//, cv::Point2i pre
     return true;
 }
 
-bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y)
+bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y, cv::Mat & test_pt)
 {
     float dist_t=sqrt( (dest_x-opt_x)*(dest_x-opt_x)+(dest_y-opt_y)*(dest_y-opt_y) );
-    return raytracing(&map, cv::Point2i(opt_x,opt_y), cv::Point2i(opt_x,opt_y), cv::Point2i(dest_x,dest_y), dist_t, &checkMap);
+    return raytracing(&map, cv::Point2i(opt_x,opt_y), cv::Point2i(opt_x,opt_y), cv::Point2i(dest_x,dest_y), dist_t, &checkMap, test_pt);
 }
 
-bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y, bool t)
+bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y, bool t, cv::Mat & test_pt)
 {
     float dist_t=sqrt( (dest_x-opt_x)*(dest_x-opt_x)+(dest_y-opt_y)*(dest_y-opt_y) );
     if(opt_x<map.rows && opt_x>=0 && opt_y<map.cols && opt_y>=0 && dest_x<map.rows && dest_x>=0 && dest_y<map.cols && dest_y>=0)
-        return raytracing(&map, cv::Point2i(opt_x,opt_y), cv::Point2i(opt_x,opt_y), cv::Point2i(dest_x,dest_y), dist_t, &checkMap);
+        return raytracing(&map, cv::Point2i(opt_x,opt_y), cv::Point2i(opt_x,opt_y), cv::Point2i(dest_x,dest_y), dist_t, &checkMap, test_pt);
     else
         return false;
 }
 
+bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y, bool t)
+{
+    cv::Mat temp=cv::Mat(0,0,CV_8UC1);
+    return raytracing(map, opt_x, opt_y, dest_x, dest_y, temp);
+}
+
 void raytracing(cv::Mat* map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest, float dist_t)
 {
-    raytracing(map, opt, ref, dest, dist_t, &print2Map);
+    cv::Mat temp=cv::Mat(0,0,CV_8UC1);
+    raytracing(map, opt, ref, dest, dist_t, &print2Map, temp);
 }
 
 
-bool bf_sq(cv::Mat map, cv::Mat reach, int defl, int i, int j)
+bool bf_sq(cv::Mat map, cv::Mat reach, int defl, int i, int j, cv::Mat & test_pt)
 {
     bool stop=false;
 
@@ -161,7 +176,7 @@ bool bf_sq(cv::Mat map, cv::Mat reach, int defl, int i, int j)
                 continue;
             if(reach.at<uchar>(ii,jj)==0)
                 continue;
-            if( raytracing(map,ii,jj,i,j) )
+            if( raytracing(map,ii,jj,i,j,test_pt) )
             {
                 stop=true;
                 break;
@@ -174,7 +189,7 @@ bool bf_sq(cv::Mat map, cv::Mat reach, int defl, int i, int j)
     return stop;
 }
 
-bool bf_sq(cv::Mat map, vector<cv::Mat> reach, Elem sensor, int i, int j)
+bool bf_sq(cv::Mat map, vector<cv::Mat> reach, Elem sensor, int i, int j, cv::Mat & test_pt)
 {
     bool stop=false;
 
@@ -195,7 +210,7 @@ bool bf_sq(cv::Mat map, vector<cv::Mat> reach, Elem sensor, int i, int j)
                     }
                     else
                     {
-                        if( raytracing(map,ii-sensor.pu+sensor.pt2[a].x-sensor.pt.x,jj-sensor.pl+sensor.pt2[a].y-sensor.pt.y,i,j, true) )
+                        if( raytracing(map,ii-sensor.pu+sensor.pt2[a].x-sensor.pt.x,jj-sensor.pl+sensor.pt2[a].y-sensor.pt.y,i,j, true,test_pt) )
                         {
                             stop=true;
                             break;
@@ -217,7 +232,7 @@ bool bf_sq(cv::Mat map, vector<cv::Mat> reach, Elem sensor, int i, int j)
     return stop;
 }
 
-bool bfo(cv::Mat map, cv::Mat reach, int defl, int i, int j, vector<cv::Point> hlx)
+bool bfo(cv::Mat map, cv::Mat reach, int defl, int i, int j, vector<cv::Point> hlx, cv::Mat & test_pt)
 {
     for(unsigned int r=0; r<hlx.size(); r++)
     {
@@ -235,7 +250,7 @@ bool bfo(cv::Mat map, cv::Mat reach, int defl, int i, int j, vector<cv::Point> h
             }
             else
             {
-                if( raytracing(map,ii,jj,i,j) )
+                if( raytracing(map,ii,jj,i,j,test_pt) )
                 {
                     return true;
                 }
@@ -246,7 +261,7 @@ bool bfo(cv::Mat map, cv::Mat reach, int defl, int i, int j, vector<cv::Point> h
     return false;
 }
 
-bool bfo(cv::Mat map, vector<cv::Mat> reach, Elem sensor, int i, int j, vector<cv::Point> hlx)
+bool bfo(cv::Mat map, vector<cv::Mat> reach, Elem sensor, int i, int j, vector<cv::Point> hlx, cv::Mat & test_pt)
 {
     for(unsigned int r=0; r<hlx.size(); r++)
     {
@@ -270,7 +285,7 @@ bool bfo(cv::Mat map, vector<cv::Mat> reach, Elem sensor, int i, int j, vector<c
                         }
                         else
                         {
-                            if( raytracing(map,ii+sensor.pt2[a].x-sensor.pt.x,jj+sensor.pt2[a].y-sensor.pt.y,i,j, true) )
+                            if( raytracing(map,ii+sensor.pt2[a].x-sensor.pt.x,jj+sensor.pt2[a].y-sensor.pt.y,i,j, true,test_pt) )
                             {
                                 return true;
                             }
@@ -288,7 +303,7 @@ bool bfo(cv::Mat map, vector<cv::Mat> reach, Elem sensor, int i, int j, vector<c
     return false;
 }
 
-bool bf_sq(cv::Mat map, vector<cv::Point> reach, int defl, int i, int j)
+bool bf_sq(cv::Mat map, vector<cv::Point> reach, int defl, int i, int j, cv::Mat & test_pt)
 {
     for(unsigned int r=0; r<reach.size(); r++)
     {
@@ -299,7 +314,7 @@ bool bf_sq(cv::Mat map, vector<cv::Point> reach, int defl, int i, int j)
             continue;
         else
         {
-            if( raytracing(map,ii,jj,i,j) )
+            if( raytracing(map,ii,jj,i,j,test_pt) )
             {
                 return true;
             }
@@ -309,13 +324,13 @@ bool bf_sq(cv::Mat map, vector<cv::Point> reach, int defl, int i, int j)
     return false;
 }
 
-bool bfo(cv::Mat map, vector<cv::Point> reach, int defl, int i, int j, vector<cv::Point> hlx)
+bool bfo(cv::Mat map, vector<cv::Point> reach, int defl, int i, int j, vector<cv::Point> hlx, cv::Mat & test_pt)
 {
-    return bf_sq(map, reach, defl, i, j);
+    return bf_sq(map, reach, defl, i, j, test_pt);
 }
 
 
-bool bf_sq(cv::Mat map, vector<cv::Point3i> reach, Elem sensor, int i, int j)
+bool bf_sq(cv::Mat map, vector<cv::Point3i> reach, Elem sensor, int i, int j, cv::Mat & test_pt)
 {
     for(unsigned int r=0; r<reach.size(); r++)
     {
@@ -331,7 +346,7 @@ bool bf_sq(cv::Mat map, vector<cv::Point3i> reach, Elem sensor, int i, int j)
             }
             else
             {
-                if( raytracing(map,ii-sensor.pu+sensor.pt2[a].x-sensor.pt.x,jj-sensor.pl+sensor.pt2[a].y-sensor.pt.y,i,j, true) )
+                if( raytracing(map,ii-sensor.pu+sensor.pt2[a].x-sensor.pt.x,jj-sensor.pl+sensor.pt2[a].y-sensor.pt.y,i,j, true,test_pt) )
                 {
                     return true;
                 }
@@ -346,9 +361,9 @@ bool bf_sq(cv::Mat map, vector<cv::Point3i> reach, Elem sensor, int i, int j)
     return false;
 }
 
-bool bfo(cv::Mat map, vector<cv::Point3i> reach, Elem sensor, int i, int j, vector<cv::Point> hlx)
+bool bfo(cv::Mat map, vector<cv::Point3i> reach, Elem sensor, int i, int j, vector<cv::Point> hlx, cv::Mat & test_pt)
 {
-    return bf_sq(map, reach, sensor, i, j);
+    return bf_sq(map, reach, sensor, i, j, test_pt);
 }
 
 vector<cv::Point> bf_hlx(int defl)
@@ -388,9 +403,12 @@ vector<cv::Point> bf_hlx(Elem sensor)
 }
 
 template <typename T, typename T2>
-cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act)
+cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool opt_rep)
 {
     cv::Mat result=map.clone();
+    long int count=0;
+
+    cv::Mat test_points=cv::Mat::ones(map.rows, map.cols, CV_8UC1)*255, test_pt_temp=cv::Mat(0,0,CV_8UC1), test_pt_temp2=cv::Mat::ones(map.rows, map.cols, CV_8UC1)*255;
 
     bool act_test;
 
@@ -414,6 +432,7 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act)
             //else
             //    continue;
             //cout<<i<<" "<<j<<endl;
+
             if(map.at<uchar>(i,j)==0)
                 continue;
 
@@ -423,29 +442,67 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act)
                     continue;
             }
 
+            if(opt_rep)
+            {
+                if(test_points.at<uchar>(i,j)!=255)
+                {
+                    test_pt_temp2.at<uchar>(i,j)=0;
+                    count++;
+                    continue;
+                }
+            }
+
+            bool found=false;
+
+            if(opt_rep)
+            {
+                test_pt_temp=test_points.clone();
+            }
+
             if(opt)
             {
-                if(bfo( map, reach, defl, i, j, hlx ) )
-                    continue;
+                if(bfo( map, reach, defl, i, j, hlx, test_pt_temp ) )
+                    found=true;
             }
             else
             {
-                if(bf_sq( map, reach, defl, i, j) )
-                    continue;
+                if(bf_sq( map, reach, defl, i, j, test_pt_temp) )
+                    found=true;
             }
 
+            if(found)
+            {
+                if(opt_rep)
+                {
+                    test_points=test_pt_temp.clone();
+                }
+                continue;
+            }
 
             result.at<uchar>(i,j)=0;
         }
     }
+cout<<count<<endl;
 
+
+cv::imshow("Test temp 1",test_pt_temp);
+cv::waitKey(10);
+
+cv::imshow("Test temp 2",test_pt_temp2);
+cv::waitKey(10);
+
+
+cv::imshow("Test pt",test_points);
+cv::waitKey(10);
     return result;
 }
 
 template <typename T2>
-cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis)
+cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis, bool opt_rep)
 {
     cv::Mat result=vis.clone();
+
+    cv::Mat test_points=cv::Mat::ones(map.rows, map.cols, CV_8UC1)*255, test_pt_temp;
 
     vector<cv::Point> reach;
     reach.clear();
@@ -460,15 +517,42 @@ cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis)
             //else
             //    continue;
             //cout<<i<<" "<<j<<endl;
+
             if(vis.at<uchar>(i,j)==0)
                 continue;
 
-            if(bf_sq( map, reach , defl, i, j) )
+            bool found=false;
+
+            if(opt_rep)
+            {
+                if(test_points.at<uchar>(i,j)!=255)
+                {
                     continue;
+                }
+            }
+
+            if(opt_rep)
+            {
+                test_pt_temp=test_points.clone();
+            }
+
+            if(bf_sq( map, reach , defl, i, j, test_pt_temp) )
+                found=true;
+
+            if(found)
+            {
+                if(opt_rep)
+                {
+                    test_points=test_pt_temp.clone();
+                }
+                continue;
+            }
 
             result.at<uchar>(i,j)=0;
         }
     }
+
+
 
     return result;
 }
@@ -548,8 +632,8 @@ vector<int> confusion_matrix(cv::Mat test, cv::Mat truth)
     return result;
 }
 
-template cv::Mat bf_pt<int>(cv::Mat map, cv::Point pt, int defl, cv::Mat vis);
-template cv::Mat brute_force<cv::Mat, int>(cv::Mat map, cv::Mat reach, int defl, bool opt, cv::Mat act);
-template cv::Mat brute_force<vector<cv::Mat>, Elem>(cv::Mat map, vector<cv::Mat> reach, Elem defl, bool opt, cv::Mat act);
-template cv::Mat brute_force<vector<cv::Point>, int>(cv::Mat map, vector<cv::Point> reach, int defl, bool opt, cv::Mat act);
-template cv::Mat brute_force<vector<cv::Point3i>, Elem>(cv::Mat map, vector<cv::Point3i> reach, Elem defl, bool opt, cv::Mat act);
+template cv::Mat bf_pt<int>(cv::Mat map, cv::Point pt, int defl, cv::Mat vis, bool opt_rep);
+template cv::Mat brute_force<cv::Mat, int>(cv::Mat map, cv::Mat reach, int defl, bool opt, cv::Mat act, bool opt_rep);
+template cv::Mat brute_force<vector<cv::Mat>, Elem>(cv::Mat map, vector<cv::Mat> reach, Elem defl, bool opt, cv::Mat act, bool opt_rep);
+template cv::Mat brute_force<vector<cv::Point>, int>(cv::Mat map, vector<cv::Point> reach, int defl, bool opt, cv::Mat act, bool opt_rep);
+template cv::Mat brute_force<vector<cv::Point3i>, Elem>(cv::Mat map, vector<cv::Point3i> reach, Elem defl, bool opt, cv::Mat act, bool opt_rep);
