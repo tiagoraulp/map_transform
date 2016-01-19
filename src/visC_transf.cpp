@@ -352,7 +352,7 @@ bool VisC_transf::valid_pos(cv::Point3i pos)
 
 void VisC_transf::optT(bool val)
 {
-    if(opt)
+    if(opt && count>0 && resCS)
     {
         update(val);
         opt=val;
@@ -459,6 +459,17 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             ros::Time t3;
 
+
+            vector<cv::Point> labels_gt=label_seed(map_or.clone()/255,4,cv::Point(pos.x,pos.y));
+
+            cv::Mat eff_gt=cv::Mat::zeros(map_or.rows,map_or.cols, CV_8UC1);
+
+            for(unsigned int j=0;j<labels_gt.size();j++){
+                   eff_gt.at<uchar>(labels_gt[j].x,labels_gt[j].y)=255;
+            }
+
+            map_debug=eff_gt.clone();
+
 //            t3=ros::Time::now();
 
 //            map_truth=brute_force(map_or, map_label,defl, true, map_act);
@@ -513,7 +524,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             t3=ros::Time::now();
 
-            map_truth=brute_force(map_or, reach_list,defl, false, map_act,true);
+            map_truth=brute_force(eff_gt, reach_list,defl, false, map_act,true);
 
             diff = ros::Time::now() - t3;
 
@@ -634,7 +645,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                 }
                 else
                 {
-                    vis_map_temp=bf_pt(map_or, critP.getCrit(), defl, vis_map_temp);
+                    vis_map_temp=bf_pt(map_or, critP.getCrit(), defl, vis_map_temp, true);
 
                     for(int xx=0;xx<vis_map_temp.rows;xx++)
                     {

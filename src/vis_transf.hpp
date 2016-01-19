@@ -60,7 +60,7 @@ public:
     Vis_transf(ros::NodeHandle nh);
     virtual ~Vis_transf();
 
-    virtual void run(bool opt=false);
+    virtual void run(bool _opt=false);
 };
 
 extern std::mutex mtx;

@@ -1,6 +1,4 @@
 #include "ray.hpp"
-#include <iostream>
-#include <opencv2/highgui/highgui.hpp>
 #include <cmath>
 
 using namespace std;
@@ -406,7 +404,6 @@ template <typename T, typename T2>
 cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool opt_rep)
 {
     cv::Mat result=map.clone();
-    long int count=0;
 
     cv::Mat test_points=cv::Mat::ones(map.rows, map.cols, CV_8UC1)*255, test_pt_temp=cv::Mat(0,0,CV_8UC1), test_pt_temp2=cv::Mat::ones(map.rows, map.cols, CV_8UC1)*255;
 
@@ -447,7 +444,6 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool o
                 if(test_points.at<uchar>(i,j)!=255)
                 {
                     test_pt_temp2.at<uchar>(i,j)=0;
-                    count++;
                     continue;
                 }
             }
@@ -482,18 +478,7 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool o
             result.at<uchar>(i,j)=0;
         }
     }
-cout<<count<<endl;
 
-
-cv::imshow("Test temp 1",test_pt_temp);
-cv::waitKey(10);
-
-cv::imshow("Test temp 2",test_pt_temp2);
-cv::waitKey(10);
-
-
-cv::imshow("Test pt",test_points);
-cv::waitKey(10);
     return result;
 }
 
@@ -551,8 +536,6 @@ cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis, bool opt_rep)
             result.at<uchar>(i,j)=0;
         }
     }
-
-
 
     return result;
 }
