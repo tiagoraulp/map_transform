@@ -968,6 +968,8 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
     n0.updateSensing(p1.i, p1.j);
     pq[pqi].push(n0);
 
+    static long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
+
 
 
     while(!pq[pqi].empty() || !pq[2].empty())
@@ -995,6 +997,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
             if(n0.getSensing()>=0)
                 if(n0.getPriority()>=n0.getSensing())
                 {
+                    tested_goal++;
                     tested=true;
                     if(isGoal(PointI(x,y),p1))
                         stop=true;
@@ -1012,6 +1015,8 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
 
                 pq[2].pop();
+
+                tested_goal++;
 
                 list2=true;
 
@@ -1042,6 +1047,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
                     if(n0.getSensing()>=0)
                         if(n0.getPriority()>=n0.getSensing())
                         {
+                            tested_goal++;
                             tested=true;
                             if(isGoal(PointI(x,y),p1))
                                 stop=true;
@@ -1060,6 +1066,8 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
                     list2=true;
 
+                    tested_goal++;
+
                     if(isGoal(PointI(x,y),p1))
                         stop=true;
 
@@ -1068,6 +1076,13 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
                 }
             }
         }
+        if(list2)
+            exp_nodes_r++;
+        else
+            exp_nodes++;
+
+
+
         //cout<<x<<"; "<<y<<"; "<<pq[0].size()<<"; "<<pq[1].size()<<"; "<<pq[2].size()<<endl;
 
         //if(pq[1].size()>1000000 || pq[0].size()>1000000)
@@ -1116,6 +1131,17 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
             path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
             path.cost=(double)n0.getSensing();
 
+            if(opt==-5)
+            {
+                exp_nodes=0; exp_nodes_r=0, tested_goal=0;
+            }
+
+
+            cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
+
+            cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
+
+            cout<<"Goal Tested nodes: "<<tested_goal<<endl;
 
             //cout<<counter<<endl;
             return path;
@@ -1203,6 +1229,18 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
     path.cost=-2;
     //cout<<counter<<endl;
 
+    if(opt==-5)
+    {
+        exp_nodes=0; exp_nodes_r=0, tested_goal=0;
+    }
+
+
+    cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
+
+    cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
+
+    cout<<"Goal Tested nodes: "<<tested_goal<<endl;
+
     return path;
 }
 
@@ -1243,6 +1281,7 @@ void Planner::plan(void)
         Apath path;
 
 
+        path=Astar(pi, convertW2I(goals[0]),1,-5);
 
         ros::Time t01=ros::Time::now();
 
@@ -1278,9 +1317,12 @@ void Planner::plan(void)
             //cout<<path.cost<<endl;
         }
 
+
         ros::Duration diff = ros::Time::now() - t01;
 
-        ROS_INFO("Time GT: %f; Cost: %f",diff.toSec(),path.cost);
+        ROS_INFO("Time PA: %f; Cost: %f",diff.toSec(),path.cost);
+
+        path=Astar(pi, convertW2I(goals[0]),1,-5);
 
         path_0.poses.clear();
 
@@ -1350,7 +1392,7 @@ void Planner::plan(void)
 
             diff = ros::Time::now() - t01;
 
-            ROS_INFO("Time RDVM: %f; Cost: %f",diff.toSec(),path.cost);
+            ROS_INFO("Time PA-RDVM: %f; Cost: %f",diff.toSec(),path.cost);
         }
 
 
