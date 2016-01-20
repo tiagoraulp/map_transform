@@ -443,6 +443,12 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         if(gt)
         {
+            ////////////////////////////
+
+            ros::Time t3;
+
+            t3=ros::Time::now();
+
             vector<cv::Point> reach_list;
             reach_list.clear();
 
@@ -454,11 +460,6 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
                         reach_list.push_back(cv::Point(i,j));
                 }
             }
-
-            ////////////////////////////
-
-            ros::Time t3;
-
 
             vector<cv::Point> labels_gt=label_seed(map_or.clone()/255,4,cv::Point(pos.x,pos.y));
 
@@ -522,9 +523,9 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
 //            ////////////////////////////
 
-            t3=ros::Time::now();
+            //t3=ros::Time::now();
 
-            map_truth=brute_force(eff_gt, reach_list,defl, false, map_act,true);
+            map_truth=brute_force(eff_gt, reach_list,defl, false, map_act,true, true);
 
             diff = ros::Time::now() - t3;
 
@@ -645,7 +646,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                 }
                 else
                 {
-                    vis_map_temp=bf_pt(map_or, critP.getCrit(), defl, vis_map_temp, true);
+                    vis_map_temp=bf_pt(map_or, critP.getCrit(), defl, vis_map_temp, true, true);
 
                     for(int xx=0;xx<vis_map_temp.rows;xx++)
                     {
