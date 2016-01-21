@@ -5,11 +5,11 @@ using namespace std;
 
 bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest, float dist_t, bool (*func)(cv::Mat *,cv::Point2i,cv::Point2i),  cv::Mat & test_pt, vector<cv::Point> & list)
 {
-    bool boost=true, boost2=true;
+    bool boost=true, boost_list=true;
     if(test_pt.rows!=map->rows && test_pt.cols!=map->cols)
         boost=false;
     if(list.size()!=1)
-        boost=false;
+        boost_list=false;
 
     float angle=atan2(dest.y-opt.y, dest.x-opt.x);
 
@@ -66,7 +66,7 @@ bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest
         if(boost)
             test_pt.at<uchar>(p_x,p_y)=0;
 
-        if(boost2)
+        if(boost_list)
             list.push_back(cv::Point(p_x,p_y));
 
         tempx=tempx+temp*cos_ang;
@@ -407,6 +407,16 @@ vector<cv::Point> bf_hlx(Elem sensor)
     return bf_hlx(sensor.pb);
 }
 
+void vector_reserve(vector<cv::Point> & list, int defl)
+{
+    list.reserve(2*defl);
+}
+
+void vector_reserve(vector<cv::Point> & list, Elem sensor)
+{
+    vector_reserve(list, 2*sensor.pb);
+}
+
 template <typename T, typename T2>
 cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool opt_rep, bool opt_repM)
 {
@@ -463,7 +473,6 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool o
             if(opt_repM)
             {
                 pt_vis_list.assign(1, cv::Point(i,j));
-
             }
 
             if(opt_rep)
@@ -515,7 +524,7 @@ cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis, bool opt_rep, boo
 {
     cv::Mat result=vis.clone();
 
-    cv::Mat test_points=cv::Mat::ones(map.rows, map.cols, CV_8UC1)*255, test_pt_temp;
+    cv::Mat test_points=cv::Mat::ones(map.rows, map.cols, CV_8UC1)*255, test_pt_temp=cv::Mat(0,0,CV_8UC1);
 
     if(opt_repM)
         opt_rep=false;

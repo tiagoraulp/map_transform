@@ -526,6 +526,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             //t3=ros::Time::now();
 
             map_truth=brute_force(eff_gt, reach_list,defl, false, map_act,true, true);
+            //map_truth=brute_force(map_or, reach_list,defl, false, map_act,true, true);
 
             diff = ros::Time::now() - t3;
 
