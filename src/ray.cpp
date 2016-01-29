@@ -1,6 +1,8 @@
 #include "ray.hpp"
 #include <cmath>
 
+#include <iostream>
+
 using namespace std;
 
 bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest, float dist_t, bool (*func)(cv::Mat *,cv::Point2i,cv::Point2i),  cv::Mat & test_pt, vector<cv::Point> & list)
@@ -321,6 +323,8 @@ bool bf_sq(cv::Mat map, vector<cv::Point> reach, int defl, int i, int j, cv::Mat
         {
             if( raytracing(map,ii,jj,i,j,test_pt, list) )
             {
+                if(i==1 && j==1)
+                    cout<<"From: "<<ii<<"; "<<jj<<endl;
                 return true;
             }
         }

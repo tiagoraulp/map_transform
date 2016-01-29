@@ -165,7 +165,7 @@ bool VisC_transf::conf_space(void)
     or_map=cv_map.clone();
     msg_rcv_pub=msg_rcv;
 
-    cv::erode( or_map, er_map, element);
+    cv::erode( or_map, er_map, element);//,cv::Point(-1,-1),1,cv::BORDER_CONSTANT,0);//cv::morphologyDefaultBorderValue());
     cv::dilate( er_map, cr_map, element_d);
 
     map_or=or_map;
@@ -647,6 +647,8 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                 }
                 else
                 {
+                    if(critP.getCrit().x==0 && critP.getCrit().y==0)
+                        cout<<"Here"<<endl;
                     vis_map_temp=bf_pt(map_or, critP.getCrit(), defl, vis_map_temp, true, true);
 
                     for(int xx=0;xx<vis_map_temp.rows;xx++)

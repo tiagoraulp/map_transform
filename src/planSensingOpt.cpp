@@ -62,6 +62,11 @@ const float k2=0.05;
 
 bool quad=true;
 
+//const float k2=1;
+
+//bool quad=false;
+
+
 template<typename T>
 class node
 {
@@ -76,6 +81,7 @@ class node
     T sens;
     float opt;
     float K;
+    bool bfs;
 
     float (node::*costEst) (const int x, const int y) const;
     float (node::*costSens) (const int x, const int y) const;
@@ -190,10 +196,11 @@ class node
     }
 
     public:
-        node(int xp, int yp, T d, T p, int inf, int def, T ss, float dist, bool q)
+        node(int xp, int yp, T d, T p, int inf, int def, T ss, float dist, bool q, bool bfs_=false)
         {
             xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;sens=ss;opt=dist;
             power=q;
+            bfs=bfs_;
 
             if(power)
             {
@@ -221,7 +228,14 @@ class node
 
         void updatePriority(const int & xDest, const int & yDest)
         {
+
+            if(!bfs)
              priority=level+estimate(xDest, yDest)*1; //A*
+            else
+                priority=level; //A*
+
+
+            //cout<<"Test bfs: "<<bfs<<"; "<<priority-level<<endl;
         }
 
         void updateSensing(const int & xDest, const int & yDest)
@@ -473,7 +487,7 @@ private:
     geometry_msgs::Point convertI2W(PointI p);
 
     template <typename T=float>
-    Apath Astar(PointI p0, PointI p1, int r,   float opt=-3);
+    Apath Astar(PointI p0, PointI p1, int r,   float opt=-3, bool bfs=false);
 
     Apath AstarMP(PointI p0, PointI p1, int r);
     Apath AstarMP0(PointI p0, PointI p1, int r);
@@ -833,8 +847,12 @@ Apath Planner::AstarMP0(PointI p0, PointI p1, int r)
     n0.updatePriority(p1.i, p1.j);
     pq[pqi].push(n0);
 
+    long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
+
     while(!pq[pqi].empty())
     {
+        exp_nodes++;
+
         n0=nodeMP0( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
                      pq[pqi].top().getLevel(), pq[pqi].top().getPriority());
 
@@ -864,6 +882,13 @@ Apath Planner::AstarMP0(PointI p0, PointI p1, int r)
             }
 
             //while(!pq[pqi].empty()) pq[pqi].pop();
+            cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
+
+            cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
+
+            cout<<"Goal Tested nodes: "<<tested_goal<<endl;
+
+
             return path;
         }
 
@@ -917,6 +942,13 @@ Apath Planner::AstarMP0(PointI p0, PointI p1, int r)
             }
         }
     }
+
+    cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
+
+    cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
+
+    cout<<"Goal Tested nodes: "<<tested_goal<<endl;
+
     path.cost=-2;
     return path;
 }
@@ -924,8 +956,9 @@ Apath Planner::AstarMP0(PointI p0, PointI p1, int r)
 
 
 template <typename T>
-Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
+Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
 {
+    cout<<bfs<<endl;
     Apath path; path.points.clear();path.cost=0;
 
     const int n=width;
@@ -960,7 +993,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
     priority_queue<node<T> > pq[3];
     int pqi;
-    node<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, opt, quad);
+    node<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, opt, quad, bfs);
     int i, j, x, y, xdx, ydy;
     pqi=0;
 
@@ -968,7 +1001,8 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
     n0.updateSensing(p1.i, p1.j);
     pq[pqi].push(n0);
 
-    static long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
+    //static long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
+    long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
 
 
 
@@ -986,11 +1020,13 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
 
             n0=node<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad);
+                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad, bfs);
             x=n0.getxPos(); y=n0.getyPos();
 
-
             pq[pqi].pop();
+
+            if(closed_nodes_map[x][y]==1)
+                continue;
 
             //cout<<"From H"<<endl;
 
@@ -1010,11 +1046,13 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
 
                 n0=node<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad);
+                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad, bfs);
                 x=n0.getxPos(); y=n0.getyPos();
 
-
                 pq[2].pop();
+
+                //if(closed_nodes_map[x][y]==1)
+                //    continue;
 
                 tested_goal++;
 
@@ -1039,11 +1077,15 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
                 if(!cond)
                 {
                     n0=node<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad);
+                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad, bfs);
                     x=n0.getxPos(); y=n0.getyPos();
 
 
                     pq[pqi].pop();
+
+                    if(closed_nodes_map[x][y]==1)
+                        continue;
+
                     if(n0.getSensing()>=0)
                         if(n0.getPriority()>=n0.getSensing())
                         {
@@ -1058,11 +1100,14 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
                 else
                 {
                     n0=node<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad);
+                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad, bfs);
                     x=n0.getxPos(); y=n0.getyPos();
 
 
                     pq[2].pop();
+
+                    //if(closed_nodes_map[x][y]==1)
+                    //    continue;
 
                     list2=true;
 
@@ -1102,7 +1147,6 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
         //pq[pqi].pop();
         open_nodes_map[x][y]=0;
-
 
 
         if(stop)
@@ -1174,7 +1218,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt)
 
 
                     node<T> m0=node<T>( xdx, ydy, n0.getLevel(),
-                                 n0.getPriority(), infl, defl, n0.getSensing(), opt, quad);
+                                 n0.getPriority(), infl, defl, n0.getSensing(), opt, quad, bfs);
                     m0.nextLevel(i);
                     m0.updatePriority(p1.i, p1.j);
                     m0.updateSensing(p1.i, p1.j);
@@ -1281,9 +1325,82 @@ void Planner::plan(void)
         Apath path;
 
 
-        path=Astar(pi, convertW2I(goals[0]),1,-5);
+        //path=Astar(pi, convertW2I(goals[0]),1,-5,true);
 
         ros::Time t01=ros::Time::now();
+        ros::Duration diff;
+
+
+
+        for(unsigned int i=0; i<goals.size();i++)//(goals.size()-1); i<goals.size();i++)//
+        {
+
+            PointI g=convertW2I(goals[i]);
+
+            if(g.i<0 || g.i>=(int)msg_rcv[0].size())
+            {
+                //clearG();
+                path.cost=-3;
+                continue;
+            }
+            if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
+            {
+                //clearG();
+                path.cost=-3;
+                continue;
+            }
+
+            if(!msg_rcv[2][g.i][g.j])
+            //if(!msg_rcv[1][g.i][g.j])
+            {
+                //clearG();
+                path.cost=-3;
+                continue;
+            }
+//t01=ros::Time::now();
+            path=Astar(pi, g,1, -3, true);
+            //path=AstarMP(pi, g,1);
+            //cout<<path.cost<<endl;
+        }
+
+        diff = ros::Time::now() - t01;
+
+        ROS_INFO("Time BFS: %f; Cost: %f",diff.toSec(),path.cost);
+
+
+        path_0.poses.clear();
+
+        path_1=path_0;
+
+        if(path.cost>0)
+        {
+            //clearG();
+
+            if(path.points.size()!=0)
+                for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+                {
+                    pw.pose.position=convertI2W(path.points[p_i]);
+
+                    path_0.poses.push_back(pw);
+                }
+            else
+            {
+                pw.pose.position=p;
+                path_1.poses.push_back(pw);
+            }
+        }
+//        else if(path.cost!=-3)
+//        {
+//            pw.pose.position=p;
+//            path_0.poses.push_back(pw);
+//        }
+
+        pub1.publish(path_0);
+
+
+        //path=Astar(pi, convertW2I(goals[0]),1,-5);
+
+        t01=ros::Time::now();
 
 
         for(unsigned int i=0; i<goals.size();i++)//goals.size()-1; i<goals.size();i++)//
@@ -1318,15 +1435,9 @@ void Planner::plan(void)
         }
 
 
-        ros::Duration diff = ros::Time::now() - t01;
+         diff = ros::Time::now() - t01;
 
         ROS_INFO("Time PA: %f; Cost: %f",diff.toSec(),path.cost);
-
-        path=Astar(pi, convertW2I(goals[0]),1,-5);
-
-        path_0.poses.clear();
-
-        path_1=path_0;
 
         if(path.cost>0)
         {
@@ -1337,7 +1448,7 @@ void Planner::plan(void)
                 {
                     pw.pose.position=convertI2W(path.points[p_i]);
 
-                    path_0.poses.push_back(pw);
+                    path_1.poses.push_back(pw);
                 }
             else
             {
@@ -1347,12 +1458,13 @@ void Planner::plan(void)
         }
 //        else if(path.cost!=-3)
 //        {
-//            pw.pose.position=p;
-//            path_0.poses.push_back(pw);
+
 //        }
 
-        pub1.publish(path_0);
+        pub2.publish(path_1);
 
+
+        //path=Astar(pi, convertW2I(goals[0]),1,-5);
 
         t01=ros::Time::now();
 
@@ -1395,30 +1507,6 @@ void Planner::plan(void)
             ROS_INFO("Time PA-RDVM: %f; Cost: %f",diff.toSec(),path.cost);
         }
 
-
-        if(path.cost>0)
-        {
-            //clearG();
-
-            if(path.points.size()!=0)
-                for(unsigned int p_i=0;p_i<path.points.size();p_i++)
-                {
-                    pw.pose.position=convertI2W(path.points[p_i]);
-
-                    path_1.poses.push_back(pw);
-                }
-            else
-            {
-                pw.pose.position=p;
-                path_1.poses.push_back(pw);
-            }
-        }
-//        else if(path.cost!=-3)
-//        {
-
-//        }
-
-        pub2.publish(path_1);
 
 
 
