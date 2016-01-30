@@ -47,7 +47,7 @@ public:
 class Apath{
 public:
     vector<PointI> points;
-    double cost;
+    float cost;
 
     Apath()
     {
@@ -58,7 +58,7 @@ public:
 
 const float k1=1;
 
-const float k2=0.05;
+const float k2=0.005;
 
 bool quad=true;
 
@@ -241,12 +241,10 @@ class node
         void updateSensing(const int & xDest, const int & yDest)
         {
             T ss=sensing(xDest, yDest);
-            //cout<<ss<<endl;
             if(ss<0)
                 sens=ss;
             else
                 sens=level+ss; //A*
-            //cout<<sens<<endl;
         }
 
         // give better priority to going strait instead of diagonally
@@ -958,7 +956,6 @@ Apath Planner::AstarMP0(PointI p0, PointI p1, int r)
 template <typename T>
 Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
 {
-    cout<<bfs<<endl;
     Apath path; path.points.clear();path.cost=0;
 
     const int n=width;
@@ -1122,7 +1119,10 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
             }
         }
         if(list2)
+        {
             exp_nodes_r++;
+            //cout<<x<<";"<<y<<"; "<<n0.getPriority()<<endl;
+        }
         else
             exp_nodes++;
 
@@ -1157,6 +1157,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
             //cout<<p1.i<<";"<<p1.j<<endl;
 
             //T cost_test=0;
+
             while(!(x==p0.i && y==p0.j))
             {
                 j=dir_map[x][y];
@@ -1173,7 +1174,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
 
             //cout<<cost_test*k1<<endl;
             path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
-            path.cost=(double)n0.getSensing();
+            path.cost=(float)n0.getSensing();
 
             if(opt==-5)
             {
@@ -1364,6 +1365,8 @@ void Planner::plan(void)
         }
 
         diff = ros::Time::now() - t01;
+
+
 
         ROS_INFO("Time BFS: %f; Cost: %f",diff.toSec(),path.cost);
 
@@ -1621,9 +1624,9 @@ int main(int argc, char **argv)
   node<float> n0(1,1,0,0,8,80,0,20,false);
   n0.nextLevel(1);
   n0.updateSensing(4,4);
-  cout<<n0.getxPos()+dx[1]<<" "<<n0.getyPos()+dy[1]<<" "<<n0.getSensing()<<endl;
+  //cout<<n0.getxPos()+dx[1]<<" "<<n0.getyPos()+dy[1]<<" "<<n0.getSensing()<<endl;
 
-  cout<<static_cast<float>(5.555)<<endl;
+  //cout<<static_cast<float>(5.555)<<endl;
   while (ros::ok())
   {
 
