@@ -7,6 +7,7 @@ using namespace std;
 
 
 Unreachable::Unreachable(cv::Mat map_or, cv::Mat act_map) {
+    pixel_count.assign(0,0);
     getRegions(map_or, act_map);
 }
 
@@ -90,9 +91,11 @@ void Unreachable::getRegions(cv::Mat map_or, cv::Mat act_map)
     labels_unreach=label(temp_labelling/255,4);
     regions=map_or.clone()/255;
 
+    pixel_count.assign(labels_unreach.size(),0);
     for (unsigned int i=0;i<labels_unreach.size();i++){
         for(unsigned int j=0;j<labels_unreach[i].size();j++){
                regions.at<uchar>(labels_unreach[i][j].x,labels_unreach[i][j].y)=i+2;
+               pixel_count[i]++;
         }
     }
 

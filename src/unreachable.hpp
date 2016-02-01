@@ -10,6 +10,7 @@ class Unreachable
     cv::Mat act, map;
     void getRegions(cv::Mat map_or, cv::Mat act_map);
 public:
+    std::vector<long int> pixel_count;
     cv::Mat regions;
     std::vector<std::vector<std::vector<cv::Point> > > frontiers;
     std::vector<std::vector<ClusterLists> > clusters;

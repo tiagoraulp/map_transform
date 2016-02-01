@@ -16,11 +16,9 @@ int main(int argc, char **argv)
     {
         ros::spinOnce();
 
-        vis.run();
+        //vis.run(true);
 
-        vis.optT(false);
-
-        vis.run();
+        vis.run(false);
 
         loop_rate.sleep();
     }

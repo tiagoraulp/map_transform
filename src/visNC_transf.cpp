@@ -68,6 +68,8 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
     this->nh_.param("debug_angle", this->angle_debug, 0.0);
 
     sens_area.assign(sens_res, 0);
+
+    opt=true;
 }
 
 VisNC_transf::~VisNC_transf()
@@ -568,28 +570,34 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 }
 
 
-void VisNC_transf::update_config(map_transform::ParametersncConfig config)
+void VisNC_transf::update_config(map_transform::ParametersncConfig config, bool ch, bool _opt)
 {
-    this->changed=true;
-    this->changed2=true;
-    rinfl=config.rinfl/100;
-    sdefl=config.sdefl/100;
-    rcx=config.rx/100;
-    rcy=config.ry/100;
-    rct=config.rt;
-    scx=config.sx/100;
-    scy=config.sy/100;
-    dx=config.dx/100;
-    dy=config.dy/100;
-    sct=config.st;
-    angle_res=config.angle_res;
-    sens_res=config.sens_res;
-    this->_debug=config.debug;
-    this->gt=config.ground_truth;
-    angle_debug=config.debug_angle;
-    this->rxr=config.x;
-    this->ryr=config.y;
-    this->rtr=config.theta;
+    if(_opt || (!_opt && opt && !ch) || ch)
+    {
+        this->changed=true;
+        this->changed2=true;
+        rinfl=config.rinfl/100;
+        sdefl=config.sdefl/100;
+        rcx=config.rx/100;
+        rcy=config.ry/100;
+        rct=config.rt;
+        scx=config.sx/100;
+        scy=config.sy/100;
+        dx=config.dx/100;
+        dy=config.dy/100;
+        sct=config.st;
+        angle_res=config.angle_res;
+        sens_res=config.sens_res;
+        this->_debug=config.debug;
+        this->gt=config.ground_truth;
+        angle_debug=config.debug_angle;
+        this->rxr=config.x;
+        this->ryr=config.y;
+        this->rtr=config.theta;
+    }
+
+    if(count>0 && resCS)
+        opt=_opt;
 }
 
 

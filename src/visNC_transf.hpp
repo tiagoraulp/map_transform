@@ -31,7 +31,9 @@ protected:
 
     std::vector<cv::Mat> multi_er_map, multi_labl_map, multi_act_map;
 
-    void update_config(map_transform::ParametersncConfig config);
+    bool opt;
+
+    void update_config(map_transform::ParametersncConfig config, bool ch, bool _opt);
     void show(void);
     bool conf_space(void);
     void visibility(cv::Point3i, bool, ros::Time);

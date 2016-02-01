@@ -30,8 +30,12 @@ void Vis_transf<T>::update(bool _opt)
 
     mtx.lock();
 
+    bool prev_changed_p=false;
+
     if(changed_p || !_opt)
     {
+        if(changed_p)
+            prev_changed_p=true;
         changed_p=false;
         config=_config;
         proc=true;
@@ -41,7 +45,7 @@ void Vis_transf<T>::update(bool _opt)
 
     if(proc)
     {
-        update_config(config);
+        update_config(config, prev_changed_p,_opt);
     }
 }
 
@@ -390,7 +394,7 @@ void Vis_transf<T>::publish(void)
 template <typename T>
 void Vis_transf<T>::run(bool _opt)
 {
-    update(!_opt);
+    update(_opt);
 
     transf();
 
