@@ -3,8 +3,9 @@
  <arg name="y_0" default="10"/>
  <arg name="x_1" default="10"/>
  <arg name="y_1" default="15"/>
+<arg name="string" default="test"/>
 
- <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze5.png 0.1" respawn="false" > 
+ <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze6.png 0.1" respawn="false" > 
     <param name="frame_id" value="/map" />
  </node>
 	
@@ -23,7 +24,7 @@
 
  </group>
 
- <node name="planner" pkg="map_transform" type="planSensOpt" output="screen">
+ <node name="planner" pkg="map_transform" type="planSensOpt" args="$(arg string)" output="screen">
        <param name="defl" value="80" />
        <param name="infl" value="9" />
        <remap from="/robot_0/v_map" to="/robot_0/visibility/v_map"/>

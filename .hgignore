@@ -26,3 +26,17 @@ CMakeLists.txt.user.3.2-pre1
 *.orig
 msg_gen/*
 src/map_transform/msg/*
+resultsQ7.txt
+resultsQ6.txt
+resultsQ5.txt
+resultsQ4.txt
+resultsQ3.txt
+resultsQ2.txt
+resultsQ1.txt
+resultsL7.txt
+resultsL6.txt
+resultsL5.txt
+resultsL4.txt
+resultsL3.txt
+resultsL2.txt
+resultsL1.txt

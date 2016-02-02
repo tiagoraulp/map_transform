@@ -15,6 +15,8 @@
 #include "ray.hpp"
 #include "vector_utils.hpp"
 
+#include <fstream>
+
 using namespace std;
 
 const int dir=8; // number of possible directions to go at any position
@@ -56,9 +58,9 @@ public:
     }
 };
 
-const float k1=1;
+float k1=1;
 
-const float k2=0.005;
+float k2=0.005;
 
 bool quad=true;
 
@@ -504,7 +506,6 @@ public:
 
     Planner(ros::NodeHandle nh): nh_(nh)
     {
-
         pub1 = nh_.advertise<nav_msgs::Path>("path0", 1,true);
         pub2 = nh_.advertise<nav_msgs::Path>("path1", 1,true);
 
@@ -669,12 +670,12 @@ void Planner::rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
     //clearG();
     goals.push_back(msg->pose.position);
-    pl=true;
+    //pl=true;
 }
 
 bool Planner::ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res)
 {
-    //pl=true;
+    pl=true;
     return true;
 }
 
@@ -950,12 +951,16 @@ Apath Planner::AstarMP0(PointI p0, PointI p1, int r)
     path.cost=-2;
     return path;
 }
-
-
+int index_file=0;
+ofstream myfile[14];
 
 template <typename T>
 Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
 {
+
+    //myfile << "Writing this to a file.\n";
+
+
     Apath path; path.points.clear();path.cost=0;
 
     const int n=width;
@@ -1181,6 +1186,8 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
                 exp_nodes=0; exp_nodes_r=0, tested_goal=0;
             }
 
+            myfile[index_file]<<exp_nodes<<"; "<<exp_nodes_r<<"; "<<tested_goal<<"; ";
+
 
             cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
 
@@ -1189,6 +1196,9 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
             cout<<"Goal Tested nodes: "<<tested_goal<<endl;
 
             //cout<<counter<<endl;
+
+
+
             return path;
         }
 
@@ -1286,16 +1296,21 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
 
     cout<<"Goal Tested nodes: "<<tested_goal<<endl;
 
+    //myfile[index_file]<<exp_nodes<<"; "<<exp_nodes_r<<"; "<<tested_goal<<"; ";
+
     return path;
 }
 
 
 void Planner::plan(void)
 {
+    //cout<<"TESTE!!!!!!!11111111"<<endl;
+    //static int n=0;
+
 //cout<<map_rcv[0]<<" "<< map_rcv[1]<<" "<<map_rcv[2] <<" "<<graph_rcv <<" "<< pl <<" "<< goals.size()<<endl;
     if(map_rcv[0] && map_rcv[1] && map_rcv[2] && graph_rcv && pl && (goals.size()>0) )
     {
-
+        //cout<<"TESTE2222222222"<<endl;
         path_0.poses.clear();
         path_0.header.frame_id = "/map";
         path_0.header.stamp =  ros::Time::now();
@@ -1319,7 +1334,11 @@ void Planner::plan(void)
         p.x=transform.getOrigin().x();
         p.y=transform.getOrigin().y();
 
-        PointI pi=convertW2I(p);
+
+
+
+
+PointI pi;
 
 
 
@@ -1327,154 +1346,92 @@ void Planner::plan(void)
 
 
         //path=Astar(pi, convertW2I(goals[0]),1,-5,true);
+        pl=false;
 
-        ros::Time t01=ros::Time::now();
-        ros::Duration diff;
-
-
-
-        for(unsigned int i=0; i<goals.size();i++)//(goals.size()-1); i<goals.size();i++)//
+        for(unsigned int tt=0;tt<2;tt++)
         {
 
-            PointI g=convertW2I(goals[i]);
 
-            if(g.i<0 || g.i>=(int)msg_rcv[0].size())
+
+            for(unsigned ll=0;ll<7;ll++)
             {
-                //clearG();
-                path.cost=-3;
-                continue;
-            }
-            if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
-            {
-                //clearG();
-                path.cost=-3;
-                continue;
-            }
+                k1=1;
 
-            if(!msg_rcv[2][g.i][g.j])
-            //if(!msg_rcv[1][g.i][g.j])
-            {
-                //clearG();
-                path.cost=-3;
-                continue;
-            }
-//t01=ros::Time::now();
-            path=Astar(pi, g,1, -3, true);
-            //path=AstarMP(pi, g,1);
-            //cout<<path.cost<<endl;
-        }
+                if(ll==0)
+                    k2=0.008;
+                else
+                {k2*=5;}
 
-        diff = ros::Time::now() - t01;
+                if(tt==0)
+                    index_file=ll;
+                else
+                    index_file=7+ll;
 
 
 
-        ROS_INFO("Time BFS: %f; Cost: %f",diff.toSec(),path.cost);
+                if(tt==0)
+                {    quad=false;myfile[index_file]<<"Linear\n";}
+                else
+                {    quad=true;myfile[index_file]<<"Quadratic\n";}
 
+                myfile[index_file]<<"Lambda="<<k2/k1<<"\n";
 
-        path_0.poses.clear();
-
-        path_1=path_0;
-
-        if(path.cost>0)
-        {
-            //clearG();
-
-            if(path.points.size()!=0)
-                for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+                for(int n=1;n<9;n++)
                 {
-                    pw.pose.position=convertI2W(path.points[p_i]);
 
-                    path_0.poses.push_back(pw);
-                }
-            else
-            {
-                pw.pose.position=p;
-                path_1.poses.push_back(pw);
-            }
-        }
-//        else if(path.cost!=-3)
-//        {
-//            pw.pose.position=p;
-//            path_0.poses.push_back(pw);
-//        }
+                    string xsx;
 
-        pub1.publish(path_0);
+                    if(n==1)
+                    {
+                        p.x=10; p.y=10; xsx="sim_1";
+                    }
+                    else if(n==2)
+                    {
+                        p.x=40; p.y=10; xsx="sim_2";
+                    }
+                    else if(n==3)
+                    {
+                        p.x=10; p.y=30; xsx="sim_3";
+                    }
+                    else if(n==4)
+                    {
+                        p.x=25; p.y=30; xsx="sim_4";
+                    }
+                    else if(n==5)
+                    {
+                        p.x=25; p.y=20; xsx="sim_5";
+                    }
+                    else if(n==6)
+                    {
+                        p.x=45; p.y=22; xsx="sim_6";
+                    }
+                    else if(n==7)
+                    {
+                        p.x=70; p.y=22; xsx="sim_7";
+                    }
+                    else if(n==8)
+                    {
+                        p.x=60; p.y=27.8; xsx="sim_8";
+                    }
+
+                    //p.x=10; p.y=10;
 
 
-        //path=Astar(pi, convertW2I(goals[0]),1,-5);
-
-        t01=ros::Time::now();
+                    pi=convertW2I(p);
 
 
-        for(unsigned int i=0; i<goals.size();i++)//goals.size()-1; i<goals.size();i++)//
+                    myfile[index_file]<<xsx<<"\n";
+                    cout<<xsx<<endl;
+
+
+        for(unsigned int ii=0; ii<goals.size();ii++)//(goals.size()-1); i<goals.size();i++)//
         {
-
-            PointI g=convertW2I(goals[i]);
-
-            if(g.i<0 || g.i>=(int)msg_rcv[0].size())
-            {
-                //clearG();
-                path.cost=-3;
-                continue;
-            }
-            if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
-            {
-                //clearG();
-                path.cost=-3;
-                continue;
-            }
-
-            if(!msg_rcv[2][g.i][g.j])
-            //if(!msg_rcv[1][g.i][g.j])
-            {
-                //clearG();
-                path.cost=-3;
-                continue;
-            }
-//t01=ros::Time::now();
-            path=Astar(pi, g,1);
-            //path=AstarMP0(pi, g,1);
-            //cout<<path.cost<<endl;
-        }
+            ros::Time t01=ros::Time::now();
+            ros::Duration diff;
 
 
-         diff = ros::Time::now() - t01;
 
-        ROS_INFO("Time PA: %f; Cost: %f",diff.toSec(),path.cost);
-
-        if(path.cost>0)
-        {
-            //clearG();
-
-            if(path.points.size()!=0)
-                for(unsigned int p_i=0;p_i<path.points.size();p_i++)
-                {
-                    pw.pose.position=convertI2W(path.points[p_i]);
-
-                    path_1.poses.push_back(pw);
-                }
-            else
-            {
-                pw.pose.position=p;
-                path_1.poses.push_back(pw);
-            }
-        }
-//        else if(path.cost!=-3)
-//        {
-
-//        }
-
-        pub2.publish(path_1);
-
-
-        //path=Astar(pi, convertW2I(goals[0]),1,-5);
-
-        t01=ros::Time::now();
-
-        if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size()))
-        {
-
-            for(unsigned int i=0; i<goals.size();i++)//(goals.size()-1); i<goals.size();i++)//
+            for(unsigned int i=ii; i<ii+1;i++)//(goals.size()-1); i<goals.size();i++)//
             {
 
                 PointI g=convertW2I(goals[i]);
@@ -1492,28 +1449,176 @@ void Planner::plan(void)
                     continue;
                 }
 
-                if(!msg_rcv[0][g.i][g.j])
+                if(!msg_rcv[2][g.i][g.j])
                 //if(!msg_rcv[1][g.i][g.j])
                 {
                     //clearG();
                     path.cost=-3;
                     continue;
                 }
-//t01=ros::Time::now();
-                path=Astar(pi, g,1, vis_[g.i*msg_rcv[0][0].size()+g.j]);
+    //t01=ros::Time::now();
+                path=Astar(pi, g,1, -3, true);
                 //path=AstarMP(pi, g,1);
                 //cout<<path.cost<<endl;
             }
 
             diff = ros::Time::now() - t01;
+            if(path.cost!=-2)
+                myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
 
-            ROS_INFO("Time PA-RDVM: %f; Cost: %f",diff.toSec(),path.cost);
+
+            ROS_INFO("Time BFS: %f; Cost: %f",diff.toSec(),path.cost);
+
+
+            path_0.poses.clear();
+
+            path_1=path_0;
+
+            if(path.cost>0)
+            {
+                //clearG();
+
+                if(path.points.size()!=0)
+                    for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+                    {
+                        pw.pose.position=convertI2W(path.points[p_i]);
+
+                        path_0.poses.push_back(pw);
+                    }
+                else
+                {
+                    pw.pose.position=p;
+                    path_1.poses.push_back(pw);
+                }
+            }
+    //        else if(path.cost!=-3)
+    //        {
+    //            pw.pose.position=p;
+    //            path_0.poses.push_back(pw);
+    //        }
+
+            pub1.publish(path_0);
+
+
+            //path=Astar(pi, convertW2I(goals[0]),1,-5);
+
+            t01=ros::Time::now();
+
+
+            for(unsigned int i=ii; i<ii+1;i++)
+            {
+
+                PointI g=convertW2I(goals[i]);
+
+                if(g.i<0 || g.i>=(int)msg_rcv[0].size())
+                {
+                    //clearG();
+                    path.cost=-3;
+                    continue;
+                }
+                if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
+                {
+                    //clearG();
+                    path.cost=-3;
+                    continue;
+                }
+
+                if(!msg_rcv[2][g.i][g.j])
+                //if(!msg_rcv[1][g.i][g.j])
+                {
+                    //clearG();
+                    path.cost=-3;
+                    continue;
+                }
+    //t01=ros::Time::now();
+                path=Astar(pi, g,1);
+                //path=AstarMP0(pi, g,1);
+                //cout<<path.cost<<endl;
+            }
+
+
+             diff = ros::Time::now() - t01;
+
+            if(path.cost!=-2)
+                myfile[index_file]<<diff<<"; "<<path.cost<<"\n";
+
+            ROS_INFO("Time PA: %f; Cost: %f",diff.toSec(),path.cost);
+
+            if(path.cost>0)
+            {
+                //clearG();
+
+                if(path.points.size()!=0)
+                    for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+                    {
+                        pw.pose.position=convertI2W(path.points[p_i]);
+
+                        path_1.poses.push_back(pw);
+                    }
+                else
+                {
+                    pw.pose.position=p;
+                    path_1.poses.push_back(pw);
+                }
+           }
+    //        else if(path.cost!=-3)
+    //        {
+
+    //        }
+
+            pub2.publish(path_1);
+
+
+            //path=Astar(pi, convertW2I(goals[0]),1,-5);
+
+            t01=ros::Time::now();
+
+            if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size()))
+            {
+
+                for(unsigned int i=goals.size(); i<goals.size();i++)//(goals.size()-1); i<goals.size();i++)//
+                {
+
+                    PointI g=convertW2I(goals[i]);
+
+                    if(g.i<0 || g.i>=(int)msg_rcv[0].size())
+                    {
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size())
+                    {
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+
+                    if(!msg_rcv[0][g.i][g.j])
+                    //if(!msg_rcv[1][g.i][g.j])
+                    {
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+    //t01=ros::Time::now();
+                    path=Astar(pi, g,1, vis_[g.i*msg_rcv[0][0].size()+g.j]);
+                    //path=AstarMP(pi, g,1);
+                    //cout<<path.cost<<endl;
+                }
+
+                diff = ros::Time::now() - t01;
+
+                ROS_INFO("Time PA-RDVM: %f; Cost: %f",diff.toSec(),path.cost);
+            }
+
+
+      }
+            }
         }
 
-
-
-
-        pl=false;
+       // pl=false;
+    }
     }
 }
 
@@ -1616,6 +1721,29 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "planner");
   ros::NodeHandle nh("~");
 
+  myfile[0].open ("/home/viki/rosbuild_ws/map_transform/resultsL1.txt", ios::out);
+  myfile[1].open ("/home/viki/rosbuild_ws/map_transform/resultsL2.txt", ios::out);
+  myfile[2].open ("/home/viki/rosbuild_ws/map_transform/resultsL3.txt", ios::out);
+  myfile[3].open ("/home/viki/rosbuild_ws/map_transform/resultsL4.txt", ios::out);
+  myfile[4].open ("/home/viki/rosbuild_ws/map_transform/resultsL5.txt", ios::out);
+  myfile[5].open ("/home/viki/rosbuild_ws/map_transform/resultsL6.txt", ios::out);
+  myfile[6].open ("/home/viki/rosbuild_ws/map_transform/resultsL7.txt", ios::out);
+
+  myfile[7].open ("/home/viki/rosbuild_ws/map_transform/resultsQ1.txt", ios::out);
+  myfile[8].open ("/home/viki/rosbuild_ws/map_transform/resultsQ2.txt", ios::out);
+  myfile[9].open ("/home/viki/rosbuild_ws/map_transform/resultsQ3.txt", ios::out);
+  myfile[10].open ("/home/viki/rosbuild_ws/map_transform/resultsQ4.txt", ios::out);
+  myfile[11].open ("/home/viki/rosbuild_ws/map_transform/resultsQ5.txt", ios::out);
+  myfile[12].open ("/home/viki/rosbuild_ws/map_transform/resultsQ6.txt", ios::out);
+  myfile[13].open ("/home/viki/rosbuild_ws/map_transform/resultsQ7.txt", ios::out);
+
+  if(argc==2)
+    ;
+    else
+  {
+    cout<<"Error on arguments"<<endl;
+    return -1;
+  }
 
   Planner planner(nh);
 
@@ -1640,6 +1768,8 @@ int main(int argc, char **argv)
     loop_rate.sleep();
   }
 
+  for(int i=0;i<14;i++)
+   myfile[i].close();
 
   return 0;
 }
