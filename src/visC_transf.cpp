@@ -623,7 +623,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
                     if(n_w==1)
                     {
-                        //n_w=-1;
+                       n_w=-1;
                     }
                     else if((n_w==2 || n_w==3) && critP.getExtremes().size()==2)
                     {
