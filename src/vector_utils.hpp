@@ -22,6 +22,7 @@ public:
     int getInd(void);
     T getVal(void);
     T2 getP(void);
+    bool valid();
 };
 
 template <typename T, typename T2=T>
@@ -148,6 +149,12 @@ template <typename T, typename T2>
 T2 FindElem<T,T2>::getP(void)
 {
     return p;
+}
+
+template <typename T, typename T2>
+bool FindElem<T,T2>::valid(void)
+{
+    return (n!=0);
 }
 
 template <typename T, typename T2>

@@ -143,9 +143,11 @@ cv::Point2i CritPoints::find_crit_point(vector<cv::Point> frontier_p)
 
     FindMin<double, cv::Point2i> crit;
 
-    for(int x=max(min_x.getVal()-infl,0);x<min(max_x.getVal()+infl,r_map.rows);x++)
+    int ext=2;
+
+    for(int x=max(min_x.getVal()-infl-ext,0);x<min(max_x.getVal()+infl+ext,r_map.rows);x++)
     {
-        for(int y=max(min_y.getVal()-infl,0);y<min(max_y.getVal()+infl,r_map.cols);y++)
+        for(int y=max(min_y.getVal()-infl-ext,0);y<min(max_y.getVal()+infl+ext,r_map.cols);y++)
         {
             if(r_map.at<uchar>(x,y)==255)
             {
@@ -158,7 +160,11 @@ cv::Point2i CritPoints::find_crit_point(vector<cv::Point> frontier_p)
         }
     }
 
-    critP=crit.getP();
+    if(crit.valid())
+        critP=crit.getP();
+    else
+        critP=cv::Point2i(-1,-1);
+
     frontier=frontier_p;
 
     return critP;
