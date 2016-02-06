@@ -399,7 +399,7 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
     if( labels || (prev.x<0) || (prev.y<0) || proc)
     {
-        cv::Mat regions, vis_map=this->map_or.clone(), temp;
+        cv::Mat vis_map, temp;//=this->map_or.clone(), temp;
 
         cv::Mat l_map=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
         cv::Mat act_map=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
@@ -424,34 +424,16 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         this->map_act=temp(rec);
         this->map_projLabel=l_map;
         this->map_projAct=act_map(rec);
-        this->map_vis=vis_map;
+
+        vis_map=map_projAct.clone();
 
         Unreachable unreach(map_or, act_map(rec));
 
         map_debug_pos=unreach.unreach_map;
 
-        unreach.getFrontiers2();
+        vis_map=ext_vis(unreach, vis_map, multi_labl_map, true);
 
-        regions=unreach.regions;
-
-        CritPointsAS critP(map_or, multi_labl_map, sensor_ev, sens_area);
-
-        for (unsigned int k=0;k<unreach.clusters.size();k++){//2;k++){//
-            for(unsigned int ff=0;ff<unreach.clusters[k].size();ff++)
-            {
-                vector<cv::Point> frontier=unreach.clusters[k][ff].cluster;
-
-                if(frontier.size()>0)
-                {
-                    cv::Point3i crit=critP.find_crit_point(unreach.clusters[k][ff]);
-
-                    cout<<unreach.clusters[k][ff].extremes.size()<<endl;
-
-                    map_debug_pos.at<uchar>(crit.x, crit.y)=0;
-
-                }
-            }
-        }
+        this->map_vis=vis_map;
 
         unsigned char color[3]={0,255,0};
 
@@ -567,6 +549,54 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
     }
 
     prev=pos;
+}
+
+cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<cv::Mat> r_map, bool optRay)
+{
+    unreach.getFrontiers2();
+
+    cv::Mat regions=unreach.regions;
+
+    cv::Mat vis_map_temp;
+
+    CritPointsAS critP(map_or, r_map, sensor_ev, sens_area);
+
+    for (unsigned int k=0;k<unreach.clusters.size();k++){//2;k++){//
+        for(unsigned int ff=0;ff<unreach.clusters[k].size();ff++)
+        {
+            vector<cv::Point> frontier=unreach.clusters[k][ff].cluster;
+
+            if(frontier.size()>0)
+            {
+                cv::Point3i crit=critP.find_crit_point(unreach.clusters[k][ff]);
+
+                cout<<"x: "<<crit.x<<";y: "<<crit.x<<";a: "<<crit.z<<";at: "<<angle_res<<endl;
+
+                if(!critP.valid())
+                {
+                    cout<<"Here!"<<endl;
+                    continue;
+                }
+                else
+                {
+                    cout<<unreach.clusters[k][ff].extremes.size()<<endl;
+
+                    map_debug_pos.at<uchar>(crit.x, crit.y)=0;
+                }
+            }
+        }
+    }
+
+    if(optRay)
+    {
+        ROS_INFO("Optimized");
+    }
+    else
+    {
+        ROS_INFO("Ray Casting");
+    }
+
+    return vis_map;
 }
 
 

@@ -26,6 +26,7 @@ public:
     std::vector<float> getExtremes(void);
     std::vector<cv::Point2i> getExtremesP(void);
     unsigned int getObt(void);
+    bool valid(void);
 };
 
 class CritPointsAS: public CritPoints
@@ -38,6 +39,7 @@ private:
 public:
     CritPointsAS(cv::Mat map, std::vector<cv::Mat> reach, Elem sensor_ev, std::vector<int> sens_area);
     cv::Point3i find_crit_point(ClusterLists frontier_p);
+    bool valid(void);
 };
 
 #endif // CRITPOINTS_HPP

@@ -37,6 +37,7 @@ protected:
     cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_label , map_act, map_vis, map_debug, map_truth, map_erosionOpPrintColor,
             map_comp;
 
+    std::vector<cv::Point> getExtremeFromObstacles(std::vector<cv::Point> occ, cv::Point2i crit);
     nav_msgs::OccupancyGrid Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg);
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void callbackParameters(T &config, uint32_t level);

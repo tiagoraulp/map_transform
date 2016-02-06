@@ -1,8 +1,8 @@
 #include "CritPoints.hpp"
-
 #include "ray.hpp"
 #include "obtuseAngle.hpp"
 
+#include <cmath>
 #include <iostream>
 
 using namespace std;
@@ -11,6 +11,7 @@ static const double PI = 3.141592653589793;
 
 CritPointsAS::CritPointsAS(cv::Mat map, vector<cv::Mat> reach, Elem sensor_ev, std::vector<int> sens_area): CritPoints(map, reach[0], sensor.pb), reach3(reach), sensor(sensor_ev), sens_hist(sens_area)
 {
+    critP3=cv::Point3i(-1,-1,-1);
 }
 
 cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
@@ -94,27 +95,46 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
                         else
                             start=1;
 
-                        crit.iter(sum,cv::Point3i(i,j,0));
+                        if( abs(boundAngleRN(((float)(a))*2*PI/((float)(reach3.size()))-angleC))>(PI/2) )
+                            continue;
+
+                        crit.iter(sum,cv::Point3i(i,j,a));
                     //}
                 }
             }
         }
     }
 
-    critP3=crit.getP();
+    if(crit.valid())
+        critP3=crit.getP();
+    else
+        critP3=cv::Point3i(-1,-1,-1);
+
     frontier=frontier_p;
 
     return critP3;
 }
 
+bool CritPointsAS::valid(void)
+{
+    return !(critP3.x<0 || critP3.y<0 || critP3.z<0);
+}
+
 CritPoints::CritPoints(cv::Mat map, cv::Mat reach, int rs): r_map(reach), map_or(map), infl(rs)
 {
+    critP=cv::Point2i(-1,-1);
+}
+
+bool CritPoints::valid(void)
+{
+    return !(critP.x<0 || critP.y<0);
 }
 
 cv::Point2i CritPoints::getCrit(void)
 {
     return critP;
 }
+
 vector<float> CritPoints::getExtremes(void)
 {
     return extremes;

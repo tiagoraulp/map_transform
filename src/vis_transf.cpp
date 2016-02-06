@@ -1,8 +1,10 @@
 #include "vis_transf.hpp"
 
-
 #include "vector_utils.hpp"
 #include "color.hpp"
+#include "bugfollowing.hpp"
+#include "obs_extremes.hpp"
+#include "clustering.hpp"
 
 #include <map_transform/ParametersConfig.h>
 #include <map_transform/ParametersncConfig.h>
@@ -285,6 +287,87 @@ bool Vis_transf<T>::getPos(cv::Point3i&pos)
 
     return true;
 }
+
+template <typename T>
+vector<cv::Point> Vis_transf<T>::getExtremeFromObstacles(vector<cv::Point> occ, cv::Point2i crit)
+{
+    vector<vector<cv::Point> > occ_clust=cluster_points(occ);
+
+    vector<cv::Point> occ_critP;
+
+    cv::Mat contours = cv::Mat::ones(map_or.rows, map_or.cols, CV_8UC1)*255;
+
+
+    for(unsigned int ind=0;ind<occ_clust.size();ind++)
+    {
+        for(unsigned int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
+        {
+            contours.at<uchar>(occ_clust[ind][occ_p].x,occ_clust[ind][occ_p].y)=0;
+        }
+
+        if(occ_clust[ind].size()==1)
+        {
+            occ_critP.push_back(cv::Point(occ_clust[ind][0].x,occ_clust[ind][0].y));
+        }
+        else
+        {
+            cv::Mat contours_check=contours.clone();
+            bool stop=true;
+
+            while(stop)
+            {
+                stop=false;
+                cv::Point pos;
+                for(unsigned int occ_p=0;occ_p<occ_clust[ind].size();occ_p++)
+                {
+                    if( contours_check.at<uchar>(occ_clust[ind][occ_p].x,occ_clust[ind][occ_p].y)==0  )
+                    {
+                        pos.x=occ_clust[ind][occ_p].x;
+                        pos.y=occ_clust[ind][occ_p].y;
+                        stop=true;
+                        break;
+                    }
+                }
+
+                if(stop)
+                {
+                    BugFollowing bf(contours, contours_check, pos);
+                    vector<Chain> chain=bf.getChain();
+                    contours_check=bf.getContourChecked();
+
+                    ExtremesObst2Point eo(crit, chain);
+                    vector<cv::Point> temp=eo.getExt();
+                    occ_critP.insert(occ_critP.end(), temp.begin(), temp.end());
+                }
+            }
+
+            if(occ_critP.size()==0)
+            {
+                occ_critP.push_back(cv::Point(occ_clust[ind][0].x,occ_clust[ind][0].y));
+            }
+        }
+    }
+
+    vector<cv::Point> occ_crit_filt;
+
+    cv::Mat contours_filt=contours.clone();
+
+    occ_crit_filt.clear();
+
+    for(unsigned int c=0;c<occ_critP.size();c++)
+    {
+        if(contours_filt.at<uchar>(occ_critP[c].x,occ_critP[c].y)==255)
+            continue;
+        else
+        {
+            contours_filt.at<uchar>(occ_critP[c].x,occ_critP[c].y)=255;
+            occ_crit_filt.push_back(cv::Point(occ_critP[c].x,occ_critP[c].y));
+        }
+    }
+
+    return occ_crit_filt;
+}
+
 
 
 template <typename T>
