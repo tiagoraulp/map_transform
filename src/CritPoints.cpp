@@ -112,6 +112,8 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 
     frontier=frontier_p;
 
+    critP=cv::Point2i(critP3.x,critP3.y);
+
     return critP3;
 }
 
@@ -218,7 +220,7 @@ cv::Point2i CritPoints::find_extreme(cv::Point2i pt, float a0, float a1, bool sp
                     inside_region=(angle>a0 || angle<a1);
             }
 
-            if(inside_region  && map_or.at<uchar>(rowx,coly)==0)
+            if(inside_region)//  && map_or.at<uchar>(rowx,coly)==0)
             {
                 float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
                 mp.iter(dist,cv::Point2i(rowx,coly));

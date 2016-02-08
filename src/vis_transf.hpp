@@ -37,16 +37,17 @@ protected:
     cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_label , map_act, map_vis, map_debug, map_truth, map_erosionOpPrintColor,
             map_comp;
 
-    std::vector<cv::Point> getExtremeFromObstacles(std::vector<cv::Point> occ, cv::Point2i crit);
-    nav_msgs::OccupancyGrid Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg);
-    void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void callbackParameters(T &config, uint32_t level);
-    bool getTFPosition(cv::Point3d&p);
+    virtual std::vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp);
+    virtual std::vector<cv::Point> getExtremeFromObstacles(std::vector<cv::Point> occ, cv::Point2i crit);
+    virtual nav_msgs::OccupancyGrid Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg);
+    virtual void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    virtual void callbackParameters(T &config, uint32_t level);
+    virtual bool getTFPosition(cv::Point3d&p);
     virtual void getPosition(cv::Point3d&p);
     virtual void get2DPosition(cv::Point3i&pos, cv::Point3d p);
-    bool getPos(cv::Point3i&pos);
-    bool checkProceed(void);
-    bool checkProceed2(void);
+    virtual bool getPos(cv::Point3i&pos);
+    virtual bool checkProceed(void);
+    virtual bool checkProceed2(void);
     virtual void update(bool _opt);
     virtual void update_config(T config, bool ch, bool _opt)=0;
     virtual void show(void)=0;

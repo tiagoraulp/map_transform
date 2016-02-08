@@ -568,9 +568,14 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
 
             if(frontier.size()>0)
             {
+                //for(unsigned int ffp=0;ffp<unreach.clusters[k][ff].cluster.size();ffp++)
+                //{
+                //    cout<<unreach.clusters[k][ff].cluster[ffp].x<<" "<<unreach.clusters[k][ff].cluster[ffp].y<<endl;
+                //}
+
                 cv::Point3i crit=critP.find_crit_point(unreach.clusters[k][ff]);
 
-                cout<<"x: "<<crit.x<<";y: "<<crit.x<<";a: "<<crit.z<<";at: "<<angle_res<<endl;
+                cout<<"x: "<<crit.x<<";y: "<<crit.y<<";a: "<<crit.z<<";at: "<<angle_res<<endl;
 
                 if(!critP.valid())
                 {
@@ -579,6 +584,41 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                 }
                 else
                 {
+                    critP.frontier_extremes();
+
+                    //cout<<critP.getExtremesP()[0].x<<" "<<critP.getExtremesP()[0].y<<" "<<critP.getExtremesP()[1].x<<" "<<critP.getExtremesP()[1].y<<" "<<endl;
+
+                    vis_map_temp = cv::Mat::zeros(regions.rows, regions.cols, CV_8UC1)*255;
+
+                    vector<cv::Point> occ=expVisibility_obs(cv::Point2i(crit.x,crit.y), sensor_ev.pb, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
+
+                    //if(k==2)
+                    //{
+                    //    cv::imshow("TEST!!!!!",vis_map_temp);
+                    //    cv::waitKey(2);
+                    //}
+
+                    vector<cv::Point> occ_crit_filt=getExtremeFromObstacles(occ, cv::Point2i(crit.x,crit.y));
+
+                    for(unsigned int c=0;c<occ_crit_filt.size();c++)
+                    {
+                        raytracing(&vis_map_temp, cv::Point2i(crit.x,crit.y), occ_crit_filt[c], occ_crit_filt[c], sensor_ev.pb);
+                    }
+
+                    for(unsigned int j=0;j<frontier.size();j++){
+                        if(vis_map_temp.at<uchar>( frontier[j].x,frontier[j].y)==255)
+                        {
+                            std::vector<cv::Point> points_vis=label_seed(vis_map_temp.clone()/255,4,cv::Point(frontier[j].x,frontier[j].y));
+                            for(unsigned int pv=0;pv<points_vis.size();pv++)
+                            {
+                                vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
+                            }
+                            break;
+                        }
+                    }
+
+                    ///////////////////////
+
                     cout<<unreach.clusters[k][ff].extremes.size()<<endl;
 
                     map_debug_pos.at<uchar>(crit.x, crit.y)=0;

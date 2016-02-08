@@ -16,20 +16,19 @@ protected:
     bool opt;
 
     bool reachability_map(cv::Point3i pos, cv::Mat & r_map);
-    std::vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp);
-    virtual cv::Mat ext_vis(Unreachable, cv::Mat vis_map, cv::Mat r_map, bool _opt=true);
-    virtual void update_config(map_transform::ParametersConfig config, bool ch, bool _opt);
-    virtual void show(void);
-    virtual bool conf_space(void);
-    virtual void visibility(cv::Point3i, bool, ros::Time);
-    virtual bool valid_pos(cv::Point3i pos);
-    virtual void clearImgs(void);
-    virtual void publish(void);
+    cv::Mat ext_vis(Unreachable, cv::Mat vis_map, cv::Mat r_map, bool _opt=true);
+    void update_config(map_transform::ParametersConfig config, bool ch, bool _opt);
+    void show(void);
+    bool conf_space(void);
+    void visibility(cv::Point3i, bool, ros::Time);
+    bool valid_pos(cv::Point3i pos);
+    void clearImgs(void);
+    void publish(void);
     //std::vector<map_transform::VisNode> vis_;
     std::vector<float> vis_;
 public:
     VisC_transf(ros::NodeHandle nh);
-    virtual ~VisC_transf();
+    ~VisC_transf();
 };
 
 

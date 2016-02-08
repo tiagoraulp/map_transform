@@ -34,7 +34,7 @@ protected:
     void calcSensArea(Elem sens);
 public:
     VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens);
-    virtual ~VisNC_transf();
+    ~VisNC_transf();
 };
 
 

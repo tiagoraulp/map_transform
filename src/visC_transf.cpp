@@ -217,53 +217,6 @@ bool VisC_transf::reachability_map(cv::Point3i pos, cv::Mat & r_map)
     return (prev_label!=label_pos) && found_pos; //returns true if reachable set changes from prev position
 }
 
-vector<cv::Point> VisC_transf::expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp)
-{
-    vector<cv::Point> occ;
-    for(int rowx=max((crit.x-defl),0);rowx<=min((crit.x+defl),regions.rows-1);rowx++)
-    {
-        for(int coly=max((crit.y-defl),0);coly<=min((crit.y+defl),regions.cols-1);coly++)
-        {
-            float angle=atan2(coly-crit.y,rowx-crit.x);
-            float dist=(rowx-crit.x)*(rowx-crit.x)+(coly-crit.y)*(coly-crit.y);
-
-            bool reg;
-            if(obt_angle==1)
-                reg=(angle<extremes[1] && angle>extremes[0]);
-            else
-                reg=(angle<extremes[0] || angle>extremes[1]);
-
-            if(reg && (dist<=(1*defl*defl)) && (regions.at<uchar>(rowx,coly)==(k+2) ) )
-            {
-                vis_map_temp.at<uchar>(rowx,coly)=255;
-            }
-            else if (reg && (dist<=(1*defl*defl)) && (map_or.at<uchar>(rowx,coly)==0) )
-            {
-                bool stop=false;
-                for(int vx=-1;vx<=1;vx++)
-                {
-                    for(int vy=-1;vy<=1;vy++)
-                    {
-                        if( (rowx+vx)>=0 && (rowx+vx)<regions.rows && (coly+vy)>=0 && (coly+vy)<regions.cols )
-                        {
-                            if( (abs(vx)+abs(vy)==1) &&  regions.at<uchar>(rowx+vx,coly+vy)==(k+2)  )
-                            {
-                                occ.push_back(cv::Point(rowx,coly));
-                                stop=true;
-                                break;
-                            }
-                        }
-                    }
-                    if(stop)
-                        break;
-                }
-            }
-        }
-    }
-
-    return occ;
-}
-
 
 bool VisC_transf::valid_pos(cv::Point3i pos)
 {
