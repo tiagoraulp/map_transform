@@ -397,6 +397,8 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             map_truth=brute_force(eff_gt, reach_list,defl, false, map_act,true, true);
             //map_truth=brute_force(map_or, reach_list,defl, false, map_act,true, true);
 
+            cout<<"VM: "<<(unsigned int)map_vis.at<uchar>(182,11)<<"; GT: "<<(unsigned int)map_truth.at<uchar>(182,11)<<endl;
+
             diff = ros::Time::now() - t3;
 
             ROS_INFO("%s - Time for  Optimized brute force list with act: %f", tf_pref.c_str(), diff.toSec());
@@ -411,7 +413,19 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
 
             cv::Mat comp=color_print(map_vis, map_truth,  c1, c2, c3, c0);
+
+            //cv::Mat upd[3];
+
+            //cv::split(comp,upd);
+
+            //upd[0].at<uchar>(182,11)=0;
+            //upd[1].at<uchar>(182,11)=255;
+            //upd[2].at<uchar>(182,11)=0;
+
+            //cv::merge(upd,3,comp);
+
             map_comp=comp.clone();
+
             //cv::imshow("Comparison",comp);
             //cv::waitKey(3);
 

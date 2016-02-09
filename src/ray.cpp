@@ -312,6 +312,8 @@ bool bfo(cv::Mat map, vector<cv::Mat> reach, Elem sensor, int i, int j, vector<c
 
 bool bf_sq(cv::Mat map, vector<cv::Point> reach, int defl, int i, int j, cv::Mat & test_pt, vector<cv::Point> & list)
 {
+    if(i==182 && j==11)
+        cout<<"New Test"<<endl;
     for(unsigned int r=0; r<reach.size(); r++)
     {
         int ii=reach[r].x;
@@ -323,7 +325,7 @@ bool bf_sq(cv::Mat map, vector<cv::Point> reach, int defl, int i, int j, cv::Mat
         {
             if( raytracing(map,ii,jj,i,j,test_pt, list) )
             {
-                if(i==1 && j==1)
+                if(i==182 && j==11)
                     cout<<"From: "<<ii<<"; "<<jj<<endl;
                 return true;
             }
@@ -465,6 +467,13 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool o
                     continue;
             }
 
+            if(i==182 && j==3)
+                cout<<"Test182;3!!!!"<<endl;
+
+            if(i==182 && j==11)
+                cout<<"Test182;11!!!!"<<endl;
+
+
             if(opt_rep || opt_repM)
             {
                 if(test_points.at<uchar>(i,j)!=255)
@@ -483,6 +492,12 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool o
             {
                 test_pt_temp=test_points.clone();
             }
+
+            if(i==182 && j==11)
+                cout<<"Test182;11"<<endl;
+
+            if(i==182 && j==3)
+                cout<<"Test182;3"<<endl;
 
 
             bool found=false;
@@ -507,9 +522,9 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool o
 
                 if(opt_repM)
                 {
-                    for(unsigned int i=0;i<pt_vis_list.size();i++)
+                    for(unsigned int ir=0;ir<pt_vis_list.size();ir++)
                     {
-                        test_points.at<uchar>(pt_vis_list[i].x,pt_vis_list[i].y)=0;
+                        test_points.at<uchar>(pt_vis_list[ir].x,pt_vis_list[ir].y)=0;
                     }
                 }
 
@@ -552,6 +567,13 @@ cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis, bool opt_rep, boo
             if(vis.at<uchar>(i,j)==0)
                 continue;
 
+            if(i==182 && j==3)
+                cout<<"Test182;3!!!!"<<endl;
+
+            if(i==182 && j==11)
+                cout<<"Test182;11!!!!"<<endl;
+
+
             if(opt_rep || opt_repM)
             {
                 if(test_points.at<uchar>(i,j)!=255)
@@ -572,6 +594,13 @@ cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis, bool opt_rep, boo
 
             bool found=false;
 
+            if(i==182 && j==11)
+                cout<<"Test182;11"<<endl;
+
+            if(i==182 && j==3)
+                cout<<"Test182;3"<<endl;
+
+
             if(bf_sq( map, reach , defl, i, j, test_pt_temp, pt_vis_list) )
                 found=true;
 
@@ -584,9 +613,11 @@ cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis, bool opt_rep, boo
 
                 if(opt_repM)
                 {
-                    for(unsigned int i=0;i<pt_vis_list.size();i++)
+                    for(unsigned int ir=0;ir<pt_vis_list.size();ir++)
                     {
-                        test_points.at<uchar>(pt_vis_list[i].x,pt_vis_list[i].y)=0;
+                        test_points.at<uchar>(pt_vis_list[ir].x,pt_vis_list[ir].y)=0;
+                        if(pt_vis_list[ir].x==182 && pt_vis_list[ir].y==11)
+                            cout<<"182,11 by: "<< i<<"; "<<j <<endl;
                     }
                 }
 
