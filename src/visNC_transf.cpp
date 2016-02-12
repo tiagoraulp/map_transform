@@ -215,23 +215,24 @@ bool VisNC_transf::conf_space(void)
 
     cv::Mat elem = this->robot.clone();
 
-    cv::Point2f pt=cv::Point2f(elem.rows*rcx,elem.cols*rcy);
+    cv::Point2f pt=cv::Point2f(elem.rows*rcx,elem.cols*rcy); // center position of the robot
 
-    cv::Point2f pt2=cv::Point2f(elem.rows*dx,elem.cols*dy);
+    cv::Point2f pt2=cv::Point2f(elem.rows*dx,elem.cols*dy); // center position of the of the sensor in the robot image referential
 
-    robot_or=multiRobot(elem, pt,this->rct, this->rinfl, this->angle_res, pt2);
+    robot_or=multiRobot(elem, pt,this->rct, this->rinfl, this->angle_res, pt2); // creating multi layer of robot images rotated and scaled
 
     cv::Point2f pt3=cv::Point2f(sensor.rows*scx,sensor.cols*scy);
-    pt2=pt-pt2+pt3;
+    pt2=pt-pt2+pt3; //center of robot in sensor image referential
 
-    sensor_or=multiSensor(this->sensor.clone(), pt3,this->sct, this->sdefl, this->angle_res, pt2);
+    sensor_or=multiSensor(this->sensor.clone(), pt3,this->sct, this->sdefl, this->angle_res, pt2);// creating multi layer sensor image
+
 
     cv::copyMakeBorder(or_map,or_mapN,this->robot_or.pu,this->robot_or.pb,this->robot_or.pl,robot_or.pr,cv::BORDER_CONSTANT,cv::Scalar(0));
 
-    sensor_or.pu=robot_or.pu;
-    sensor_or.pl=robot_or.pl;
-    sensor_or.pb=robot_or.pb;
-    sensor_or.pr=robot_or.pr;
+    //sensor_or.pu=robot_or.pu;
+    //sensor_or.pl=robot_or.pl;
+    //sensor_or.pb=robot_or.pb;
+    //sensor_or.pr=robot_or.pr;
 
     vector<cv::Mat> mer_map=multiErosion(or_mapN, robot_or);
 
@@ -573,9 +574,11 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                 //    cout<<unreach.clusters[k][ff].cluster[ffp].x<<" "<<unreach.clusters[k][ff].cluster[ffp].y<<endl;
                 //}
 
-                cv::Point3i crit=critP.find_crit_point(unreach.clusters[k][ff]);
+                cv::Point2i crit;
+                cv::Point3i crit3=critP.find_crit_point(unreach.clusters[k][ff]);
+                crit=critP.getCrit();
 
-                cout<<"x: "<<crit.x<<";y: "<<crit.y<<";a: "<<crit.z<<";at: "<<angle_res<<endl;
+                cout<<"x: "<<crit3.x<<";y: "<<crit3.y<<";a: "<<crit3.z<<";at: "<<angle_res<<endl;
 
                 if(!critP.valid())
                 {
@@ -590,13 +593,13 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
 
                     vis_map_temp = cv::Mat::zeros(regions.rows, regions.cols, CV_8UC1)*255;
 
-                    vector<cv::Point> occ=expVisibility_obs(cv::Point2i(crit.x,crit.y), sensor_ev.pb, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
+                    vector<cv::Point> occ=expVisibility_obs(cv::Point2i(crit.x,crit.y), sensor_ev.pr, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
 
-                    //if(k==2)
-                    //{
-                    //    cv::imshow("TEST!!!!!",vis_map_temp);
-                    //    cv::waitKey(2);
-                    //}
+                    if(k==2)
+                    {
+                        cv::imshow("TEST!!!!!",vis_map_temp);
+                        cv::waitKey(2);
+                    }
 
                     vector<cv::Point> occ_crit_filt=getExtremeFromObstacles(occ, cv::Point2i(crit.x,crit.y));
 
@@ -621,6 +624,10 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
 
                     cout<<unreach.clusters[k][ff].extremes.size()<<endl;
 
+                    cout<<critP.getExtremes()[0]<<"; "<<critP.getExtremes()[1]<<endl;
+                    cout<<critP.getObt()<<endl;
+
+                    map_debug_pos.at<uchar>(crit3.x, crit3.y)=0;
                     map_debug_pos.at<uchar>(crit.x, crit.y)=0;
                 }
             }

@@ -252,6 +252,8 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         Unreachable unreach(map_or, act_map);
 
+        map_debug=unreach.unreach_map;
+
         if(infl<defl)  //extended sensing radius
         {
             vis_map=ext_vis(unreach, vis_map, r_map, opt);
@@ -260,8 +262,6 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         map_label=r_map;
         map_act=act_map;
         map_vis=vis_map;
-
-        map_debug=unreach.unreach_map;
 
         unsigned char color[3]={0,255,0};
 
@@ -512,6 +512,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
                         if(n_w==1)
                         {
+                           map_debug.at<uchar>(crit.x, crit.y)=0;
                            n_w=-1;
                         }
                         else if((n_w==2 || n_w==3) && critP.getExtremes().size()==2)

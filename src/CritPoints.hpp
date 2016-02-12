@@ -40,6 +40,7 @@ public:
     CritPointsAS(cv::Mat map, std::vector<cv::Mat> reach, Elem sensor_ev, std::vector<int> sens_area);
     cv::Point3i find_crit_point(ClusterLists frontier_p);
     bool valid(void);
+    cv::Point3i getCrit3(void);
 };
 
 #endif // CRITPOINTS_HPP

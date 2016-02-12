@@ -40,9 +40,11 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 
     int md=(int)sqrt(m_x*m_x+m_y*m_y);
 
-    vector<cv::Point> sq=bf_hlx(md+1+sensor.pb);
+    int ext=2;
 
-    FindMin<double, cv::Point3i> crit;
+    vector<cv::Point> sq=bf_hlx(md+ext+sensor.pb);
+
+    FindMax<double, cv::Point3i> crit;
 
     for(unsigned int r=0; r<sq.size(); r++)
     {
@@ -60,22 +62,20 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 
                     //if(angdiff<=( (int)round(((double)reach3.size())*0.20 )))
                     //{
-                        double sum=0;
-                        //for(unsigned int l=0;l<frontier_p.size();l++){
-                        //    sum+=(frontier_p[l].x-i)*(frontier_p[l].x-i)+(frontier_p[l].y-j)*(frontier_p[l].y-j);
-                        //}
+                        //double est_area=((center.x-i)*(center.x-i)+(center.x-i)*(center.y-j))*PI;
 
-                        double est_area=((center.x-i)*(center.x-i)+(center.x-i)*(center.y-j))*PI;
+                        int ii=i+sensor.pt2[a].x-sensor.pt.x;
+                        int jj=j+sensor.pt2[a].y-sensor.pt.y;
 
                         vector<double> angle;
                         angle.assign(2,0);
                         double angleA, angleB, angleC;
 
-                        angleA=atan2(cluster_p.extremes[0].y-j, cluster_p.extremes[0].x-i);
+                        angleA=atan2(cluster_p.extremes[0].y-jj, cluster_p.extremes[0].x-ii);
 
-                        angleB=atan2(cluster_p.extremes[1].y-j, cluster_p.extremes[1].x-i);
+                        angleB=atan2(cluster_p.extremes[1].y-jj, cluster_p.extremes[1].x-ii);
 
-                        angleC=atan2(center.y-j, center.x-i);
+                        angleC=atan2(center.y-jj, center.x-ii);
 
                         int start;
 
@@ -95,10 +95,55 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
                         else
                             start=1;
 
+                        double angle_diff;
+
+                        if(start==0)
+                        {
+                            if( (angle[1]-angle[0]) > PI )
+                                continue;
+                            else
+                                angle_diff=angle[1]-angle[0];
+                        }
+                        else
+                        {
+                            if( (2*PI-angle[1]+angle[0]) > PI )
+                                continue;
+                            else
+                                angle_diff=2*PI-angle[1]+angle[0];
+                        }
+
+                        float d0;//=(cluster_p.extremes[0].y-j)*(cluster_p.extremes[0].y-j)+(cluster_p.extremes[0].x-i)*(cluster_p.extremes[0].x-i);
+                        float d1;//=(cluster_p.extremes[1].y-j)*(cluster_p.extremes[1].y-j)+(cluster_p.extremes[1].x-i)*(cluster_p.extremes[1].x-i);
+                        float d;//=(center.y-j)*(center.y-j)+(center.x-i)*(center.x-i);
+
+                        //if( (d<d1) || (d<d0) )
+                        //    continue;
+
+                        d0=2*center.x-cluster_p.extremes[0].x-cluster_p.extremes[1].x;
+                        d1=2*center.y-cluster_p.extremes[0].y-cluster_p.extremes[1].y;
+
+                        d=center.x-ii;
+                        float d2=center.y-jj;
+
+                        if( (d*d0+d1*d2)<0 )
+                            continue;
+
+
                         if( abs(boundAngleRN(((float)(a))*2*PI/((float)(reach3.size()))-angleC))>(PI/2) )
                             continue;
 
-                        crit.iter(sum,cv::Point3i(i,j,a));
+
+                        //if( (i==178 && j==165 && a==16) || (i==122 && j==23 && a==8) )
+                        //    cout<<angle_diff<<endl;
+
+
+                        //double sum=0;
+
+                        //for(unsigned int l=0;l<frontier_p.size();l++){
+                        //    sum+=(frontier_p[l].x-ii)*(frontier_p[l].x-ii)+(frontier_p[l].y-jj)*(frontier_p[l].y-jj);
+                        //}
+
+                        crit.iter(angle_diff,cv::Point3i(i,j,a));
                     //}
                 }
             }
@@ -106,13 +151,17 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
     }
 
     if(crit.valid())
+    {
         critP3=crit.getP();
+        critP=cv::Point2i(critP3.x+sensor.pt2[critP3.z].x-sensor.pt.x,critP3.y+sensor.pt2[critP3.z].y-sensor.pt.y);
+    }
     else
+    {
         critP3=cv::Point3i(-1,-1,-1);
+        critP=cv::Point2i(-1,-1);
+    }
 
     frontier=frontier_p;
-
-    critP=cv::Point2i(critP3.x,critP3.y);
 
     return critP3;
 }
@@ -120,6 +169,11 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 bool CritPointsAS::valid(void)
 {
     return !(critP3.x<0 || critP3.y<0 || critP3.z<0);
+}
+
+cv::Point3i CritPointsAS::getCrit3(void)
+{
+    return critP3;
 }
 
 CritPoints::CritPoints(cv::Mat map, cv::Mat reach, int rs): r_map(reach), map_or(map), infl(rs)
@@ -262,19 +316,21 @@ void CritPoints::extremePoints(cv::Point2i pt, cv::Point2i pt2, float a0, float 
 
     if( e<extremes[0] )
     {
+        obt=1;
         extremes.insert(extremes.begin(),e);
         extremesP.insert(extremesP.begin(),ptf);
     }
     else
     {
+        obt=0;
         extremes.push_back(e);
         extremesP.push_back(ptf);
     }
 
-    if( (extremes[1]-extremes[0])>PI )
-        obt=0;
-    else
-        obt=1;
+    //if( (extremes[1]-extremes[0])>PI )
+    //    obt=0;
+    //else
+    //    obt=1;
 }
 
 vector<float> CritPoints::frontier_extremes(void)
