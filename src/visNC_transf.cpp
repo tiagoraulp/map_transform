@@ -552,6 +552,80 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
     prev=pos;
 }
 
+
+vector<cv::Point> VisNC_transf::expVisibility_obs(cv::Point3i crit3P, Elem sensor, cv::Mat regions, uchar k, vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp)
+{
+    vector<cv::Point> occ;
+    int defl=sensor.pr+1;
+    cv::Point crit(crit3P.x+sensor.pt2[crit3P.z].x-sensor.pt.x,crit3P.y+sensor.pt2[crit3P.z].y-sensor.pt.y);
+
+    for(int rowx=max((crit.x-defl),0);rowx<=min((crit.x+defl),regions.rows-1);rowx++)
+    {
+        for(int coly=max((crit.y-defl),0);coly<=min((crit.y+defl),regions.cols-1);coly++)
+        {
+            float angle=atan2(coly-crit.y,rowx-crit.x);
+            float dist=(rowx-crit.x)*(rowx-crit.x)+(coly-crit.y)*(coly-crit.y);
+
+            bool reg;
+            if(obt_angle==1)
+                reg=(angle<extremes[1] && angle>extremes[0]);
+            else
+                reg=(angle<extremes[0] || angle>extremes[1]);
+
+            bool sens=false;
+
+            if( (i+sensor.pu-ii+sensor.pt.x)<sensor.elems[a].rows &&  (i+sensor.pu-ii+sensor.pt.x)>=0 && (j+sensor.pl-jj+sensor.pt.y)<sensor.elems[a].cols &&  (j+sensor.pl-jj+sensor.pt.y)>=0 )
+            {
+                if(sensor.elems[crit3P.z].at<uchar>(rowx-crit.x+sensor.pt2[crit3P].x, j+sensor.pl-jj+sensor.pt.y)==0)
+                {
+                    continue;
+                }
+                else
+                {
+                    if( raytracing(map,ii-sensor.pu+sensor.pt2[a].x-sensor.pt.x,jj-sensor.pl+sensor.pt2[a].y-sensor.pt.y,i,j, true,test_pt, list) )
+                    {
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                continue;
+            }
+
+
+
+            if(reg && (dist<=(1*defl*defl)) && (regions.at<uchar>(rowx,coly)==(k+2) ) )
+            {
+                vis_map_temp.at<uchar>(rowx,coly)=255;
+            }
+            else if (reg && (dist<=(1*defl*defl)) && (map_or.at<uchar>(rowx,coly)==0) )
+            {
+                bool stop=false;
+                for(int vx=-1;vx<=1;vx++)
+                {
+                    for(int vy=-1;vy<=1;vy++)
+                    {
+                        if( (rowx+vx)>=0 && (rowx+vx)<regions.rows && (coly+vy)>=0 && (coly+vy)<regions.cols )
+                        {
+                            if( (abs(vx)+abs(vy)==1) &&  regions.at<uchar>(rowx+vx,coly+vy)==(k+2)  )
+                            {
+                                occ.push_back(cv::Point(rowx,coly));
+                                stop=true;
+                                break;
+                            }
+                        }
+                    }
+                    if(stop)
+                        break;
+                }
+            }
+        }
+    }
+
+    return occ;
+}
+
 cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<cv::Mat> r_map, bool optRay)
 {
     unreach.getFrontiers2();
@@ -583,6 +657,8 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                 if(!critP.valid())
                 {
                     cout<<"Here!"<<endl;
+                    cout<<unreach.clusters[k][ff].extremes.size()<<endl;
+
                     continue;
                 }
                 else
@@ -593,7 +669,7 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
 
                     vis_map_temp = cv::Mat::zeros(regions.rows, regions.cols, CV_8UC1)*255;
 
-                    vector<cv::Point> occ=expVisibility_obs(cv::Point2i(crit.x,crit.y), sensor_ev.pr, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
+                    vector<cv::Point> occ=Vis_transf::expVisibility_obs(cv::Point2i(crit.x,crit.y), sensor_ev.pr, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
 
                     if(k==2)
                     {
@@ -605,7 +681,13 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
 
                     for(unsigned int c=0;c<occ_crit_filt.size();c++)
                     {
-                        raytracing(&vis_map_temp, cv::Point2i(crit.x,crit.y), occ_crit_filt[c], occ_crit_filt[c], sensor_ev.pb);
+                        raytracing(&vis_map_temp, cv::Point2i(crit.x,crit.y), occ_crit_filt[c], occ_crit_filt[c], sensor_ev.pr);
+                    }
+
+                    if(k==2)
+                    {
+                        cv::imshow("TEST222222!!!!!",vis_map_temp);
+                        cv::waitKey(2);
                     }
 
                     for(unsigned int j=0;j<frontier.size();j++){
@@ -615,8 +697,9 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                             for(unsigned int pv=0;pv<points_vis.size();pv++)
                             {
                                 vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
+                                vis_map_temp.at<uchar>(points_vis[pv].x,points_vis[pv].y)=0;
                             }
-                            break;
+                            //break;
                         }
                     }
 
@@ -624,8 +707,8 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
 
                     cout<<unreach.clusters[k][ff].extremes.size()<<endl;
 
-                    cout<<critP.getExtremes()[0]<<"; "<<critP.getExtremes()[1]<<endl;
-                    cout<<critP.getObt()<<endl;
+                    //cout<<critP.getExtremes()[0]<<"; "<<critP.getExtremes()[1]<<endl;
+                    //cout<<critP.getObt()<<endl;
 
                     map_debug_pos.at<uchar>(crit3.x, crit3.y)=0;
                     map_debug_pos.at<uchar>(crit.x, crit.y)=0;

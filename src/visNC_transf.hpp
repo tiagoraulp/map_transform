@@ -22,6 +22,7 @@ protected:
     bool opt;
 
     cv::Mat ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<cv::Mat> r_map, bool optRay=true);
+    std::vector<cv::Point> expVisibility_obs(cv::Point3i crit, Elem defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp);
     void update_config(map_transform::ParametersncConfig config, bool ch, bool _opt);
     void show(void);
     bool conf_space(void);

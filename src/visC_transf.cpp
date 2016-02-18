@@ -667,6 +667,8 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
                                         vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
 
+                                        vis_map_temp.at<uchar>(points_vis[pv].x,points_vis[pv].y)=0;
+
                                         geometry_msgs::Pose pcp;
                                         pcp.position.x=points_vis[pv].x-crit_point.x;
                                         pcp.position.y=points_vis[pv].y-crit_point.y;
@@ -676,7 +678,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                                         else
                                             vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=min(vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y],diff);//points.push_back(pcp);
                                     }
-                                    break;
+                                    //break;
                                 }
                             }
                         }

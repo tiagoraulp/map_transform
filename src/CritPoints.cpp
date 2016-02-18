@@ -26,6 +26,9 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
         return critP3;
     }
 
+    float dux=cluster_p.extremes[0].x-cluster_p.extremes[1].x;
+    float duy=cluster_p.extremes[0].y-cluster_p.extremes[1].y;
+
     FindMin<int> min_y, min_x;
     FindMax<int> max_y, max_x;
     double mean_x=0, mean_y=0;
@@ -42,13 +45,30 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
     }
     cv::Point center((int)round(mean_x/frontier_p.size()),(int)round(mean_y/frontier_p.size()));
 
-    FindMin<float, cv::Point> cl_center;
+    float d0=2*center.x-cluster_p.extremes[0].x-cluster_p.extremes[1].x;
+    float d1=2*center.y-cluster_p.extremes[0].y-cluster_p.extremes[1].y;
 
-    for(unsigned int j=0;j<frontier_p.size();j++){
-        cl_center.iter( (frontier_p[j].x-center.x)*(frontier_p[j].x-center.x)+(frontier_p[j].y-center.y)*(frontier_p[j].y-center.y), frontier_p[j]);
+    float nx=duy;
+    float ny=-dux;
+
+    if((nx*d0/2+ny*d1/2)<-0.05)
+    {
+        nx=-nx;
+        ny=-ny;
+    }
+    else if( (nx*d0+ny*d1)<0.05 )
+    {
+        nx=0;
+        ny=0;
     }
 
-    cv::Point centerF=cl_center.getP();
+//    FindMin<float, cv::Point> cl_center;
+
+//    for(unsigned int j=0;j<frontier_p.size();j++){
+//        cl_center.iter( (frontier_p[j].x-center.x)*(frontier_p[j].x-center.x)+(frontier_p[j].y-center.y)*(frontier_p[j].y-center.y), frontier_p[j]);
+//    }
+
+//    cv::Point centerF=cl_center.getP();
 
     int m_x=max(max_x.getVal()-center.x,center.x-min_x.getVal());
     int m_y=max(max_y.getVal()-center.y,center.y-min_y.getVal());
@@ -84,16 +104,16 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 
                         vector<double> angle;
                         angle.assign(2,0);
-                        double angleA, angleB, angleC;
+                        double angleA, angleB;//, angleC;
 
                         angleA=atan2(cluster_p.extremes[0].y-jj, cluster_p.extremes[0].x-ii);
 
                         angleB=atan2(cluster_p.extremes[1].y-jj, cluster_p.extremes[1].x-ii);
 
                         //angleC=atan2(center.y-jj, center.x-ii);
-                        angleC=atan2(centerF.y-jj, centerF.x-ii);
+//                        angleC=atan2(centerF.y-jj, centerF.x-ii);
 
-                        int start;
+//                        int start;
 
                         if(angleA<angleB)
                         {
@@ -106,66 +126,83 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
                             angle[1]=angleA;
                         }
 
-                        if(angleC>=angle[0] && angleC<=angle[1])
-                            start=0;
-                        else
-                            start=1;
+//                        if(angleC>=angle[0] && angleC<=angle[1])
+//                            start=0;
+//                        else
+//                            start=1;
 
                         double angle_diff;
 
-                        if(start==0)
-                        {
-                            //if( (angle[1]-angle[0]) > PI )
-                            if( ((angle[1]-angleC) > PI) || ((angleC-angle[0]) > PI) )
-                                continue;
-                            else
-                                angle_diff=angle[1]-angle[0];
-                        }
-                        else
-                        {
-                            //if( (2*PI-angle[1]+angle[0]) > PI )
-                            //    continue;
-                            //else
-                            //    angle_diff=2*PI-angle[1]+angle[0];
+//                        if(start==0)
+//                        {
+// //                            //if( (angle[1]-angle[0]) > PI )
+// //                            if( ((angle[1]-angleC) > PI) || ((angleC-angle[0]) > PI) )
+// //                                continue;
+// //                            else
+//                                angle_diff=angle[1]-angle[0];
+//                        }
+//                        else
+//                        {
+//                            //if( (2*PI-angle[1]+angle[0]) > PI )
+//                            //    continue;
+//                            //else
+//                            //    angle_diff=2*PI-angle[1]+angle[0];
 
-                            if(angleC>angle[1])
-                            {
-                                if( ((angleC-angle[1]) > PI) || ((2*PI-angleC+angle[0]) > PI) )
-                                    continue;
-                                else
-                                    angle_diff=2*PI-angle[1]+angle[0];
-                            }
-                            else
-                            {
-                                if( ((angle[0]-angleC) > PI) || ((2*PI-angle[1]+angleC) > PI) )
-                                    continue;
-                                else
-                                    angle_diff=2*PI-angle[1]+angle[0];
-                            }
+// //                            if(angleC>angle[1])
+// //                            {
+// //                                if( ((angleC-angle[1]) > PI) || ((2*PI-angleC+angle[0]) > PI) )
+// //                                    continue;
+// //                                else
+// //                                    angle_diff=2*PI-angle[1]+angle[0];
+// //                            }
+// //                            else
+// //                            {
+// //                                if( ((angle[0]-angleC) > PI) || ((2*PI-angle[1]+angleC) > PI) )
+// //                                    continue;
+// //                                else
+//                                    angle_diff=2*PI-angle[1]+angle[0];
+// //                            }
+//                        }
 
-                        }
-
-                        float d0;//=(cluster_p.extremes[0].y-j)*(cluster_p.extremes[0].y-j)+(cluster_p.extremes[0].x-i)*(cluster_p.extremes[0].x-i);
-                        float d1;//=(cluster_p.extremes[1].y-j)*(cluster_p.extremes[1].y-j)+(cluster_p.extremes[1].x-i)*(cluster_p.extremes[1].x-i);
-                        float d;//=(center.y-j)*(center.y-j)+(center.x-i)*(center.x-i);
+                        //float d0;//=(cluster_p.extremes[0].y-j)*(cluster_p.extremes[0].y-j)+(cluster_p.extremes[0].x-i)*(cluster_p.extremes[0].x-i);
+                        //float d1;//=(cluster_p.extremes[1].y-j)*(cluster_p.extremes[1].y-j)+(cluster_p.extremes[1].x-i)*(cluster_p.extremes[1].x-i);
+                        //float d;//=(center.y-j)*(center.y-j)+(center.x-i)*(center.x-i);
 
                         //if( (d<d1) || (d<d0) )
                         //    continue;
 
-                        d0=2*center.x-cluster_p.extremes[0].x-cluster_p.extremes[1].x;
-                        d1=2*center.y-cluster_p.extremes[0].y-cluster_p.extremes[1].y;
+                        //d0=2*center.x-cluster_p.extremes[0].x-cluster_p.extremes[1].x;
+                        //d1=2*center.y-cluster_p.extremes[0].y-cluster_p.extremes[1].y;
 
-                        float d2=0;//=center.y-jj;
-                        d=0;//center.x-ii;
+                        float d2=cluster_p.extremes[0].y-jj;//0;//=center.y-jj;
+                        float d=cluster_p.extremes[0].x-ii;//0;//center.x-ii;
 
-                        for(unsigned int l=0;l<frontier_p.size();l++){
-                            //sum+=(frontier_p[l].x-ii)*(frontier_p[l].x-ii)+(frontier_p[l].y-jj)*(frontier_p[l].y-jj);
-                            d+=frontier_p[l].x-ii;
-                            d2+=frontier_p[l].y-jj;
+//                        for(unsigned int l=0;l<frontier_p.size();l++){
+//                            //sum+=(frontier_p[l].x-ii)*(frontier_p[l].x-ii)+(frontier_p[l].y-jj)*(frontier_p[l].y-jj);
+//                            d+=frontier_p[l].x-ii;
+//                            d2+=frontier_p[l].y-jj;
+//                        }
+
+                        if( ((d*nx+ny*d2)<0) && (nx!=0 || ny!=0) )
+                            //continue;
+                        {
+                            if( (ii<min_x.getVal()) || (ii>max_x.getVal()) || (jj<min_y.getVal()) || (jj>max_y.getVal()) )
+                                continue;
+                            else
+                            {
+                                if( (angle[1]-angle[0])>PI )
+                                    angle_diff=angle[1]-angle[0];
+                                else
+                                    angle_diff=2*PI-angle[1]+angle[0];
+                            }
                         }
-
-                        if( (d*d0+d1*d2)<0 )
-                            continue;
+                        else
+                        {
+                            if( (angle[1]-angle[0])<=PI )
+                                angle_diff=angle[1]-angle[0];
+                            else
+                                angle_diff=2*PI-angle[1]+angle[0];
+                        }
 
                         //if( abs(boundAngleRN(((float)(a))*2*PI/((float)(reach3.size()))-angleC))>(PI/2) )
                         //    continue;
