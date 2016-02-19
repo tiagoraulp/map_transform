@@ -143,6 +143,9 @@ Elem multiSensor(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int 
 
     cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
 
+    double thr=128;
+
+    threshold(elem_t, elem_t, thr, 255, cv::THRESH_BINARY);
 
     for(int i=0;i<res;i++) //rotating images
     {
@@ -150,6 +153,8 @@ Elem multiSensor(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int 
         r = cv::getRotationMatrix2D(cv::Point2f(pt2.y,pt2.x), (360.0/res*i), 1.0);
 
         cv::warpAffine(elem_t, elem_f, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
+
+        threshold(elem_f, elem_f, thr, 255, cv::THRESH_BINARY);
 
         result.elems.push_back(elem_f);
 

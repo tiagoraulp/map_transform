@@ -557,14 +557,13 @@ vector<cv::Point> VisNC_transf::expVisibility_obs(cv::Point3i crit3P, Elem senso
 {
     vector<cv::Point> occ;
     int defl=sensor.pr+1;
-    cv::Point crit(crit3P.x+sensor.pt2[crit3P.z].x-sensor.pt.x,crit3P.y+sensor.pt2[crit3P.z].y-sensor.pt.y);
+    cv::Point crit(crit3P.x-sensor.pu+sensor.pt2[crit3P.z].x-sensor.pt.x,crit3P.y-sensor.pl+sensor.pt2[crit3P.z].y-sensor.pt.y);
 
     for(int rowx=max((crit.x-defl),0);rowx<=min((crit.x+defl),regions.rows-1);rowx++)
     {
         for(int coly=max((crit.y-defl),0);coly<=min((crit.y+defl),regions.cols-1);coly++)
         {
             float angle=atan2(coly-crit.y,rowx-crit.x);
-            float dist=(rowx-crit.x)*(rowx-crit.x)+(coly-crit.y)*(coly-crit.y);
 
             bool reg;
             if(obt_angle==1)
@@ -574,32 +573,19 @@ vector<cv::Point> VisNC_transf::expVisibility_obs(cv::Point3i crit3P, Elem senso
 
             bool sens=false;
 
-            if( (i+sensor.pu-ii+sensor.pt.x)<sensor.elems[a].rows &&  (i+sensor.pu-ii+sensor.pt.x)>=0 && (j+sensor.pl-jj+sensor.pt.y)<sensor.elems[a].cols &&  (j+sensor.pl-jj+sensor.pt.y)>=0 )
+            if( (rowx-crit.x+sensor.pt2[crit3P.z].x)<sensor.elems[crit3P.z].rows &&  (rowx-crit.x+sensor.pt2[crit3P.z].x)>=0 && (coly-crit.y+sensor.pt2[crit3P.z].y)<sensor.elems[crit3P.z].cols &&  (coly-crit.y+sensor.pt2[crit3P.z].y)>=0 )
             {
-                if(sensor.elems[crit3P.z].at<uchar>(rowx-crit.x+sensor.pt2[crit3P].x, j+sensor.pl-jj+sensor.pt.y)==0)
+                if((sensor.elems[crit3P.z].at<uchar>(rowx-crit.x+sensor.pt2[crit3P.z].x, coly-crit.y+sensor.pt2[crit3P.z].y)>128))
                 {
-                    continue;
-                }
-                else
-                {
-                    if( raytracing(map,ii-sensor.pu+sensor.pt2[a].x-sensor.pt.x,jj-sensor.pl+sensor.pt2[a].y-sensor.pt.y,i,j, true,test_pt, list) )
-                    {
-                        return true;
-                    }
+                    sens=true;
                 }
             }
-            else
-            {
-                continue;
-            }
 
-
-
-            if(reg && (dist<=(1*defl*defl)) && (regions.at<uchar>(rowx,coly)==(k+2) ) )
+            if(reg && sens && (regions.at<uchar>(rowx,coly)==(k+2) ) )
             {
                 vis_map_temp.at<uchar>(rowx,coly)=255;
             }
-            else if (reg && (dist<=(1*defl*defl)) && (map_or.at<uchar>(rowx,coly)==0) )
+            else if (reg && sens && (map_or.at<uchar>(rowx,coly)==0) )
             {
                 bool stop=false;
                 for(int vx=-1;vx<=1;vx++)
@@ -652,7 +638,7 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                 cv::Point3i crit3=critP.find_crit_point(unreach.clusters[k][ff]);
                 crit=critP.getCrit();
 
-                cout<<"x: "<<crit3.x<<";y: "<<crit3.y<<";a: "<<crit3.z<<";at: "<<angle_res<<endl;
+                cout<<"x: "<<crit3.x-sensor_ev.pu<<";y: "<<crit3.y-sensor_ev.pl<<";a: "<<crit3.z<<";at: "<<angle_res<<endl;
 
                 if(!critP.valid())
                 {
@@ -669,7 +655,8 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
 
                     vis_map_temp = cv::Mat::zeros(regions.rows, regions.cols, CV_8UC1)*255;
 
-                    vector<cv::Point> occ=Vis_transf::expVisibility_obs(cv::Point2i(crit.x,crit.y), sensor_ev.pr, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
+                    //vector<cv::Point> occ=Vis_transf::expVisibility_obs(cv::Point2i(crit.x,crit.y), sensor_ev.pr, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
+                    vector<cv::Point> occ=expVisibility_obs(crit3, sensor_or, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
 
                     if(k==2)
                     {
@@ -710,7 +697,7 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                     //cout<<critP.getExtremes()[0]<<"; "<<critP.getExtremes()[1]<<endl;
                     //cout<<critP.getObt()<<endl;
 
-                    map_debug_pos.at<uchar>(crit3.x, crit3.y)=0;
+                    //map_debug_pos.at<uchar>(crit3.x, crit3.y)=0;
                     map_debug_pos.at<uchar>(crit.x, crit.y)=0;
                 }
             }

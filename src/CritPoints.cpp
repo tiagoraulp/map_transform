@@ -217,7 +217,7 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
                         //    sum+=(frontier_p[l].x-ii)*(frontier_p[l].x-ii)+(frontier_p[l].y-jj)*(frontier_p[l].y-jj);
                         //}
 
-                        crit.iter(angle_diff,cv::Point3i(i,j,a));
+                        crit.iter(angle_diff,cv::Point3i(i+sensor.pu,j+sensor.pl,a));
                     //}
                 }
             }
@@ -227,7 +227,7 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
     if(crit.valid())
     {
         critP3=crit.getP();
-        critP=cv::Point2i(critP3.x+sensor.pt2[critP3.z].x-sensor.pt.x,critP3.y+sensor.pt2[critP3.z].y-sensor.pt.y);
+        critP=cv::Point2i(critP3.x-sensor.pu+sensor.pt2[critP3.z].x-sensor.pt.x, critP3.y-sensor.pl+sensor.pt2[critP3.z].y-sensor.pt.y);
     }
     else
     {
