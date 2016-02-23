@@ -33,7 +33,7 @@ static const std::string EV_WINDOW = "Structuring Ext Vis";
 static const std::string P_WINDOW = "ProjectedLabeled";
 static const std::string R_WINDOW = "ProjectedActuation";
 static const std::string DP_WINDOW = "Debug Pos";
-
+static const std::string CP_WINDOW = "Comparison";
 
 VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_transf(nh), robot(rob), sensor(sens)
 {
@@ -92,6 +92,7 @@ VisNC_transf::~VisNC_transf()
        cv::destroyWindow(V_WINDOW);
        cv::destroyWindow(G_WINDOW);
        cv::destroyWindow(DP_WINDOW);
+       cv::destroyWindow(CP_WINDOW);
     }
 }
 
@@ -120,10 +121,13 @@ void VisNC_transf::show(void)
             if(this->gt)
             {
                 cv::imshow(G_WINDOW,this->map_truth);
+                cv::imshow(CP_WINDOW, this->map_comp);
             }
             else
             {
                 cv::destroyWindow(G_WINDOW);
+                cv::waitKey(2);
+                cv::destroyWindow(CP_WINDOW);
                 cv::waitKey(2);
             }
         }
@@ -144,6 +148,8 @@ void VisNC_transf::show(void)
             cv::destroyWindow(R_WINDOW);
             cv::waitKey(2);
             cv::destroyWindow(G_WINDOW);
+            cv::waitKey(2);
+            cv::destroyWindow(CP_WINDOW);
             cv::waitKey(2);
         }
         cv::waitKey(3);
@@ -185,6 +191,8 @@ void VisNC_transf::show(void)
        cv::destroyWindow(G_WINDOW);
        cv::waitKey(2);
        cv::destroyWindow(DP_WINDOW);
+       cv::waitKey(2);
+       cv::destroyWindow(CP_WINDOW);
        cv::waitKey(2);
     }
 }
@@ -279,7 +287,7 @@ bool VisNC_transf::conf_space(void)
         return false;
     }
 
-    calcSensArea(sensor_ev);
+    calcSensArea(sensor_or);
 
     struct_elemEV=printPoint(sensor_ev.elems[m_a],sensor_ev.pt, color);
     struct_elemEV=printPoint(struct_elemEV,sensor_or.pt2[m_a], color2);
@@ -329,7 +337,7 @@ void VisNC_transf::calcSensArea(Elem sens)
         {
             if(sens.elems[0].at<uchar>(i,j)!=0)
             {
-                int x=i-sens.pt.x, y=j-sens.pt.y;
+                int x=i-sens.pt2[0].x, y=j-sens.pt2[0].y;
 
                 if(x==0 && y==0)
                 {
@@ -432,7 +440,7 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         map_debug_pos=unreach.unreach_map;
 
-        vis_map=ext_vis(unreach, vis_map, multi_labl_map, true);
+        vis_map=ext_vis(unreach, vis_map, multi_labl_map, opt);
 
         this->map_vis=vis_map;
 
@@ -448,6 +456,8 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         {
             ros::Time t3;
 
+            t3=ros::Time::now();
+
             vector<cv::Point3i> reach_list;
             reach_list.clear();
 
@@ -462,6 +472,16 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
                     }
                 }
             }
+
+            vector<cv::Point> labels_gt=label_seed(map_or.clone()/255,4,cv::Point(pos.x,pos.y));
+
+            cv::Mat eff_gt=cv::Mat::zeros(map_or.rows,map_or.cols, CV_8UC1);
+
+            for(unsigned int j=0;j<labels_gt.size();j++){
+                   eff_gt.at<uchar>(labels_gt[j].x,labels_gt[j].y)=255;
+            }
+
+            map_debug=eff_gt.clone();
 
             /////////////////
 
@@ -518,9 +538,10 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
 //            ////////////////////////
 
-            t3=ros::Time::now();
+            //t3=ros::Time::now();
 
-            this->map_truth=brute_force(map_or, reach_list , sensor_or, false, map_projAct);
+            //this->map_truth=brute_force(map_or, reach_list , sensor_or, false, map_projAct, true, true);
+            this->map_truth=brute_force(eff_gt, reach_list , sensor_or, false, map_projAct, true, true);
 
             diff = ros::Time::now() - t3;
 
@@ -528,6 +549,27 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             //cv::imshow("TestLwA",this->map_truth);
             //cv::waitKey(3);
+
+            unsigned char c1[3]={255,255,255};
+            unsigned char c2[3]={0,0,0};
+            unsigned char c3[3]={255,0,0};
+            unsigned char c0[3]={0,180,255};
+
+
+            cv::Mat comp=color_print(map_vis, map_truth,  c1, c2, c3, c0);
+
+            map_comp=comp.clone();
+
+            ROS_INFO("Precision: 1; Recall: %f", coverage(map_act,map_truth));
+
+            vector<int> cm=confusion_matrix(map_vis,map_truth);
+
+            float tt=(float)(cm[0]+cm[1]+cm[2]+cm[3]);
+
+            if(cm.size()!=0)
+                ROS_INFO("Confusion Matrix:\n     Truth\n     P      N\nV  P %.4f %.4f\nI\nS  N %.4f %.4f", cm[0]/tt,cm[1]/tt,cm[2]/tt,cm[3]/tt);
+
+            ROS_INFO("Precision: %f; Recall: %f",cm[0]/float(cm[0]+cm[1]),cm[0]/float(cm[0]+cm[2]));
 
             ////////////////////////
 
@@ -620,7 +662,7 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
 
     cv::Mat vis_map_temp;
 
-    CritPointsAS critP(map_or, r_map, sensor_ev, sens_area);
+    CritPointsAS critP(map_or, map_projAct, r_map, sensor_ev, sens_area);
 
     for (unsigned int k=0;k<unreach.clusters.size();k++){//2;k++){//
         for(unsigned int ff=0;ff<unreach.clusters[k].size();ff++)
@@ -664,29 +706,47 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                         cv::waitKey(2);
                     }
 
-                    vector<cv::Point> occ_crit_filt=getExtremeFromObstacles(occ, cv::Point2i(crit.x,crit.y));
-
-                    for(unsigned int c=0;c<occ_crit_filt.size();c++)
+                    if(optRay)
                     {
-                        raytracing(&vis_map_temp, cv::Point2i(crit.x,crit.y), occ_crit_filt[c], occ_crit_filt[c], sensor_ev.pr);
-                    }
+                        vector<cv::Point> occ_crit_filt=getExtremeFromObstacles(occ, cv::Point2i(crit.x,crit.y));
 
-                    if(k==2)
-                    {
-                        cv::imshow("TEST222222!!!!!",vis_map_temp);
-                        cv::waitKey(2);
-                    }
-
-                    for(unsigned int j=0;j<frontier.size();j++){
-                        if(vis_map_temp.at<uchar>( frontier[j].x,frontier[j].y)==255)
+                        for(unsigned int c=0;c<occ_crit_filt.size();c++)
                         {
-                            std::vector<cv::Point> points_vis=label_seed(vis_map_temp.clone()/255,4,cv::Point(frontier[j].x,frontier[j].y));
-                            for(unsigned int pv=0;pv<points_vis.size();pv++)
+                            raytracing(&vis_map_temp, cv::Point2i(crit.x,crit.y), occ_crit_filt[c], occ_crit_filt[c], sensor_ev.pr);
+                        }
+
+                        if(k==2)
+                        {
+                            cv::imshow("TEST222222!!!!!",vis_map_temp);
+                            cv::waitKey(2);
+                        }
+
+                        for(unsigned int j=0;j<frontier.size();j++){
+                            if(vis_map_temp.at<uchar>( frontier[j].x,frontier[j].y)==255)
                             {
-                                vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
-                                vis_map_temp.at<uchar>(points_vis[pv].x,points_vis[pv].y)=0;
+                                std::vector<cv::Point> points_vis=label_seed(vis_map_temp.clone()/255,4,cv::Point(frontier[j].x,frontier[j].y));
+                                for(unsigned int pv=0;pv<points_vis.size();pv++)
+                                {
+                                    vis_map.at<uchar>(points_vis[pv].x,points_vis[pv].y)=255;
+                                    vis_map_temp.at<uchar>(points_vis[pv].x,points_vis[pv].y)=0;
+                                }
+                                //break;
                             }
-                            //break;
+                        }
+                    }
+                    else
+                    {
+                        vis_map_temp=bf_pt(map_or, crit3, sensor_or, vis_map_temp, true, true);
+
+                        for(int xx=0;xx<vis_map_temp.rows;xx++)
+                        {
+                            for(int yy=0;yy<vis_map_temp.cols;yy++)
+                            {
+                                if(vis_map_temp.at<uchar>(xx,yy)==255)
+                                {
+                                    vis_map.at<uchar>(xx,yy)=255;
+                                }
+                            }
                         }
                     }
 

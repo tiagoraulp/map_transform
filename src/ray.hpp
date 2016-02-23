@@ -11,8 +11,8 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y, bool 
 template <typename T, typename T2>
 cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt=true, cv::Mat act=cv::Mat(0,0,CV_8UC1), bool opt_rep=false, bool opt_repM=false);
 
-template <typename T2>
-cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis, bool opt_rep=false, bool opt_repM=false);
+template <typename T, typename T2>
+cv::Mat bf_pt(cv::Mat map, T pt, T2 defl, cv::Mat vis, bool opt_rep=false, bool opt_repM=false);
 
 std::vector<cv::Point> bf_hlx(Elem sensor);
 

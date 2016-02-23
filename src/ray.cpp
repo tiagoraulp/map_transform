@@ -538,8 +538,8 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool o
     return result;
 }
 
-template <typename T2>
-cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis, bool opt_rep, bool opt_repM)
+template <typename T, typename T2>
+cv::Mat bf_pt(cv::Mat map, T pt, T2 defl, cv::Mat vis, bool opt_rep, bool opt_repM)
 {
     cv::Mat result=vis.clone();
 
@@ -550,7 +550,7 @@ cv::Mat bf_pt(cv::Mat map, cv::Point pt, T2 defl, cv::Mat vis, bool opt_rep, boo
 
     vector<cv::Point> pt_vis_list;
 
-    vector<cv::Point> reach;
+    vector<T> reach;
     reach.clear();
     reach.push_back(pt);
 
@@ -706,7 +706,8 @@ vector<int> confusion_matrix(cv::Mat test, cv::Mat truth)
     return result;
 }
 
-template cv::Mat bf_pt<int>(cv::Mat map, cv::Point pt, int defl, cv::Mat vis, bool opt_rep, bool opt_repM);
+template cv::Mat bf_pt<cv::Point, int>(cv::Mat map, cv::Point pt, int defl, cv::Mat vis, bool opt_rep, bool opt_repM);
+template cv::Mat bf_pt<cv::Point3i, Elem>(cv::Mat map, cv::Point3i pt, Elem defl, cv::Mat vis, bool opt_rep, bool opt_repM);
 template cv::Mat brute_force<cv::Mat, int>(cv::Mat map, cv::Mat reach, int defl, bool opt, cv::Mat act, bool opt_rep, bool opt_repM);
 template cv::Mat brute_force<vector<cv::Mat>, Elem>(cv::Mat map, vector<cv::Mat> reach, Elem defl, bool opt, cv::Mat act, bool opt_rep, bool opt_repM);
 template cv::Mat brute_force<vector<cv::Point>, int>(cv::Mat map, vector<cv::Point> reach, int defl, bool opt, cv::Mat act, bool opt_rep, bool opt_repM);

@@ -125,6 +125,8 @@ void VisC_transf::show(void)
             cv::waitKey(2);
             cv::destroyWindow(G_WINDOW);
             cv::waitKey(2);
+            cv::destroyWindow(CP_WINDOW);
+            cv::waitKey(2);
         }
         cv::waitKey(3);
     }
@@ -411,7 +413,6 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             unsigned char c3[3]={255,0,0};
             unsigned char c0[3]={0,180,255};
 
-
             cv::Mat comp=color_print(map_vis, map_truth,  c1, c2, c3, c0);
 
             //cv::Mat upd[3];
@@ -441,8 +442,6 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             ROS_INFO("Precision: %f; Recall: %f",cm[0]/float(cm[0]+cm[1]),cm[0]/float(cm[0]+cm[2]));
 
             ////////////////////////////
-
-
 
 //            t3=ros::Time::now();
 
@@ -653,8 +652,6 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                                 }
                                 //cv::waitKey(3);
                             }
-
-
 
                             for(unsigned int j=0;j<frontier.size();j++){
                                 if(vis_map_temp.at<uchar>( frontier[j].x,frontier[j].y)==255)

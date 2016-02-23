@@ -32,12 +32,13 @@ public:
 class CritPointsAS: public CritPoints
 {
 private:
+    cv::Mat act;
     std::vector<cv::Mat> reach3;
     cv::Point3i critP3;
     Elem sensor;
     std::vector<int> sens_hist;
 public:
-    CritPointsAS(cv::Mat map, std::vector<cv::Mat> reach, Elem sensor_ev, std::vector<int> sens_area);
+    CritPointsAS(cv::Mat map, cv::Mat actuat, std::vector<cv::Mat> reach, Elem sensor_ev, std::vector<int> sens_area);
     cv::Point3i find_crit_point(ClusterLists frontier_p);
     bool valid(void);
     cv::Point3i getCrit3(void);

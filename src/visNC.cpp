@@ -74,7 +74,9 @@ int main(int argc, char **argv)
 
         ros::spinOnce();
 
-        visNC.run();
+        visNC.run(true);
+
+        //visNC.run(false);
 
         loop_rate.sleep();
     }

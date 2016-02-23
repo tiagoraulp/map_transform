@@ -9,7 +9,7 @@ using namespace std;
 
 static const double PI = 3.141592653589793;
 
-CritPointsAS::CritPointsAS(cv::Mat map, vector<cv::Mat> reach, Elem sensor_ev, std::vector<int> sens_area): CritPoints(map, reach[0], sensor.pb), reach3(reach), sensor(sensor_ev), sens_hist(sens_area)
+CritPointsAS::CritPointsAS(cv::Mat map, cv::Mat actuat, vector<cv::Mat> reach, Elem sensor_ev, std::vector<int> sens_area): CritPoints(map, reach[0], sensor.pb), act(actuat), reach3(reach), sensor(sensor_ev), sens_hist(sens_area)
 {
     critP3=cv::Point3i(-1,-1,-1);
 }
@@ -31,7 +31,7 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 
     FindMin<int> min_y, min_x;
     FindMax<int> max_y, max_x;
-    double mean_x=0, mean_y=0;
+    double mean_x=0, mean_y=0, mean_act_x=0, mean_act_y=0;
 
     vector<cv::Point> frontier_p=cluster_p.cluster;
 
@@ -42,11 +42,36 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
         min_y.iter(frontier_p[j].y);
         mean_x+=frontier_p[j].x;
         mean_y+=frontier_p[j].y;
+
+        bool stop=false;
+        for(int a=frontier_p[j].x-1;a<=(frontier_p[j].x+1);a++){
+            for(int b=frontier_p[j].y-1;b<=(frontier_p[j].y+1);b++){
+                if ((a>=0)&&(b>=0)&&(a<act.rows)&&(b<act.cols) )
+                {
+                    int aa=a-frontier_p[j].x;
+                    int bb=b-frontier_p[j].y;
+                    if((abs(aa)+abs(bb))==1)
+                        if(act.at<uchar>(a,b)==255)
+                        {
+                            mean_act_x+=a;
+                            mean_act_y+=b;
+                            stop=true;
+                            break;
+                        }
+                }
+            }
+            if(stop)
+                break;
+        }
     }
-    cv::Point center((int)round(mean_x/frontier_p.size()),(int)round(mean_y/frontier_p.size()));
+
+    cv::Point2f center((int)round(mean_x/frontier_p.size()),(int)round(mean_y/frontier_p.size()));
 
     float d0=2*center.x-cluster_p.extremes[0].x-cluster_p.extremes[1].x;
     float d1=2*center.y-cluster_p.extremes[0].y-cluster_p.extremes[1].y;
+
+    float d0_act=mean_act_x-mean_x;
+    float d1_act=mean_act_y-mean_y;
 
     float nx=duy;
     float ny=-dux;
@@ -61,6 +86,27 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
         nx=0;
         ny=0;
     }
+
+    float nx_act=duy;
+    float ny_act=-dux;
+
+    if((nx_act*d0_act/2+ny_act*d1_act/2)<-0.05)
+    {
+        nx_act=-nx_act;
+        ny_act=-ny_act;
+    }
+    else if( (nx_act*d0_act+ny_act*d1_act)<0.05 )
+    {
+        nx_act=0;
+        ny_act=0;
+    }
+
+    bool concave=true;
+
+    if( (nx_act*nx+ny_act*ny)>=0 )
+        concave=false;
+
+    cout<<concave<<endl;
 
 //    FindMin<float, cv::Point> cl_center;
 
@@ -183,7 +229,7 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 //                            d2+=frontier_p[l].y-jj;
 //                        }
 
-                        if( ((d*nx+ny*d2)<0) && (nx!=0 || ny!=0) )
+                        if( ((d*nx_act+ny_act*d2)>0) && (nx_act!=0 || ny_act!=0) && concave )
                             //continue;
                         {
                             if( (ii<min_x.getVal()) || (ii>max_x.getVal()) || (jj<min_y.getVal()) || (jj>max_y.getVal()) )
