@@ -9,7 +9,7 @@ using namespace std;
 
 static const double PI = 3.141592653589793;
 
-CritPointsAS::CritPointsAS(cv::Mat map, cv::Mat actuat, vector<cv::Mat> reach, Elem sensor_ev, std::vector<int> sens_area): CritPoints(map, reach[0], sensor.pb), act(actuat), reach3(reach), sensor(sensor_ev), sens_hist(sens_area)
+CritPointsAS::CritPointsAS(cv::Mat map, cv::Mat actuat, vector<cv::Mat> reach, Elem sensor_or, std::vector<int> sens_area): CritPoints(map, reach[0], sensor.pb), act(actuat), reach3(reach), sensor(sensor_or), sens_hist(sens_area)
 {
     critP3=cv::Point3i(-1,-1,-1);
 }
@@ -65,7 +65,8 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
         }
     }
 
-    cv::Point2f center((int)round(mean_x/frontier_p.size()),(int)round(mean_y/frontier_p.size()));
+    //cv::Point2f center((int)round(mean_x/frontier_p.size()),(int)round(mean_y/frontier_p.size()));
+    cv::Point2f center(mean_x/frontier_p.size(),mean_y/frontier_p.size());
 
     float d0=2*center.x-cluster_p.extremes[0].x-cluster_p.extremes[1].x;
     float d1=2*center.y-cluster_p.extremes[0].y-cluster_p.extremes[1].y;
@@ -125,7 +126,7 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 
     vector<cv::Point> sq=bf_hlx(md+ext+sensor.pb);
 
-    FindMax<double, cv::Point3i> crit;
+    FindMax<float, cv::Point3i> crit;
 
     for(unsigned int r=0; r<sq.size(); r++)
     {
@@ -159,7 +160,7 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
                         //angleC=atan2(center.y-jj, center.x-ii);
 //                        angleC=atan2(centerF.y-jj, centerF.x-ii);
 
-//                        int start;
+                        int start;
 
                         if(angleA<angleB)
                         {
@@ -177,7 +178,7 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 //                        else
 //                            start=1;
 
-                        double angle_diff;
+                        float angle_diff;
 
 //                        if(start==0)
 //                        {
@@ -229,6 +230,8 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
 //                            d2+=frontier_p[l].y-jj;
 //                        }
 
+                        float reduced_area=0;
+
                         if( ((d*nx_act+ny_act*d2)>0) && (nx_act!=0 || ny_act!=0) && concave )
                             //continue;
                         {
@@ -237,17 +240,40 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
                             else
                             {
                                 if( (angle[1]-angle[0])>PI )
+                                {
+                                    start=0;
                                     angle_diff=angle[1]-angle[0];
+                                }
                                 else
+                                {
+                                    start=1;
                                     angle_diff=2*PI-angle[1]+angle[0];
+                                }
                             }
+
+                            reduced_area=0;
+
+                            for(unsigned int l=0;l<frontier_p.size();l++){
+                                reduced_area+=sqrt((frontier_p[l].x-ii)*(frontier_p[l].x-ii)+(frontier_p[l].y-jj)*(frontier_p[l].y-jj))/2;
+                            }
+                            //r*sqrt(2)/2 - what if direction is vertical or horizontal? then it's r/2
                         }
                         else
                         {
                             if( (angle[1]-angle[0])<=PI )
+                            {
+                                start=0;
                                 angle_diff=angle[1]-angle[0];
+                            }
                             else
+                            {
+                                start=1;
                                 angle_diff=2*PI-angle[1]+angle[0];
+                            }
+
+                            float rad=sqrt( (ii-center.x)*(ii-center.x)+(jj-center.y)*(jj-center.y) );
+
+                            reduced_area=rad*rad*angle_diff/2;
                         }
 
                         //if( abs(boundAngleRN(((float)(a))*2*PI/((float)(reach3.size()))-angleC))>(PI/2) )
@@ -263,7 +289,48 @@ cv::Point3i CritPointsAS::find_crit_point(ClusterLists cluster_p)
                         //    sum+=(frontier_p[l].x-ii)*(frontier_p[l].x-ii)+(frontier_p[l].y-jj)*(frontier_p[l].y-jj);
                         //}
 
-                        crit.iter(angle_diff,cv::Point3i(i+sensor.pu,j+sensor.pl,a));
+                        int a0, a1;
+
+                        if(start==0)
+                        {
+                            a0=angleR2I(angle[0],sens_hist.size());
+                            a1=angleR2I(angle[1],sens_hist.size());
+                        }
+                        else
+                        {
+                            a0=angleR2I(angle[1],sens_hist.size());
+                            a1=angleR2I(angle[0],sens_hist.size());
+                        }
+
+                        int sum=0;
+
+                        int aa=round(((float)a)*sens_hist.size()/sensor.elems.size());
+
+                        if(a0<=a1)
+                        {
+                            for(int range=a0;range<=a1;range++)
+                            {
+                                sum+=sens_hist[(range-aa)%sens_hist.size()];
+                            }
+                        }
+                        else
+                        {
+                            for(unsigned int range=a0;range<sens_hist.size();range++)
+                            {
+                                sum+=sens_hist[(range-aa)%sens_hist.size()];
+                            }
+                            for(int range=0;range<=a1;range++)
+                            {
+                                sum+=sens_hist[(range-aa)%sens_hist.size()];
+                            }
+                        }
+
+
+
+                        // If reduced area calculated over pixels in frontier, then each area is r*sqrt(2)/2
+
+                        crit.iter(sum-reduced_area,cv::Point3i(i+sensor.pu,j+sensor.pl,a));
+                        //crit.iter(angle_diff,cv::Point3i(i+sensor.pu,j+sensor.pl,a));
                     //}
                 }
             }

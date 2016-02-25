@@ -163,6 +163,11 @@ int angleD2I(double rtrd, int angle_res)
     return m_a;
 }
 
+int angleR2I(double rtrd, int angle_res)
+{
+    return angleD2I(angleR2D(rtrd), angle_res);
+}
+
 double pi(void)
 {
     return PI;

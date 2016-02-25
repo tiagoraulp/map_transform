@@ -335,6 +335,8 @@ double boundAngleDN(double x);
 
 int angleD2I(double rtrd, int angle_res);
 
+int angleR2I(double rtrd, int angle_res);
+
 int incAngle(int p, int num);
 
 int decAngle(int p, int num);
