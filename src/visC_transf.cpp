@@ -58,9 +58,11 @@ void VisC_transf::publish(void)
 {
     Vis_transf::publish();
     map_transform::VisCom graphMsg;
+    //graphMsg.vis=vis_;
+    graphMsg=vis_;
+
     graphMsg.header.stamp = ros::Time::now();
     graphMsg.header.frame_id = "map";
-    graphMsg.vis=vis_;
 
     graph_publisher.publish(graphMsg);
 }
@@ -472,7 +474,10 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
     CritPoints critP(map_or, r_map, infl);
 
     //vis_.assign(vis_map.rows*vis_map.cols, map_transform::VisNode());
-    vis_.assign(vis_map.rows*vis_map.cols, -2);
+    //vis_.assign(vis_map.rows*vis_map.cols, -2);
+    vis_.vis.assign(vis_map.rows*vis_map.cols, -2);
+    vis_.crit_points.assign(vis_map.rows*vis_map.cols,map_transform::VisNode());
+
 
     for (unsigned int k=0;k<unreach.frontiers.size();k++){//1;k++){//
         long int countP=0;
@@ -670,10 +675,25 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                                         pcp.position.x=points_vis[pv].x-crit_point.x;
                                         pcp.position.y=points_vis[pv].y-crit_point.y;
                                         float diff=sqrt(pcp.position.x*pcp.position.x+pcp.position.y*pcp.position.y);
-                                        if(vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]<0)
-                                            vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=diff;
+                                        if(vis_.vis[points_vis[pv].x*vis_map.cols+points_vis[pv].y]<0)
+                                        {
+                                            vis_.vis[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=diff;
+
+                                            vis_.crit_points[points_vis[pv].x*vis_map.cols+points_vis[pv].y].points.clear();
+                                            geometry_msgs::Pose ps;
+                                            ps.position.x=crit_point.x;
+                                            ps.position.y=crit_point.y;
+                                            vis_.crit_points[points_vis[pv].x*vis_map.cols+points_vis[pv].y].points.push_back(ps);
+                                        }
                                         else
-                                            vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=min(vis_[points_vis[pv].x*vis_map.cols+points_vis[pv].y],diff);//points.push_back(pcp);
+                                        {
+                                            vis_.vis[points_vis[pv].x*vis_map.cols+points_vis[pv].y]=min(vis_.vis[points_vis[pv].x*vis_map.cols+points_vis[pv].y],diff);//points.push_back(pcp);
+
+                                            geometry_msgs::Pose ps;
+                                            ps.position.x=crit_point.x;
+                                            ps.position.y=crit_point.y;
+                                            vis_.crit_points[points_vis[pv].x*vis_map.cols+points_vis[pv].y].points.push_back(ps);
+                                        }
                                     }
                                     //break;
                                 }
@@ -721,10 +741,25 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                                         pcp.position.x=xx-crit_point.x;
                                         pcp.position.y=yy-crit_point.y;
                                         float diff=sqrt(pcp.position.x*pcp.position.x+pcp.position.y*pcp.position.y);
-                                        if(vis_[xx*vis_map.cols+yy]<0)
-                                            vis_[xx*vis_map.cols+yy]=diff;
+                                        if(vis_.vis[xx*vis_map.cols+yy]<0)
+                                        {
+                                            vis_.vis[xx*vis_map.cols+yy]=diff;
+
+                                            vis_.crit_points[xx*vis_map.cols+yy].points.clear();
+                                            geometry_msgs::Pose ps;
+                                            ps.position.x=crit_point.x;
+                                            ps.position.y=crit_point.y;
+                                            vis_.crit_points[xx*vis_map.cols+yy].points.push_back(ps);
+                                        }
                                         else
-                                            vis_[xx*vis_map.cols+yy]=min(vis_[xx*vis_map.cols+yy],diff);//points.push_back(pcp);
+                                        {
+                                            vis_.vis[xx*vis_map.cols+yy]=min(vis_.vis[xx*vis_map.cols+yy],diff);//points.push_back(pcp);
+
+                                            geometry_msgs::Pose ps;
+                                            ps.position.x=crit_point.x;
+                                            ps.position.y=crit_point.y;
+                                            vis_.crit_points[xx*vis_map.cols+yy].points.push_back(ps);
+                                        }
                                     }
                                 }
                             }

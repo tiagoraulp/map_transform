@@ -24,8 +24,8 @@ protected:
     bool valid_pos(cv::Point3i pos);
     void clearImgs(void);
     void publish(void);
-    //std::vector<map_transform::VisNode> vis_;
-    std::vector<float> vis_;
+    map_transform::VisCom vis_;
+    //std::vector<float> vis_;
 public:
     VisC_transf(ros::NodeHandle nh);
     ~VisC_transf();

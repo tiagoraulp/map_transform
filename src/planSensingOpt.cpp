@@ -6,6 +6,7 @@
 #include "visualization_msgs/MarkerArray.h"
 #include "tf/transform_listener.h"
 #include <map_transform/VisCom.h>
+#include <map_transform/VisNode.h>
 
 #include <queue>
 #include "std_msgs/String.h"
@@ -60,9 +61,9 @@ public:
 
 float k1=1;
 
-float k2=0.2;
+float k2=0.05;
 
-bool quad=false;
+bool quad=true;
 
 //const float k2=1;
 
@@ -82,8 +83,12 @@ class node
     T priority;  // smaller: higher priority
     T sens;
     float opt;
+    map_transform::VisNode crit;
     float K;
     bool bfs;
+
+    int Gx;
+    int Gy;
 
     float (node::*costEst) (const int x, const int y) const;
     float (node::*costSens) (const int x, const int y) const;
@@ -135,11 +140,29 @@ class node
                 return k1*costEstimateDist(sqrt(x*x+y*y),sens);
             else
             {
+                float est1;
                 if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
-                    return k1*costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt;
+                    est1=k1*costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt;
                 else
                     //return k2*sqrt(x*x+y*y);
-                    return k2*opt;
+                    est1=k2*opt;
+
+                float est2;
+                FindMin<float> min_est;
+                for(int i=0;i<crit.points.size();i++)
+                {
+                    float xx=crit.points[i].position.x-xPos;
+                    float yy=crit.points[i].position.y-yPos;
+
+                    float xG=crit.points[i].position.x-Gx;
+                    float yG=crit.points[i].position.y-Gy;
+
+                    min_est.iter(k1*(sqrt(xx*xx+yy*yy)-2*infl)+k2*sqrt(xG*xG+yG*yG));
+                }
+                est2=min_est.getVal();
+
+                return max(est1,est2);
+                //return est1;
             }
         }
     }
@@ -162,28 +185,52 @@ class node
         }
         else
         {
+            float est1;
+
             if(K<defl)
                 if( K>opt )
                     if( ( (x)*(x)+(y)*(y) )>=(K*K) )
-                        return k1*costEstimateDist((sqrt(x*x+y*y)-K),sens)+k2*K*K;
+                        est1= k1*costEstimateDist((sqrt(x*x+y*y)-K),sens)+k2*K*K;
                     else
                         if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
-                            return k2*(x*x+y*y);
+                            est1= k2*(x*x+y*y);
                         else
-                            return k2*opt*opt;
+                            est1= k2*opt*opt;
                 else
                     if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
-                        return k1*costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt*opt;
+                        est1= k1*costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt*opt;
                     else
-                        return k2*opt*opt;
+                        est1= k2*opt*opt;
             else
                 if( ( (x)*(x)+(y)*(y) )>=(defl*defl) )
-                    return k1*costEstimateDist((sqrt(x*x+y*y)-defl),sens)+k2*defl*defl;
+                    est1= k1*costEstimateDist((sqrt(x*x+y*y)-defl),sens)+k2*defl*defl;
                 else
                     if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
-                        return k2*(x*x+y*y);
+                        est1= k2*(x*x+y*y);
                     else
-                        return k2*opt*opt;
+                        est1= k2*opt*opt;
+
+
+            float est2;
+            FindMin<float> min_est;
+            for(int i=0;i<crit.points.size();i++)
+            {
+                float xx=crit.points[i].position.x-xPos;
+                float yy=crit.points[i].position.y-yPos;
+
+                float xG=crit.points[i].position.x-Gx;
+                float yG=crit.points[i].position.y-Gy;
+
+                float T2C_dist=sqrt(xG*xG+yG*yG);
+
+                float ext_dist=max(K-T2C_dist,(float)0.0);
+
+                min_est.iter(k1*(sqrt(xx*xx+yy*yy)-2*infl-ext_dist)+k2*(T2C_dist+ext_dist)*(T2C_dist+ext_dist));
+            }
+            est2=min_est.getVal();
+
+            return max(est1,est2);
+            //return est1;
         }
     }
 
@@ -198,9 +245,9 @@ class node
     }
 
     public:
-        node(int xp, int yp, T d, T p, int inf, int def, T ss, float dist, bool q, bool bfs_=false)
+        node(int xp, int yp, T d, T p, int inf, int def, T ss, float dist, bool q, bool bfs_, map_transform::VisNode cr_)
         {
-            xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;sens=ss;opt=dist;
+            xPos=xp; yPos=yp; level=d; priority=p;infl=inf;defl=def;sens=ss;opt=dist;crit=cr_;
             power=q;
             bfs=bfs_;
 
@@ -230,6 +277,8 @@ class node
 
         void updatePriority(const int & xDest, const int & yDest)
         {
+            Gx=xDest;
+            Gy=yDest;
 
             if(!bfs)
              priority=level+estimate(xDest, yDest)*1; //A*
@@ -242,6 +291,9 @@ class node
 
         void updateSensing(const int & xDest, const int & yDest)
         {
+            Gx=xDest;
+            Gy=yDest;
+
             T ss=sensing(xDest, yDest);
             if(ss<0)
                 sens=ss;
@@ -452,6 +504,8 @@ private:
 
     std::vector<float> vis_;
 
+    std::vector<map_transform::VisNode> crit_points;
+
     void rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
     void rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg);
@@ -487,7 +541,7 @@ private:
     geometry_msgs::Point convertI2W(PointI p);
 
     template <typename T=float>
-    Apath Astar(PointI p0, PointI p1, int r,   float opt=-3, bool bfs=false);
+    Apath Astar(PointI p0, PointI p1, int r,   float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
 
     Apath AstarMP(PointI p0, PointI p1, int r);
     Apath AstarMP0(PointI p0, PointI p1, int r);
@@ -554,6 +608,7 @@ public:
 void Planner::graphCallback(const map_transform::VisCom::ConstPtr& graph)
 {
     vis_=graph->vis;
+    crit_points=graph->crit_points;
     graph_rcv=true;
 }
 
@@ -670,7 +725,7 @@ void Planner::rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
     //clearG();
     goals.push_back(msg->pose.position);
-    pl=true;
+    //pl=true;
 }
 
 bool Planner::ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res)
@@ -955,7 +1010,7 @@ int index_file=0;
 ofstream myfile[14];
 
 template <typename T>
-Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
+Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs, map_transform::VisNode crit)
 {
 
     //myfile << "Writing this to a file.\n";
@@ -969,33 +1024,33 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
     vector<vector<int> > open_nodes_map;open_nodes_map.assign(n,vector<int>(m,0));
     vector<vector<int> > dir_map;dir_map.assign(n,vector<int>(m,0));
 
-    if(opt==-2)
-    {
-        if(msg_rcv[0][p1.i][p1.j] && !msg_rcv[1][p1.i][p1.j])
-        {
-            FindMin<float> crit;
-            bool found=false;
+//    if(opt==-2)
+//    {
+//        if(msg_rcv[0][p1.i][p1.j] && !msg_rcv[1][p1.i][p1.j])
+//        {
+//            FindMin<float> crit;
+//            bool found=false;
 
-            for(int x=max(p1.i-infl,0);x<min(p1.i+infl,(int)msg_rcv[0].size());x++)
-            {
-                for(int y=max(p1.j-infl,0);y<min(p1.j+infl,(int)msg_rcv[0][0].size());y++)
-                {
-                    if(msg_rcv[1][p1.i][p1.j])
-                    {
-                        found=true;
-                        float cost=(p1.i-x)*(p1.i-x)+(p1.j-y)*(p1.j-y);
-                        crit.iter(cost);
-                    }
-                }
-            }
-            if(found)
-                opt=sqrt(crit.getVal());
-        }
-    }
+//            for(int x=max(p1.i-infl,0);x<min(p1.i+infl,(int)msg_rcv[0].size());x++)
+//            {
+//                for(int y=max(p1.j-infl,0);y<min(p1.j+infl,(int)msg_rcv[0][0].size());y++)
+//                {
+//                    if(msg_rcv[1][p1.i][p1.j])
+//                    {
+//                        found=true;
+//                        float cost=(p1.i-x)*(p1.i-x)+(p1.j-y)*(p1.j-y);
+//                        crit.iter(cost);
+//                    }
+//                }
+//            }
+//            if(found)
+//                opt=sqrt(crit.getVal());
+//        }
+//    }
 
     priority_queue<node<T> > pq[3];
     int pqi;
-    node<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, opt, quad, bfs);
+    node<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, opt, quad, bfs, crit);
     int i, j, x, y, xdx, ydy;
     pqi=0;
 
@@ -1022,7 +1077,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
 
 
             n0=node<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad, bfs);
+                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad, bfs, crit);
             x=n0.getxPos(); y=n0.getyPos();
 
             pq[pqi].pop();
@@ -1048,7 +1103,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
 
 
                 n0=node<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad, bfs);
+                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad, bfs, crit);
                 x=n0.getxPos(); y=n0.getyPos();
 
                 pq[2].pop();
@@ -1079,7 +1134,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
                 if(!cond)
                 {
                     n0=node<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad, bfs);
+                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad, bfs, crit);
                     x=n0.getxPos(); y=n0.getyPos();
 
 
@@ -1102,7 +1157,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
                 else
                 {
                     n0=node<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad, bfs);
+                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad, bfs, crit);
                     x=n0.getxPos(); y=n0.getyPos();
 
 
@@ -1229,7 +1284,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs)
 
 
                     node<T> m0=node<T>( xdx, ydy, n0.getLevel(),
-                                 n0.getPriority(), infl, defl, n0.getSensing(), opt, quad, bfs);
+                                 n0.getPriority(), infl, defl, n0.getSensing(), opt, quad, bfs, crit);
                     m0.nextLevel(i);
                     m0.updatePriority(p1.i, p1.j);
                     m0.updateSensing(p1.i, p1.j);
@@ -1348,73 +1403,73 @@ void Planner::plan(void)
         //path=Astar(pi, convertW2I(goals[0]),1,-5,true);
         pl=false;
 
-//        for(unsigned int tt=0;tt<2;tt++)
-//        {
+        for(unsigned int tt=0;tt<2;tt++)
+        {
 
 
 
-//            for(unsigned ll=0;ll<7;ll++)
-//            {
-//                k1=1;
+            for(unsigned ll=0;ll<7;ll++)
+            {
+                k1=1;
 
-//                if(ll==0)
-//                    k2=0.008;
-//                else
-//                {k2*=5;}
+                if(ll==0)
+                    k2=0.008;
+                else
+                {k2*=5;}
 
-//                if(tt==0)
-//                    index_file=ll;
-//                else
-//                    index_file=7+ll;
+                if(tt==0)
+                    index_file=ll;
+                else
+                    index_file=7+ll;
 
 
 
-//                if(tt==0)
-//                {    quad=false;myfile[index_file]<<"Linear\n";}
-//                else
-//                {    quad=true;myfile[index_file]<<"Quadratic\n";}
+                if(tt==0)
+                {    quad=false;myfile[index_file]<<"Linear\n";}
+                else
+                {    quad=true;myfile[index_file]<<"Quadratic\n";}
 
-//                myfile[index_file]<<"Lambda="<<k2/k1<<"\n";
+                myfile[index_file]<<"Lambda="<<k2/k1<<"\n";
 
-//                for(int n=1;n<9;n++)
-//                {
+                for(int n=1;n<9;n++)
+                {
 
-//                    string xsx;
+                    string xsx;
 
-//                    if(n==1)
-//                    {
-//                        p.x=10; p.y=10; xsx="sim_1";
-//                    }
-//                    else if(n==2)
-//                    {
-//                        p.x=40; p.y=10; xsx="sim_2";
-//                    }
-//                    else if(n==3)
-//                    {
-//                        p.x=10; p.y=30; xsx="sim_3";
-//                    }
-//                    else if(n==4)
-//                    {
-//                        p.x=25; p.y=30; xsx="sim_4";
-//                    }
-//                    else if(n==5)
-//                    {
-//                        p.x=25; p.y=20; xsx="sim_5";
-//                    }
-//                    else if(n==6)
-//                    {
-//                        p.x=45; p.y=22; xsx="sim_6";
-//                    }
-//                    else if(n==7)
-//                    {
-//                        p.x=70; p.y=22; xsx="sim_7";
-//                    }
-//                    else if(n==8)
-//                    {
-//                        p.x=60; p.y=27.8; xsx="sim_8";
-//                    }
+                    if(n==1)
+                    {
+                        p.x=10; p.y=10; xsx="sim_1";
+                    }
+                    else if(n==2)
+                    {
+                        p.x=40; p.y=10; xsx="sim_2"; continue;
+                    }
+                    else if(n==3)
+                    {
+                        p.x=10; p.y=30; xsx="sim_3";continue;
+                    }
+                    else if(n==4)
+                    {
+                        p.x=25; p.y=30; xsx="sim_4";continue;
+                    }
+                    else if(n==5)
+                    {
+                        p.x=25; p.y=20; xsx="sim_5";continue;
+                    }
+                    else if(n==6)
+                    {
+                        p.x=45; p.y=22; xsx="sim_6";continue;
+                    }
+                    else if(n==7)
+                    {
+                        p.x=70; p.y=22; xsx="sim_7";continue;
+                    }
+                    else if(n==8)
+                    {
+                        p.x=60; p.y=27.8; xsx="sim_8";continue;
+                    }
 
-//                    //p.x=10; p.y=10;
+                    //p.x=10; p.y=10;
 
 
                     pi=convertW2I(p);
@@ -1422,6 +1477,8 @@ void Planner::plan(void)
 
                     //myfile[index_file]<<xsx<<"\n";
                     //cout<<xsx<<endl;
+
+                    cout<<n<<endl;
 
 
         for(unsigned int ii=0; ii<goals.size();ii++)//(goals.size()-1); i<goals.size();i++)//
@@ -1431,7 +1488,7 @@ void Planner::plan(void)
 
 
 
-            for(unsigned int i=ii; i<ii+1;i++)//(goals.size()-1); i<goals.size();i++)//
+            for(unsigned int i=goals.size(); i<ii+1;i++)//ii; i<ii+1;i++)//(goals.size()-1); i<goals.size();i++)//
             {
 
                 PointI g=convertW2I(goals[i]);
@@ -1463,41 +1520,14 @@ void Planner::plan(void)
             }
 
             diff = ros::Time::now() - t01;
-            if(path.cost!=-2)
-                myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
+            //if(path.cost!=-2)
+            //    myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
 
 
             ROS_INFO("Time BFS: %f; Cost: %f",diff.toSec(),path.cost);
 
 
-            path_0.poses.clear();
 
-            path_1=path_0;
-
-            if(path.cost>0)
-            {
-                //clearG();
-
-                if(path.points.size()!=0)
-                    for(unsigned int p_i=0;p_i<path.points.size();p_i++)
-                    {
-                        pw.pose.position=convertI2W(path.points[p_i]);
-
-                        path_0.poses.push_back(pw);
-                    }
-                else
-                {
-                    pw.pose.position=p;
-                    path_1.poses.push_back(pw);
-                }
-            }
-    //        else if(path.cost!=-3)
-    //        {
-    //            pw.pose.position=p;
-    //            path_0.poses.push_back(pw);
-    //        }
-
-            pub1.publish(path_0);
 
 
             //path=Astar(pi, convertW2I(goals[0]),1,-5);
@@ -1539,10 +1569,14 @@ void Planner::plan(void)
 
              diff = ros::Time::now() - t01;
 
-            if(path.cost!=-2)
-                myfile[index_file]<<diff<<"; "<<path.cost<<"\n";
+            if(path.cost>=0)
+                myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
 
             ROS_INFO("Time PA: %f; Cost: %f",diff.toSec(),path.cost);
+
+            path_0.poses.clear();
+
+            path_1=path_0;
 
             if(path.cost>0)
             {
@@ -1553,30 +1587,34 @@ void Planner::plan(void)
                     {
                         pw.pose.position=convertI2W(path.points[p_i]);
 
-                        path_1.poses.push_back(pw);
+                        path_0.poses.push_back(pw);
                     }
                 else
                 {
                     pw.pose.position=p;
                     path_1.poses.push_back(pw);
                 }
-           }
+            }
     //        else if(path.cost!=-3)
     //        {
-
+    //            pw.pose.position=p;
+    //            path_0.poses.push_back(pw);
     //        }
 
-            pub2.publish(path_1);
+            pub1.publish(path_0);
+
+
 
 
             //path=Astar(pi, convertW2I(goals[0]),1,-5);
 
-            t01=ros::Time::now();
+
 
             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size()))
             {
+                t01=ros::Time::now();
 
-                for(unsigned int i=goals.size(); i<goals.size();i++)//(goals.size()-1); i<goals.size();i++)//
+                for(unsigned int i=ii; i<ii+1;i++)//goals.size(); i<goals.size();i++)//(goals.size()-1); i<goals.size();i++)//
                 {
 
                     PointI g=convertW2I(goals[i]);
@@ -1602,7 +1640,7 @@ void Planner::plan(void)
                         continue;
                     }
     //t01=ros::Time::now();
-                    path=Astar(pi, g,1, vis_[g.i*msg_rcv[0][0].size()+g.j]);
+                    path=Astar(pi, g,1, vis_[g.i*msg_rcv[0][0].size()+g.j], false, crit_points[g.i*msg_rcv[0][0].size()+g.j]);
                     //path=AstarMP(pi, g,1);
                     //cout<<path.cost<<endl;
                 }
@@ -1610,6 +1648,34 @@ void Planner::plan(void)
                 diff = ros::Time::now() - t01;
 
                 ROS_INFO("Time PA-RDVM: %f; Cost: %f",diff.toSec(),path.cost);
+
+                //if(path.cost!=-2)
+                if(path.cost>=0)
+                    myfile[index_file]<<diff<<"; "<<path.cost<<"; "<<"\n";
+
+                if(path.cost>0)
+                {
+                    //clearG();
+
+                    if(path.points.size()!=0)
+                        for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+                        {
+                            pw.pose.position=convertI2W(path.points[p_i]);
+
+                            path_1.poses.push_back(pw);
+                        }
+                    else
+                    {
+                        pw.pose.position=p;
+                        path_1.poses.push_back(pw);
+                    }
+               }
+        //        else if(path.cost!=-3)
+        //        {
+
+        //        }
+
+                pub2.publish(path_1);
             }
 
 
@@ -1617,6 +1683,9 @@ void Planner::plan(void)
 
        // pl=false;
     }
+    }
+            }
+        }
     }
 }
 
@@ -1747,9 +1816,9 @@ int main(int argc, char **argv)
 
   ros::Rate loop_rate(10);
 
-  node<float> n0(1,1,0,0,8,80,0,20,false);
-  n0.nextLevel(1);
-  n0.updateSensing(4,4);
+  //node<float> n0(1,1,0,0,8,80,0,20,false);
+  //n0.nextLevel(1);
+  //n0.updateSensing(4,4);
   //cout<<n0.getxPos()+dx[1]<<" "<<n0.getyPos()+dy[1]<<" "<<n0.getSensing()<<endl;
 
   //cout<<static_cast<float>(5.555)<<endl;
