@@ -61,7 +61,7 @@ public:
 
 float k1=1;
 
-float k2=0.05;
+float k2=0.04;
 
 bool quad=true;
 
@@ -725,7 +725,7 @@ void Planner::rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
     //clearG();
     goals.push_back(msg->pose.position);
-    //pl=true;
+    pl=true;
 }
 
 bool Planner::ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res)
@@ -1403,71 +1403,71 @@ void Planner::plan(void)
         //path=Astar(pi, convertW2I(goals[0]),1,-5,true);
         pl=false;
 
-        for(unsigned int tt=0;tt<2;tt++)
-        {
+//        for(unsigned int tt=0;tt<2;tt++)
+//        {
 
 
 
-            for(unsigned ll=0;ll<7;ll++)
-            {
-                k1=1;
+//            for(unsigned ll=0;ll<7;ll++)
+//            {
+//                k1=1;
 
-                if(ll==0)
-                    k2=0.008;
-                else
-                {k2*=5;}
+//                if(ll==0)
+//                    k2=0.008;
+//                else
+//                {k2*=5;}
 
-                if(tt==0)
-                    index_file=ll;
-                else
-                    index_file=7+ll;
+//                if(tt==0)
+//                    index_file=ll;
+//                else
+//                    index_file=7+ll;
 
 
 
-                if(tt==0)
-                {    quad=false;myfile[index_file]<<"Linear\n";}
-                else
-                {    quad=true;myfile[index_file]<<"Quadratic\n";}
+//                if(tt==0)
+//                {    quad=false;myfile[index_file]<<"Linear\n";}
+//                else
+//                {    quad=true;myfile[index_file]<<"Quadratic\n";}
 
-                myfile[index_file]<<"Lambda="<<k2/k1<<"\n";
+//                myfile[index_file]<<"Lambda="<<k2/k1<<"\n";
 
-                for(int n=1;n<9;n++)
-                {
+//                for(int n=1;n<9;n++)
+//                {
 
-                    string xsx;
+//                    string xsx;
 
-                    if(n==1)
-                    {
-                        p.x=10; p.y=10; xsx="sim_1";
-                    }
-                    else if(n==2)
-                    {
-                        p.x=40; p.y=10; xsx="sim_2"; continue;
-                    }
-                    else if(n==3)
-                    {
-                        p.x=10; p.y=30; xsx="sim_3";continue;
-                    }
-                    else if(n==4)
-                    {
-                        p.x=25; p.y=30; xsx="sim_4";continue;
-                    }
-                    else if(n==5)
-                    {
-                        p.x=25; p.y=20; xsx="sim_5";continue;
-                    }
-                    else if(n==6)
-                    {
-                        p.x=45; p.y=22; xsx="sim_6";continue;
-                    }
-                    else if(n==7)
-                    {
-                        p.x=70; p.y=22; xsx="sim_7";continue;
-                    }
-                    else if(n==8)
-                    {
-                        p.x=60; p.y=27.8; xsx="sim_8";continue;
-                    }
+//                    if(n==1)
+//                    {
+//                        p.x=10; p.y=10; xsx="sim_1";
+//                    }
+//                    else if(n==2)
+//                    {
+//                        p.x=8.3; p.y=7.5; xsx="sim_2"; //continue;
+//                    }
+//                    else if(n==3)
+//                    {
+//                        p.x=11.7; p.y=6.2; xsx="sim_3";//continue;
+//                    }
+//                    else if(n==4)
+//                    {
+//                        p.x=15; p.y=10.7; xsx="sim_4";//continue;
+//                    }
+//                    else if(n==5)
+//                    {
+//                        p.x=11.6; p.y=14; xsx="sim_5";//continue;
+//                    }
+//                    else if(n==6)
+//                    {
+//                        p.x=17.3; p.y=4.5; xsx="sim_6";//continue;
+//                    }
+//                    else if(n==7)
+//                    {
+//                        p.x=18.3; p.y=16.3; xsx="sim_7";//continue;
+//                    }
+//                    else if(n==8)
+//                    {
+//                        p.x=18.3; p.y=11.7; xsx="sim_8";//continue;
+//                    }
 
                     //p.x=10; p.y=10;
 
@@ -1478,7 +1478,7 @@ void Planner::plan(void)
                     //myfile[index_file]<<xsx<<"\n";
                     //cout<<xsx<<endl;
 
-                    cout<<n<<endl;
+                    //cout<<n<<endl;
 
 
         for(unsigned int ii=0; ii<goals.size();ii++)//(goals.size()-1); i<goals.size();i++)//
@@ -1684,9 +1684,9 @@ void Planner::plan(void)
        // pl=false;
     }
     }
-            }
-        }
-    }
+//            }
+//        }
+//    }
 }
 
 
