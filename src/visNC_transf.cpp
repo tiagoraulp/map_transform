@@ -473,7 +473,7 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
                 }
             }
 
-            vector<cv::Point> labels_gt=label_seed(map_or.clone()/255,4,cv::Point(pos.x,pos.y));
+            vector<cv::Point> labels_gt=label_seed(map_or.clone()/255,4,cv::Point(pos.x-robot_or.pu,pos.y-robot_or.pl));
 
             cv::Mat eff_gt=cv::Mat::zeros(map_or.rows,map_or.cols, CV_8UC1);
 
@@ -540,6 +540,8 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             //t3=ros::Time::now();
 
+            cout<<reach_list.size()<<endl;
+
             //this->map_truth=brute_force(map_or, reach_list , sensor_or, false, map_projAct, true, true);
             this->map_truth=brute_force(eff_gt, reach_list , sensor_or, false, map_projAct, true, true);
 
@@ -547,8 +549,6 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             ROS_INFO("%s - Time for Optimized brute force list with act: %f", this->tf_pref.c_str(), diff.toSec());
 
-            //cv::imshow("TestLwA",this->map_truth);
-            //cv::waitKey(3);
 
             unsigned char c1[3]={255,255,255};
             unsigned char c2[3]={0,0,0};
@@ -680,12 +680,12 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                 cv::Point3i crit3=critP.find_crit_point(unreach.clusters[k][ff]);
                 crit=critP.getCrit();
 
-                cout<<"x: "<<crit3.x-sensor_ev.pu<<";y: "<<crit3.y-sensor_ev.pl<<";a: "<<crit3.z<<";at: "<<angle_res<<endl;
+                //cout<<"x: "<<crit3.x-sensor_ev.pu<<";y: "<<crit3.y-sensor_ev.pl<<";a: "<<crit3.z<<";at: "<<angle_res<<endl;
 
                 if(!critP.valid())
                 {
                     cout<<"Here!"<<endl;
-                    cout<<unreach.clusters[k][ff].extremes.size()<<endl;
+                    //cout<<unreach.clusters[k][ff].extremes.size()<<endl;
 
                     continue;
                 }
@@ -752,7 +752,7 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
 
                     ///////////////////////
 
-                    cout<<unreach.clusters[k][ff].extremes.size()<<endl;
+                    //cout<<unreach.clusters[k][ff].extremes.size()<<endl;
 
                     //cout<<critP.getExtremes()[0]<<"; "<<critP.getExtremes()[1]<<endl;
                     //cout<<critP.getObt()<<endl;
