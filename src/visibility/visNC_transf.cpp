@@ -11,6 +11,7 @@
 #include "vector_utils.hpp"
 #include "unreachable.hpp"
 #include "CritPoints.hpp"
+#include "brute_force.hpp"
 
 using namespace std;
 

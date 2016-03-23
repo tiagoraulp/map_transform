@@ -16,6 +16,11 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/planning)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/visibility)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/utils)
+
 #uncomment if you have defined messages
 rosbuild_genmsg()
 #uncomment if you have defined services
@@ -47,15 +52,17 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 rosbuild_add_boost_directories()
 
-rosbuild_add_executable(visibility src/vis.cpp src/vis_transf.cpp src/visC_transf.cpp src/unreachable.cpp src/labelling.cpp src/clustering.cpp src/CritPoints.cpp src/obtuseAngle.cpp src/bugfollowing.cpp src/chain.cpp src/obs_extremes.cpp src/vector_utils.cpp src/ray.cpp src/color.cpp)
+rosbuild_add_executable(visibility src/visibility/vis.cpp src/visibility/vis_transf.cpp src/visibility/visC_transf.cpp src/visibility/unreachable.cpp src/utils/labelling.cpp src/utils/clustering.cpp src/visibility/CritPoints.cpp src/visibility/obtuseAngle.cpp src/utils/bugfollowing.cpp src/utils/chain.cpp src/visibility/obs_extremes.cpp src/utils/vector_utils.cpp src/utils/ray.cpp src/utils/color.cpp src/visibility/brute_force.cpp)
 
-rosbuild_add_executable(visNC src/visNC.cpp src/vis_transf.cpp   src/visNC_transf.cpp src/unreachable.cpp src/labelling.cpp src/clustering.cpp src/CritPoints.cpp src/obtuseAngle.cpp src/bugfollowing.cpp src/chain.cpp src/obs_extremes.cpp src/vector_utils.cpp src/ray.cpp src/color.cpp src/morph.cpp)
+rosbuild_add_executable(visNC src/visibility/visNC.cpp src/visibility/vis_transf.cpp   src/visibility/visNC_transf.cpp src/visibility/unreachable.cpp src/utils/labelling.cpp src/utils/clustering.cpp src/visibility/CritPoints.cpp src/visibility/obtuseAngle.cpp src/utils/bugfollowing.cpp src/utils/chain.cpp src/visibility/obs_extremes.cpp src/utils/vector_utils.cpp src/utils/ray.cpp src/utils/color.cpp src/visibility/brute_force.cpp  src/visibility/morph.cpp)
 
-rosbuild_add_executable(planner src/planner.cpp)
+rosbuild_add_executable(planner src/planning/planner.cpp)
 
-rosbuild_add_executable(planSens src/planSensing.cpp src/ray.cpp)
+rosbuild_add_executable(planSens src/planning/planSensing.cpp src/utils/ray.cpp)
 
-rosbuild_add_executable(planSensOpt src/planSensingOpt.cpp src/ray.cpp src/vector_utils.cpp)
+rosbuild_add_executable(planSensOpt src/planning/planSensingOpt.cpp src/utils/ray.cpp src/utils/vector_utils.cpp)
+
+rosbuild_add_executable(pddl-gen src/planning/pddl-generator.cpp)
 
 target_link_libraries(visibility ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 
