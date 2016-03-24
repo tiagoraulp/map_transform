@@ -3,7 +3,7 @@
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "visibility", ros::init_options::AnonymousName);
+    ros::init(argc, argv, "visibility");
 
     ros::NodeHandle nh("~");
 
@@ -16,9 +16,9 @@ int main(int argc, char **argv)
     {
         ros::spinOnce();
 
-        //vis.run(true);
+        vis.run(true);
 
-        vis.run(false);
+        //vis.run(false);
 
         loop_rate.sleep();
     }

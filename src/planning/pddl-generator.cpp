@@ -1,10 +1,13 @@
 #include <signal.h>
 #include "ros/ros.h"
+#include <ros/package.h>
 #include <vector>
 #include "nav_msgs/OccupancyGrid.h"
 #include "geometry_msgs/Point.h"
 #include "tf/transform_listener.h"
 #include <opencv2/core/core.hpp>
+#include <fstream>
+#include <sstream>
 
 using namespace std;
 
@@ -119,10 +122,63 @@ geometry_msgs::Point Planner::convertI2W(cv::Point2i p)
     return pf;
 }
 
+void write_preamble(stringstream & str, int nr, int nw)
+{
+    str<<"(define (problem robotprob1) (:domain robot-building)"<<endl<<endl;
+    str<<"(objects\n\t";
+    for(int i=0;i<nr;i++)
+    {
+     str<<"robot"<<i+1<<" ";
+    }
+    str<<"- robot"<<endl<<"\t";
+    for(int i=0;i<nw;i++)
+    {
+        str<<"waypoint"<<i<<" ";
+    }
+    str<<"- waypoint"<<endl<<")"<<endl<<endl;
+}
+
+void write_graph(stringstream & str)
+{
+    str<<"(:init\n";
+
+    str<<"\t(connected waypoint0 waypoint1)"<<endl;
+
+    str<<")"<<endl<<endl;
+}
+
+void write_goals(stringstream & str)
+{
+    str<<"(:goal (and"<<endl;
+
+    str<<"\t(visited waypoint0)"<<endl;
+
+    str<<"\t)\n)\n)";
+}
+
+
 bool Planner::plan(void)
 {
     if(map_rcv[0] && map_rcv[1])
     {
+        stringstream strstream("");
+        write_preamble(strstream, 2,5);
+        write_graph(strstream);
+        write_goals(strstream);
+
+        ofstream myfile;
+        string pddlFolder = ros::package::getPath("map_transform").append("/pddl/problem.pddl");
+        myfile.open (pddlFolder);
+        if (myfile.is_open())
+        {
+            myfile << strstream.str();
+        }
+        else
+        {
+            ROS_INFO("Failed to open file.");
+        }
+        myfile.close();
+
         return true;
     }
     return false;
@@ -133,6 +189,7 @@ void HandlerStop(int)
 {
     ROS_INFO("Failed generation of pddl.");
     ros::shutdown();
+    exit(-1);
 }
 
 int main(int argc, char **argv)
@@ -160,7 +217,7 @@ int main(int argc, char **argv)
   }
 
   if(!suc)
-      ROS_INFO("Failed generation of pddl.");
+      ROS_INFO("Failed generation of pddl!");
   else
       ROS_INFO("Successful generation of pddl.");
 

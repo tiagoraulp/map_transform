@@ -42,7 +42,7 @@ void VisC_transf::update_config(map_transform::ParametersConfig config, bool ch,
         ryr=config.y;
     }
 
-    if(count>0 && resCS)
+    if(count>0)
         opt=_opt;
 }
 

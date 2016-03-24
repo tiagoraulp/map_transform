@@ -804,7 +804,7 @@ void VisNC_transf::update_config(map_transform::ParametersncConfig config, bool 
         this->rtr=config.theta;
     }
 
-    if(count>0 && resCS)
+    if(count>0)
         opt=_opt;
 }
 
