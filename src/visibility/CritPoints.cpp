@@ -461,7 +461,8 @@ cv::Point2i CritPoints::find_extreme(cv::Point2i pt, float a0, float a1, bool sp
                     inside_region=(angle>a0 || angle<a1);
             }
 
-            if(inside_region)//  && map_or.at<uchar>(rowx,coly)==0)
+            if(inside_region)//  && map_or.at<uchar>(rowx,coly)==0) // selecting obstacles, then it is not considered for ray casting!!
+                // So, selecting obstacle shoudl be impossible. But what if it is the only valid point?
             {
                 float dist=(rowx-critP.x)*(rowx-critP.x)+(coly-critP.y)*(coly-critP.y);
                 mp.iter(dist,cv::Point2i(rowx,coly));

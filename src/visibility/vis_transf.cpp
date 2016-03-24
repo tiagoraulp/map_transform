@@ -72,6 +72,7 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     prev.x=-1; prev.y=-1; prev.z=-1;
     count=0;
     res=false;
+    resCS=false;
     func = boost::bind(&Vis_transf::callbackParameters, this,_1, _2);
     server.setCallback(func);
     treated=false;
