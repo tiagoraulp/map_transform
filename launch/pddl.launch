@@ -42,6 +42,8 @@
  <node name="pddl_generator" pkg="map_transform" type="pddl-gen" cwd="node" output="screen">
        <remap from="/robot_0/v_map" to="/robot_0/visibility/v_map"/>
        <remap from="/robot_1/v_map" to="/robot_1/visibility/v_map"/>
+       <remap from="/robot_0/e_map" to="/robot_0/visibility/e_map"/>
+       <remap from="/robot_1/e_map" to="/robot_1/visibility/e_map"/>
  </node>
 
  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/planning.rviz" />

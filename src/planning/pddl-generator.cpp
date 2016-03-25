@@ -1,22 +1,21 @@
-#include <signal.h>
 #include "ros/ros.h"
 #include <ros/package.h>
+#include <signal.h>
 #include <vector>
+#include <fstream>
+#include <sstream>
+#include <opencv2/core/core.hpp>
 #include "nav_msgs/OccupancyGrid.h"
 #include "geometry_msgs/Point.h"
 #include "tf/transform_listener.h"
-#include <opencv2/core/core.hpp>
-#include <fstream>
-#include <sstream>
 
 using namespace std;
 
-class Planner{
+class PddlGen{
 private:
     ros::NodeHandle nh_;
 
-    ros::Subscriber sub1;
-    ros::Subscriber sub2;
+    ros::Subscriber sub1, sub2, sub3, sub4;
 
     vector<vector<vector<bool> > >  msg_rcv;
     vector<int> count;
@@ -24,54 +23,62 @@ private:
     float res;
     int width,height;
 
+    int r0s, r1s;
+
     tf::TransformListener pos_listener;
 
+    void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index);
     void rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map4(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     bool getMapValue(int n, int i, int j);
     cv::Point2i convertW2I(geometry_msgs::Point p);
     geometry_msgs::Point convertI2W(cv::Point2i p);
 
 public:
-    Planner(ros::NodeHandle nh): nh_(nh)
+    PddlGen(ros::NodeHandle nh): nh_(nh)
     {
-        sub1 = nh_.subscribe("/robot_0/v_map", 1, &Planner::rcv_map1, this);
-        sub2 = nh_.subscribe("/robot_1/v_map", 1, &Planner::rcv_map2, this);
-        count.assign(2,0);
-        map_rcv.assign(2,false);
-        msg_rcv.resize(2);
-    }
+        sub1 = nh_.subscribe("/robot_0/v_map", 1, &PddlGen::rcv_map1, this);
+        sub2 = nh_.subscribe("/robot_1/v_map", 1, &PddlGen::rcv_map2, this);
+        sub3 = nh_.subscribe("/robot_0/e_map", 1, &PddlGen::rcv_map3, this);
+        sub4 = nh_.subscribe("/robot_1/e_map", 1, &PddlGen::rcv_map4, this);
+        count.assign(4,0);
+        map_rcv.assign(4,false);
+        msg_rcv.resize(4);
 
-    ~Planner()
-    {
+        nh_.param("/robot_0/visibility/infl", r0s, 5);
+        nh_.param("/robot_1/visibility/infl", r1s, 5);
+
+        //cout<<r0s<<" "<<r1s<<endl;
     }
 
     bool plan(void);
 };
 
-void Planner::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+void PddlGen::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index)
 {
-    msg_rcv[0].assign(msg->info.width, vector<bool>(msg->info.height,false));
+    msg_rcv[index].assign(msg->info.width, vector<bool>(msg->info.height,false));
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
     for(unsigned int i=0;i<msg->info.height;i++){
         for(unsigned int j=0;j<msg->info.width;j++){
             if(*mapDataIterC == 0)
             {
-                msg_rcv[0][j][i]=true;
+                msg_rcv[index][j][i]=true;
             }
             else
             {
-                msg_rcv[0][j][i]=false;
+                msg_rcv[index][j][i]=false;
             }
 
             mapDataIterC++;
         }
     }
 
-    map_rcv[0]=true;
+    map_rcv[index]=true;
 
-    count[0]=count[0]+1;
+    count[index]=count[index]+1;
 
     res=msg->info.resolution;
     width=msg->info.width;
@@ -79,42 +86,38 @@ void Planner::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 
 }
 
-void Planner::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+void PddlGen::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
-    msg_rcv[1].assign(msg->info.width, vector<bool>(msg->info.height,false));
-
-    std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
-    for(unsigned int i=0;i<msg->info.height;i++){
-        for(unsigned int j=0;j<msg->info.width;j++){
-            if(*mapDataIterC == 0)
-            {
-                msg_rcv[1][j][i]=true;
-            }
-            else
-            {
-                msg_rcv[1][j][i]=false;
-            }
-
-            mapDataIterC++;
-        }
-    }
-
-    map_rcv[1]=true;
-    count[1]=count[1]+1;
+    rcv_map(msg, 0);
 }
 
-bool Planner::getMapValue(int n, int i, int j)
+void PddlGen::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+{
+    rcv_map(msg, 1);
+}
+
+void PddlGen::rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+{
+    rcv_map(msg, 2);
+}
+
+void PddlGen::rcv_map4(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+{
+    rcv_map(msg, 3);
+}
+
+bool PddlGen::getMapValue(int n, int i, int j)
 {
     return msg_rcv[n][i][j];
 }
 
-cv::Point2i Planner::convertW2I(geometry_msgs::Point p)
+cv::Point2i PddlGen::convertW2I(geometry_msgs::Point p)
 {
-    cv::Point2i pf(p.x/res,p.y/res);
+    cv::Point2i pf(round(p.x/res),round(p.y/res));
     return pf;
 }
 
-geometry_msgs::Point Planner::convertI2W(cv::Point2i p)
+geometry_msgs::Point PddlGen::convertI2W(cv::Point2i p)
 {
     geometry_msgs::Point pf;
     pf.x=p.x*res;
@@ -157,10 +160,36 @@ void write_goals(stringstream & str)
 }
 
 
-bool Planner::plan(void)
+bool PddlGen::plan(void)
 {
-    if(map_rcv[0] && map_rcv[1])
+    if(map_rcv[0] && map_rcv[1] && map_rcv[2] && map_rcv[3])
     {
+        tf::StampedTransform transform;
+        try{
+            pos_listener.lookupTransform("/map", "/robot_0/base_link", ros::Time(0), transform);
+        }
+        catch (tf::TransformException ex){
+          ROS_INFO("%s",ex.what());
+          return false;
+        }
+        geometry_msgs::Point pt;
+        pt.x=transform.getOrigin().x();
+        pt.y=transform.getOrigin().y();
+        cv::Point2i pos_r0=convertW2I( pt );
+
+        try{
+            pos_listener.lookupTransform("/map", "/robot_1/base_link", ros::Time(0), transform);
+        }
+        catch (tf::TransformException ex){
+          ROS_INFO("%s",ex.what());
+          return false;
+        }
+        pt.x=transform.getOrigin().x();
+        pt.y=transform.getOrigin().y();
+        cv::Point2i pos_r1=convertW2I( pt );
+
+        //cout<<pos_r0.x<<" "<<pos_r0.y<<" "<<pos_r1.x<<" "<<pos_r1.y<<" "<<endl;
+
         stringstream strstream("");
         write_preamble(strstream, 2,5);
         write_graph(strstream);
@@ -199,7 +228,7 @@ int main(int argc, char **argv)
 
   ros::NodeHandle nh("~");
 
-  Planner planner(nh);
+  PddlGen pddl(nh);
 
   ros::Rate loop_rate(10);
 
@@ -208,7 +237,7 @@ int main(int argc, char **argv)
   while (ros::ok())
   {
     ros::spinOnce();
-    if(planner.plan())
+    if(pddl.plan())
     {
         suc=true;
         break;
