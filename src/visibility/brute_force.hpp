@@ -12,8 +12,6 @@ cv::Mat bf_pt(cv::Mat map, T pt, T2 defl, cv::Mat vis, bool opt_rep=false, bool 
 
 std::vector<cv::Point> bf_hlx(Elem sensor);
 
-std::vector<cv::Point> bf_hlx(int defl);
-
 float coverage(cv::Mat test, cv::Mat truth);
 
 std::vector<int> confusion_matrix(cv::Mat test, cv::Mat truth);

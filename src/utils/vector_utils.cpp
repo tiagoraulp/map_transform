@@ -5,6 +5,36 @@ using namespace std;
 
 static const double PI = 3.141592653589793;
 
+vector<cv::Point> bf_hlx(int defl)
+{
+    vector<cv::Point> hlx;
+    for(int r=0; r<=defl; r++)
+    {
+        if(r==0)
+        {
+            hlx.push_back(cv::Point(0,0));
+        }
+        else
+        {
+            for(int p=-r;p<r;p++)
+            {
+                int ii=0-r, jj=0+p;
+                hlx.push_back(cv::Point(ii,jj));
+
+                ii=0+p, jj=0+r;
+                hlx.push_back(cv::Point(ii,jj));
+
+                ii=0+r, jj=0-p;
+                hlx.push_back(cv::Point(ii,jj));
+
+                ii=0-p, jj=0-r;
+                hlx.push_back(cv::Point(ii,jj));
+            }
+        }
+    }
+    return hlx;
+}
+
 int boundPos(int x, int max)
 {
     if(x>=max)

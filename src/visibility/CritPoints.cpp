@@ -1,5 +1,5 @@
 #include "CritPoints.hpp"
-#include "brute_force.hpp"
+#include "vector_utils.hpp"
 #include "obtuseAngle.hpp"
 
 #include <cmath>

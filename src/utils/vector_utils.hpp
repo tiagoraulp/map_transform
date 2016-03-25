@@ -5,6 +5,8 @@
 
 #include <opencv2/core/core.hpp>
 
+std::vector<cv::Point> bf_hlx(int defl);
+
 template <typename T, typename T2=T>
 class FindElem
 {

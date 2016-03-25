@@ -12,5 +12,4 @@ bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y, cv::M
 
 bool raytracing(cv::Mat map, int opt_x, int opt_y, int dest_x, int dest_y, bool t, cv::Mat & test_pt, std::vector<cv::Point> & list);
 
-
 #endif // RAY_HPP

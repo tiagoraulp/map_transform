@@ -62,7 +62,7 @@ rosbuild_add_executable(planSens src/planning/planSensing.cpp src/utils/ray.cpp)
 
 rosbuild_add_executable(planSensOpt src/planning/planSensingOpt.cpp src/utils/ray.cpp src/utils/vector_utils.cpp)
 
-rosbuild_add_executable(pddl-gen src/planning/pddl-generator.cpp)
+rosbuild_add_executable(pddl-gen src/planning/pddl-generator.cpp src/utils/vector_utils.cpp)
 
 target_link_libraries(visibility ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 

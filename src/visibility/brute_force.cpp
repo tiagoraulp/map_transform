@@ -1,5 +1,6 @@
 #include "brute_force.hpp"
 #include "ray.hpp"
+#include "vector_utils.hpp"
 
 #include <iostream>
 
@@ -210,37 +211,6 @@ bool bfo(cv::Mat map, vector<cv::Point3i> reach, Elem sensor, int i, int j, vect
 {
     return bf_sq(map, reach, sensor, i, j, test_pt, list);
 }
-
-vector<cv::Point> bf_hlx(int defl)
-{
-    vector<cv::Point> hlx;
-    for(int r=0; r<=defl; r++)
-    {
-        if(r==0)
-        {
-            hlx.push_back(cv::Point(0,0));
-        }
-        else
-        {
-            for(int p=-r;p<r;p++)
-            {
-                int ii=0-r, jj=0+p;
-                hlx.push_back(cv::Point(ii,jj));
-
-                ii=0+p, jj=0+r;
-                hlx.push_back(cv::Point(ii,jj));
-
-                ii=0+r, jj=0-p;
-                hlx.push_back(cv::Point(ii,jj));
-
-                ii=0-p, jj=0-r;
-                hlx.push_back(cv::Point(ii,jj));
-            }
-        }
-    }
-    return hlx;
-}
-
 
 vector<cv::Point> bf_hlx(Elem sensor)
 {
