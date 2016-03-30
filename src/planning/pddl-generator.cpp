@@ -9,6 +9,7 @@
 #include "nav_msgs/OccupancyGrid.h"
 #include "geometry_msgs/Point.h"
 #include "tf/transform_listener.h"
+#include "visualization_msgs/MarkerArray.h"
 #include "vector_utils.hpp"
 
 using namespace std;
@@ -18,16 +19,21 @@ private:
     ros::NodeHandle nh_;
 
     ros::Subscriber sub1, sub2, sub3, sub4, sub5, sub6;
+    ros::Publisher pub_mar1, pub_mar2, pub_mar3, pub_mar4, pub_mar5;
 
     vector<vector<vector<bool> > >  msg_rcv;
-    vector<int> count;
+    vector<int> countM;
     vector<bool> map_rcv;
     float res;
     int width,height;
 
-    int r0s, r1s;
+    int r0s, r1s, jump;
 
     tf::TransformListener pos_listener;
+
+    vector<cv::Point2i> wps;
+    vector<vector<vector<bool> > > graph;
+    vector<vector<vector<bool> > > visible;
 
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index);
     void rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg);
@@ -49,17 +55,26 @@ public:
         sub4 = nh_.subscribe("/robot_1/e_map", 1, &PddlGen::rcv_map4, this);
         sub5 = nh_.subscribe("/robot_0/v_map", 1, &PddlGen::rcv_map5, this);
         sub6 = nh_.subscribe("/robot_1/v_map", 1, &PddlGen::rcv_map6, this);
-        count.assign(6,0);
+        countM.assign(6,0);
         map_rcv.assign(6,false);
         msg_rcv.resize(6);
+        wps.clear();
+        graph.clear();
+        visible.clear();
+
+        pub_mar1 = nh_.advertise<visualization_msgs::MarkerArray>("waypoints", 1,true);
+        pub_mar2 = nh_.advertise<visualization_msgs::MarkerArray>("connected_0", 1,true);
+        pub_mar3 = nh_.advertise<visualization_msgs::MarkerArray>("visible_0", 1,true);
+        pub_mar4 = nh_.advertise<visualization_msgs::MarkerArray>("connected_1", 1,true);
+        pub_mar5 = nh_.advertise<visualization_msgs::MarkerArray>("visible_1", 1,true);
 
         nh_.param("/robot_0/visibility/infl", r0s, 5);
         nh_.param("/robot_1/visibility/infl", r1s, 5);
-
-        //cout<<r0s<<" "<<r1s<<endl;
+        nh_.param("jump",jump, 5);
     }
 
     bool plan(void);
+    void publish(void);
 };
 
 void PddlGen::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index)
@@ -84,7 +99,7 @@ void PddlGen::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index)
 
     map_rcv[index]=true;
 
-    count[index]=count[index]+1;
+    countM[index]=countM[index]+1;
 
     res=msg->info.resolution;
     width=msg->info.width;
@@ -135,21 +150,21 @@ cv::Point2i PddlGen::convertW2I(geometry_msgs::Point p)
 geometry_msgs::Point PddlGen::convertI2W(cv::Point2i p)
 {
     geometry_msgs::Point pf;
-    pf.x=p.x*res;
-    pf.y=p.y*res;
+    pf.x=p.x*res+0.5*res;
+    pf.y=p.y*res+0.5*res;
     return pf;
 }
 
 string convertG2S(cv::Point2i pt){
     string str;
-    str.append(to_string(pt.x)).append(";").append(to_string(pt.y));
+    str.append(to_string(pt.x)).append("_").append(to_string(pt.y));
     return str;
 }
 
 void write_preamble(stringstream & str, int nr, int nw, vector<cv::Point2i> names)
 {
     str<<"(define (problem robotprob1) (:domain robot-building)"<<endl<<endl;
-    str<<"(objects\n\t";
+    str<<"(:objects\n\t";
     for(int i=0;i<nr;i++)
     {
      str<<"robot"<<i+1<<" ";
@@ -273,8 +288,8 @@ bool PddlGen::plan(void){
 
         long int count=0;
 
-        int jump=min(r0s,r1s)/2;
-        //int jump=6;
+        //int jump=min(r0s,r1s)/2;
+        //int jump=15;
 
         for(unsigned int i=0;i<waypoints.size();i=i+jump){
             unsigned int in=i/jump;
@@ -283,14 +298,14 @@ bool PddlGen::plan(void){
                 if( getMapValue(0,i,j) || getMapValue(1,i,j) ){
                     waypoints[i][j]=count;
                     names.push_back(cv::Point(in,jn));
+                    wps.push_back(cv::Point(i,j));
                     count++;
                 }
             }
         }
 
-        vector<vector<vector<bool> > > graph(2, vector<vector<bool> >(count, vector<bool>(count,false)));
-
-        vector<vector<vector<bool> > > visible(2, vector<vector<bool> >(count, vector<bool>(count,false)));
+        graph.assign(2, vector<vector<bool> >(count, vector<bool>(count,false)));
+        visible.assign(2, vector<vector<bool> >(count, vector<bool>(count,false)));
 
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
@@ -404,8 +419,8 @@ bool PddlGen::plan(void){
         write_graph(strstream, graph, names);
         write_visible(strstream, visible, names);
         write_initRobots(strstream, 2, initials, names);
-        //write_goals(strstream, goals);//only feasible
-        write_goals(strstream, count, names);//total coverage, even if not feasible
+        write_goals(strstream, goals, names);//only feasible
+        //write_goals(strstream, count, names);//total coverage, even if not feasible
 
         ofstream myfile;
         string pddlFolder = ros::package::getPath("map_transform").append("/pddl/problem.pddl");
@@ -423,10 +438,155 @@ bool PddlGen::plan(void){
     return false;
 }
 
+void PddlGen::publish(void){
+    visualization_msgs::MarkerArray points;
+    visualization_msgs::Marker point;
+
+    if(wps.size()>0){
+        point.header.frame_id = "/map";
+        point.header.stamp =  ros::Time::now();
+        point.ns = "points_and_lines";
+        point.action = visualization_msgs::Marker::ADD;
+        point.pose.orientation.w = 1.0;
+
+        point.type = visualization_msgs::Marker::SPHERE;
+
+        point.scale.x = 0.1;
+        point.scale.y = 0.1;
+        point.scale.z = 0.02;
+
+        point.color.g = 1.0f;
+        point.color.a = 1.0;
+
+        point.lifetime = ros::Duration(10000000);
+
+        for (uint32_t i = 0; i < wps.size(); ++i){
+            point.pose.position=convertI2W(wps[i]);
+            point.id = i;
+            points.markers.push_back(point);
+        }
+
+        pub_mar1.publish(points);
+        points.markers.clear();
+
+        point.type=visualization_msgs::Marker::LINE_STRIP;
+        point.color.b = 1.0f;
+        point.color.r = 0.0f;
+        point.color.g = 1.0f;
+        point.scale.x = 0.03;
+        point.scale.y = 0.02;
+        point.scale.z = 0.001;
+        geometry_msgs::Point p;
+        p.x=0.0f; p.y=0.0f; p.z=0.0f;
+        point.pose.position=p;
+
+        for(unsigned int i=0;i<graph[0].size();i++){
+            for(unsigned int j=0;j<graph[0][i].size();j++){
+                if( graph[0][i][j] ){
+                    p=convertI2W(wps[i]);
+                    point.points.clear();
+                    point.points.push_back(p);
+                    p=convertI2W(wps[j]);
+                    point.points.push_back(p);
+                    point.id = (i)*wps.size()+j;
+                    points.markers.push_back(point);
+                }
+            }
+        }
+
+        pub_mar2.publish(points);
+        points.markers.clear();
+
+        point.color.r = 1.0f;
+        point.color.b = 0.0f;
+        point.color.g = 1.0f;
+
+        for(unsigned int i=0;i<visible[0].size();i++){
+            for(unsigned int j=0;j<visible[0][i].size();j++){
+                if( visible[0][i][j] ){
+                    p=convertI2W(wps[i]);
+                    point.points.clear();
+                    point.points.push_back(p);
+                    p=convertI2W(wps[j]);
+                    point.points.push_back(p);
+                    point.id = (i)*wps.size()+j;
+                    points.markers.push_back(point);
+                }
+            }
+        }
+
+        pub_mar3.publish(points);
+        points.markers.clear();
+
+        point.color.b = 1.0f;
+        point.color.r = 0.0f;
+        point.color.g = 0.0f;
+
+        for(unsigned int i=0;i<graph[1].size();i++){
+            for(unsigned int j=0;j<graph[1][i].size();j++){
+                if( graph[1][i][j] ){
+                    p=convertI2W(wps[i]);
+                    point.points.clear();
+                    point.points.push_back(p);
+                    p=convertI2W(wps[j]);
+                    point.points.push_back(p);
+                    point.id = (i)*wps.size()+j;
+                    points.markers.push_back(point);
+                }
+            }
+        }
+
+        pub_mar4.publish(points);
+        points.markers.clear();
+
+        point.color.r = 1.0f;
+        point.color.b = 0.0f;
+        point.color.g = 0.0f;
+
+        for(unsigned int i=0;i<visible[1].size();i++){
+            for(unsigned int j=0;j<visible[1][i].size();j++){
+                if( visible[1][i][j] ){
+                    p=convertI2W(wps[i]);
+                    point.points.clear();
+                    point.points.push_back(p);
+                    p=convertI2W(wps[j]);
+                    point.points.push_back(p);
+                    point.id = (i)*wps.size()+j;
+                    points.markers.push_back(point);
+                }
+            }
+        }
+
+        pub_mar5.publish(points);
+        points.markers.clear();
+    }
+    else{
+        visualization_msgs::MarkerArray points;
+        visualization_msgs::Marker point;
+        point.header.frame_id = "/map";
+        point.header.stamp =  ros::Time::now();
+        point.ns = "points_and_lines";
+        point.action = 3;
+        //point.id = goals.size();
+        points.markers.push_back(point);
+        //point.id = 0;
+        //points.markers.push_back(point);
+
+        pub_mar1.publish(points);
+        pub_mar2.publish(points);
+        pub_mar3.publish(points);
+        pub_mar4.publish(points);
+        pub_mar5.publish(points);
+    }
+}
+
+bool suc=false;
+
 // Replacement SIGINT handler
 void HandlerStop(int)
 {
-    ROS_INFO("Failed generation of pddl.");
+    if(!suc)
+        ROS_INFO("Failed generation of pddl.");
     ros::shutdown();
     exit(-1);
 }
@@ -442,23 +602,24 @@ int main(int argc, char **argv)
 
   ros::Rate loop_rate(10);
 
-  bool suc=false;
-
-  while (ros::ok())
-  {
+  while (ros::ok()){
     ros::spinOnce();
-    if(pddl.plan())
-    {
-        suc=true;
-        break;
+    if(!suc){
+        if(pddl.plan()){
+            suc=true;
+            ROS_INFO("Successful generation of pddl.");
+            //pddl.publish();
+            //break;
+        }
     }
+    pddl.publish();
     loop_rate.sleep();
   }
 
   if(!suc)
       ROS_INFO("Failed generation of pddl!");
   else
-      ROS_INFO("Successful generation of pddl.");
+      //ROS_INFO("Successful generation of pddl.");
 
   ros::shutdown();
 

@@ -1,6 +1,4 @@
 #include "visNC_transf.hpp"
-#include "clustering.hpp"
-
 #include <opencv2/highgui/highgui.hpp>
 
 using namespace std;

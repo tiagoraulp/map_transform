@@ -1,5 +1,4 @@
 #include "visC_transf.hpp"
-#include "clustering.hpp"
 
 int main(int argc, char **argv)
 {
