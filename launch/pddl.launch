@@ -1,12 +1,12 @@
 <launch>
- <arg name="x_0" default="6"/>
- <arg name="y_0" default="2"/>
- <arg name="x_1" default="2"/>
- <arg name="y_1" default="2"/>
+ <arg name="x_0" default="10"/>
+ <arg name="y_0" default="10"/>
+ <arg name="x_1" default="10"/>
+ <arg name="y_1" default="15"/>
 
  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/pddl.rviz" />
 
- <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/test_pddl.png 0.1" respawn="false" > 
+ <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze3_vl.png 0.1" respawn="false" > 
     <param name="frame_id" value="/map" />
  </node>
 
@@ -14,8 +14,8 @@
  <group ns="robot_0">
 
     <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
-       <param name="infl" value="10" />
-       <param name="defl" value="10" />
+       <param name="infl" value="15" />
+       <param name="defl" value="15" />
        <param name="debug" value="false" />
        <param name="ground_truth" value="false" />
        <param name="tf_prefix" value ="/robot_0" /> 
@@ -29,8 +29,8 @@
  <group ns="robot_1">
 
     <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
-       <param name="infl" value="4" />
-       <param name="defl" value="4" />
+       <param name="infl" value="6" />
+       <param name="defl" value="6" />
        <param name="debug" value="false" />
        <param name="ground_truth" value="false" />
        <param name="tf_prefix" value ="/robot_1" /> 
@@ -42,13 +42,15 @@
  </group>
 
  <node name="pddl_generator" pkg="map_transform" type="pddl-gen" cwd="node" output="screen">
-       <param name="jump" value="30" />
-       <remap from="/robot_0/c_map" to="/robot_0/visibility/c_map"/>
-       <remap from="/robot_1/c_map" to="/robot_1/visibility/c_map"/>
-       <remap from="/robot_0/e_map" to="/robot_0/visibility/e_map"/>
-       <remap from="/robot_1/e_map" to="/robot_1/visibility/e_map"/>
-       <remap from="/robot_0/v_map" to="/robot_0/visibility/v_map"/>
-       <remap from="/robot_1/v_map" to="/robot_1/visibility/v_map"/>
+       	<param name="jump" value="15" />
+       	<remap from="/robot_0/c_map" to="/robot_0/visibility/c_map"/>
+       	<remap from="/robot_1/c_map" to="/robot_1/visibility/c_map"/>
+       	<remap from="/robot_0/e_map" to="/robot_0/visibility/e_map"/>
+       	<remap from="/robot_1/e_map" to="/robot_1/visibility/e_map"/>
+       	<remap from="/robot_0/v_map" to="/robot_0/visibility/v_map"/>
+       	<remap from="/robot_1/v_map" to="/robot_1/visibility/v_map"/>
+       	<remap from="/robot_0/r_map" to="/robot_0/visibility/r_map"/>
+       	<remap from="/robot_1/r_map" to="/robot_1/visibility/r_map"/>
  </node>
 
 </launch>

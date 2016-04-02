@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /Map1
         - /MarkerArray1
         - /MarkerArray2
         - /MarkerArray3
@@ -59,7 +60,7 @@ Visualization Manager:
       Draw Behind: false
       Enabled: true
       Name: Map
-      Topic: /robot_1/visibility/e_map
+      Topic: /robot_0/visibility/v_map
       Value: true
     - Class: rviz/TF
       Enabled: false
@@ -100,21 +101,21 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /pddl_generator/connected_1
       Name: MarkerArray
       Namespaces:
-        points_and_lines: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /pddl_generator/visible_1
       Name: MarkerArray
       Namespaces:
-        points_and_lines: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -139,22 +140,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 41.0611
+      Distance: 38.0188
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 15.2871
-        Y: 11.208
+        X: 14.4254
+        Y: 8.14554
         Z: 1.90735e-06
       Name: Current View
       Near Clip Distance: 0.01
       Pitch: 1.5698
       Target Frame: <Fixed Frame>
       Value: XYOrbit (rviz)
-      Yaw: 0.0253977
+      Yaw: 0.0103977
     Saved: ~
 Window Geometry:
   Displays:
@@ -172,5 +173,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1200
-  X: 218
-  Y: 147
+  X: 198
+  Y: 127

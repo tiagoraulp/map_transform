@@ -106,7 +106,7 @@ TARGET_LINK_LIBRARIES(${target} utils_libraries)
 #rosbuild_add_executable(planSensOpt src/planning/planSensingOpt.cpp src/utils/ray.cpp)
 
 SET(target pddl-gen)
-rosbuild_add_executable(${target} src/planning/pddl-generator.cpp)
+rosbuild_add_executable(${target} src/planning/pddl-generator.cpp src/planning/Astar.cpp)
 ADD_DEPENDENCIES(${target} utils_libraries)
 TARGET_LINK_LIBRARIES(${target} utils_libraries)
 #rosbuild_add_executable(pddl-gen src/planning/pddl-generator.cpp src/utils/vector_utils.cpp)

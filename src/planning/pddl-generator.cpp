@@ -11,6 +11,8 @@
 #include "tf/transform_listener.h"
 #include "visualization_msgs/MarkerArray.h"
 #include "vector_utils.hpp"
+#include "Astar.hpp"
+#include "ray.hpp"
 
 using namespace std;
 
@@ -18,7 +20,7 @@ class PddlGen{
 private:
     ros::NodeHandle nh_;
 
-    ros::Subscriber sub1, sub2, sub3, sub4, sub5, sub6;
+    ros::Subscriber sub1, sub2, sub3, sub4, sub5, sub6, sub7, sub8, sub9;
     ros::Publisher pub_mar1, pub_mar2, pub_mar3, pub_mar4, pub_mar5;
 
     vector<vector<vector<bool> > >  msg_rcv;
@@ -26,6 +28,8 @@ private:
     vector<bool> map_rcv;
     float res;
     int width,height;
+
+    cv::Mat or_map;
 
     int r0s, r1s, jump;
 
@@ -42,10 +46,14 @@ private:
     void rcv_map4(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map5(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map6(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map7(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map8(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map9(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     bool getMapValue(int n, int i, int j);
     cv::Point2i convertW2I(geometry_msgs::Point p);
     geometry_msgs::Point convertI2W(cv::Point2i p);
     bool connection(int i, int j, int in, int jn, int r);
+    bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v);
 public:
     PddlGen(ros::NodeHandle nh): nh_(nh)
     {
@@ -55,9 +63,12 @@ public:
         sub4 = nh_.subscribe("/robot_1/e_map", 1, &PddlGen::rcv_map4, this);
         sub5 = nh_.subscribe("/robot_0/v_map", 1, &PddlGen::rcv_map5, this);
         sub6 = nh_.subscribe("/robot_1/v_map", 1, &PddlGen::rcv_map6, this);
-        countM.assign(6,0);
-        map_rcv.assign(6,false);
-        msg_rcv.resize(6);
+        sub7 = nh_.subscribe("/robot_0/r_map", 1, &PddlGen::rcv_map7, this);
+        sub8 = nh_.subscribe("/robot_1/r_map", 1, &PddlGen::rcv_map8, this);
+        sub9 = nh_.subscribe("/map", 1, &PddlGen::rcv_map9, this);
+        countM.assign(9,0);
+        map_rcv.assign(9,false);
+        msg_rcv.resize(9);
         wps.clear();
         graph.clear();
         visible.clear();
@@ -79,6 +90,9 @@ public:
 
 void PddlGen::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index)
 {
+    if(index==8)
+        or_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
+
     msg_rcv[index].assign(msg->info.width, vector<bool>(msg->info.height,false));
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
@@ -87,10 +101,14 @@ void PddlGen::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index)
             if(*mapDataIterC == 0)
             {
                 msg_rcv[index][j][i]=true;
+                if(index==8)
+                    or_map.at<uchar>(j,i) = 255;
             }
             else
             {
                 msg_rcv[index][j][i]=false;
+                if(index==8)
+                    or_map.at<uchar>(j,i) = 0;
             }
 
             mapDataIterC++;
@@ -134,6 +152,21 @@ void PddlGen::rcv_map5(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 void PddlGen::rcv_map6(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
     rcv_map(msg, 5);
+}
+
+void PddlGen::rcv_map7(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+{
+    rcv_map(msg, 6);
+}
+
+void PddlGen::rcv_map8(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+{
+    rcv_map(msg, 7);
+}
+
+void PddlGen::rcv_map9(const nav_msgs::OccupancyGrid::ConstPtr& msg)
+{
+    rcv_map(msg, 8);
 }
 
 bool PddlGen::getMapValue(int n, int i, int j)
@@ -236,24 +269,95 @@ void write_goals(stringstream & str, int goals, vector<cv::Point2i> names)
     str<<"\t)\n)\n)";
 }
 
+int win=3;
+float adj=1.2;
+
 bool PddlGen::connection(int i, int j, int in, int jn, int r){
-    int imin=min(i,in);
-    int imax=max(i,in);
+//    int imin=min(i,in);
+//    int imax=max(i,in);
 
-    int jmin=min(j,jn);
-    int jmax=max(j,jn);
+//    int jmin=min(j,jn);
+//    int jmax=max(j,jn);
 
-    for(int ii=imin;ii<=imax;ii++){
-        for(int jj=jmin;jj<=jmax;jj++){
-            if(!getMapValue(r,ii,jj))
-                return false;
+//    for(int ii=imin;ii<=imax;ii++){
+//        for(int jj=jmin;jj<=jmax;jj++){
+//            if(!getMapValue(r,ii,jj))
+//                return false;
+//        }
+//    }
+
+    if(!getMapValue(r,i,j)){
+        bool stop=false;
+        for(int ii=max(i-win,0); ii<=min(i+win,(int)msg_rcv[r].size()-1); ii++){
+            for(int jj=max(j-win,0); jj<=min(j+win,(int)msg_rcv[r][ii].size()-1); jj++){
+                if(getMapValue(r,ii,jj)){
+                    stop=true;
+                    i=ii; j=jj;
+                    break;
+                }
+            }
+            if(stop)
+                break;
         }
+        if(!stop)
+            return false;
     }
-    return true;
+
+    if(!getMapValue(r,in,jn)){
+        bool stop=false;
+        for(int ii=max(in-win,0); ii<=min(in+win,(int)msg_rcv[r].size()-1); ii++){
+            for(int jj=max(jn-win,0); jj<=min(jn+win,(int)msg_rcv[r][ii].size()-1); jj++){
+                if(getMapValue(r,ii,jj)){
+                    stop=true;
+                    in=ii; jn=jj;
+                    break;
+                }
+            }
+            if(stop)
+                break;
+        }
+        if(!stop)
+            return false;
+    }
+
+    Apath path=Astar<float>(PointI(i,j), PointI(in,jn), msg_rcv[r]);
+
+    if( path.cost<=(adj*sqrt((i-in)*(i-in)+(j-jn)*(j-jn))) && path.cost>0)
+        return true;
+    else
+        return false;
+}
+
+bool PddlGen::connection_ray(int i, int j, int in, int jn, int r_e, int r_v){
+    if(!getMapValue(r_e,i,j)){
+        bool stop=false;
+        for(int ii=max(i-win,0); ii<=min(i+win,(int)msg_rcv[r_e].size()-1); ii++){
+            for(int jj=max(j-win,0); jj<=min(j+win,(int)msg_rcv[r_e][ii].size()-1); jj++){
+                if(getMapValue(r_e,ii,jj)){
+                    stop=true;
+                    i=ii; j=jj;
+                    break;
+                }
+            }
+            if(stop)
+                break;
+        }
+        if(!stop)
+            return false;
+    }
+
+    if(!getMapValue(r_v,in,jn)){
+        return false;
+    }
+
+    if(raytracing(or_map, i, j, in, jn, true))
+        return true;
+    else
+        return false;
 }
 
 bool PddlGen::plan(void){
-    if(map_rcv[0] && map_rcv[1] && map_rcv[2] && map_rcv[3] && map_rcv[4] && map_rcv[5]){
+    if(map_rcv[0] && map_rcv[1] && map_rcv[2] && map_rcv[3] && map_rcv[4] && map_rcv[5] && map_rcv[6] && map_rcv[7] && map_rcv[8]){
         tf::StampedTransform transform;
         try{
             pos_listener.lookupTransform("/map", "/robot_0/base_link", ros::Time(0), transform);
@@ -283,6 +387,7 @@ bool PddlGen::plan(void){
         if(!getMapValue(3,pos_r1.x,pos_r1.y))
             return false;
 
+
         vector<vector<long int> > waypoints(msg_rcv[0].size(), vector<long int>(msg_rcv[0][0].size(),-1));
         vector<cv::Point2i> names(0);
 
@@ -307,6 +412,11 @@ bool PddlGen::plan(void){
         graph.assign(2, vector<vector<bool> >(count, vector<bool>(count,false)));
         visible.assign(2, vector<vector<bool> >(count, vector<bool>(count,false)));
 
+        vector<vector<bool> > visibleT(2, vector<bool>(count, false));
+        vector<vector<bool> > visibleTR(2, vector<bool>(count, false));
+
+        vector<vector<bool> > connectTR(2, vector<bool>(count, false));
+
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
                 if(waypoints[i][j]>=0){
@@ -317,14 +427,19 @@ bool PddlGen::plan(void){
                     for(int in=imin;in<=imax;in++){
                         for(int jn=jmin;jn<=jmax;jn++){
                             if(waypoints[in][jn]>=0){
-                                if((in==(int)i || jn==(int)j) && (in!=(int)i || jn!=(int)j) ){
+                                //if((in==(int)i || jn==(int)j) && (in!=(int)i || jn!=(int)j) ){
+                                if( max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j) ){
                                     if(connection((int)i,(int)j,in,jn,2)){
                                         graph[0][waypoints[in][jn]][waypoints[i][j]]=true;
                                         graph[0][waypoints[i][j]][waypoints[in][jn]]=true;
+                                        connectTR[0][waypoints[i][j]]=true;
+                                        connectTR[0][waypoints[in][jn]]=true;
                                     }
                                     if(connection((int)i,(int)j,in,jn,3)){
                                         graph[1][waypoints[in][jn]][waypoints[i][j]]=true;
                                         graph[1][waypoints[i][j]][waypoints[in][jn]]=true;
+                                        connectTR[1][waypoints[i][j]]=true;
+                                        connectTR[1][waypoints[in][jn]]=true;
                                     }
                                 }
                             }
@@ -354,9 +469,17 @@ bool PddlGen::plan(void){
                     for(int m=max((int)i-r0s-1,0);m<=min((int)i+r0s+1,(int)waypoints.size()-1);m++){
                         for(int n=max((int)j-r0s-1,0);n<=min((int)j+r0s+1,(int)waypoints[i].size()-1);n++){
                             if( ((m-(int)i)*(m-(int)i)+(n-(int)j)*(n-(int)j))<=(r0s*r0s) ){
-                                if( getMapValue(2,i,j) && getMapValue(0,m,n) ){
-                                    if(waypoints[i][j]>=0 && waypoints[m][n]>=0)
+                                //if( getMapValue(2,i,j) && getMapValue(0,m,n) ){
+                                if(connection_ray(i,j,m,n,2,0)){
+                                    if(waypoints[m][n]>=0){
                                         visible[0][waypoints[i][j]][waypoints[m][n]]=true;
+                                        visibleT[0][waypoints[m][n]]=true;
+                                    }
+                                }
+                                if(connection_ray(i,j,m,n,6,0)){
+                                    if(waypoints[m][n]>=0){
+                                        visibleTR[0][waypoints[m][n]]=true;
+                                    }
                                 }
                             }
                         }
@@ -365,9 +488,58 @@ bool PddlGen::plan(void){
                     for(int m=max((int)i-r1s-1,0);m<=min((int)i+r1s+1,(int)waypoints.size()-1);m++){
                         for(int n=max((int)j-r1s-1,0);n<=min((int)j+r1s+1,(int)waypoints[i].size()-1);n++){
                             if( ((m-(int)i)*(m-(int)i)+(n-(int)j)*(n-(int)j))<=(r1s*r1s) ){
-                                if( getMapValue(3,i,j) && getMapValue(1,m,n) ){
-                                    if(waypoints[i][j]>=0 && waypoints[m][n]>=0)
+                                //if( getMapValue(3,i,j) && getMapValue(1,m,n) ){
+                                if(connection_ray(i,j,m,n,3,1)){
+                                    if(waypoints[m][n]>=0){
                                         visible[1][waypoints[i][j]][waypoints[m][n]]=true;
+                                        visibleT[1][waypoints[m][n]]=true;
+                                    }
+                                }
+                                if(connection_ray(i,j,m,n,7,1)){
+                                    if(waypoints[m][n]>=0){
+                                        visibleTR[1][waypoints[m][n]]=true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for(unsigned int i=0;i<waypoints.size();i++){
+            for(unsigned int j=0;j<waypoints[i].size();j++){
+                if(waypoints[i][j]>=0){
+                    if(!visibleT[0][waypoints[i][j]] || (!visibleTR[0][waypoints[i][j]] && !connectTR[0][waypoints[i][j]])){
+                        int imin=(int)round(max((float)i-(1.5*((float)jump)),0.0));
+                        int jmin=(int)round(max((float)j-(1.5*((float)jump)),0.0));
+                        int imax=(int)round(min((float)i+(1.5*((float)jump)),(double)waypoints[i].size()-1));
+                        int jmax=(int)round(min((float)j+(1.5*((float)jump)),(double)waypoints[i].size()-1));
+                        for(int in=imin;in<=imax;in++){
+                            for(int jn=jmin;jn<=jmax;jn++){
+                                if(waypoints[in][jn]>=0){
+                                    if( max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j) ){
+                                        if(connection_ray(in,jn,(int)i,(int)j,2,0)){
+                                            visible[0][waypoints[in][jn]][waypoints[i][j]]=true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if(!visibleT[1][waypoints[i][j]] || (!visibleTR[1][waypoints[i][j]] && !connectTR[1][waypoints[i][j]])){
+                        int imin=(int)round(max((float)i-(1.5*((float)jump)),0.0));
+                        int jmin=(int)round(max((float)j-(1.5*((float)jump)),0.0));
+                        int imax=(int)round(min((float)i+(1.5*((float)jump)),(double)waypoints[i].size()-1));
+                        int jmax=(int)round(min((float)j+(1.5*((float)jump)),(double)waypoints[i].size()-1));
+                        for(int in=imin;in<=imax;in++){
+                            for(int jn=jmin;jn<=jmax;jn++){
+                                if(waypoints[in][jn]>=0){
+                                    if( max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j) ){
+                                        if(connection_ray(in,jn,(int)i,(int)j,3,1)){
+                                            visible[1][waypoints[in][jn]][waypoints[i][j]]=true;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -381,8 +553,18 @@ bool PddlGen::plan(void){
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
                 if( getMapValue(4,i,j) || getMapValue(5,i,j) ){
-                    if(waypoints[i][j]>=0)
-                        goals.push_back(waypoints[i][j]);
+                    if(waypoints[i][j]>=0){
+                        // only feasible for both robots in maze 3;
+                        //if( (names[waypoints[i][j]].y>=21 && names[waypoints[i][j]].y<=33
+                        //      && names[waypoints[i][j]].x>=30 && names[waypoints[i][j]].x<=52) ||
+                        //    (names[waypoints[i][j]].y>=46 && names[waypoints[i][j]].y<=52
+                        //      && names[waypoints[i][j]].x>=30 && names[waypoints[i][j]].x<=52) ||
+                        //    (names[waypoints[i][j]].y>=21 && names[waypoints[i][j]].y<=52
+                        //      && names[waypoints[i][j]].x>=49 && names[waypoints[i][j]].x<=52) )
+                        //{
+                            goals.push_back(waypoints[i][j]);
+                        //}
+                    }
                 }
             }
         }
