@@ -577,7 +577,7 @@ bool PddlGen::plan(void){
             int px=pos_r0.x+hlx[h].x;
             int py=pos_r0.y+hlx[h].y;
             if(px>=0 && py>=0 && px<(int)waypoints.size() && py<(int)waypoints[0].size()){
-                if(waypoints[px][py]>=0){
+                if(waypoints[px][py]>=0 && getMapValue(6,px,py)){
                     initials[0]=waypoints[px][py];
                     break;
                 }
@@ -587,7 +587,7 @@ bool PddlGen::plan(void){
             int px=pos_r1.x+hlx[h].x;
             int py=pos_r1.y+hlx[h].y;
             if(px>=0 && py>=0 && px<(int)waypoints.size() && py<(int)waypoints[0].size()){
-                if(waypoints[px][py]>=0){
+                if(waypoints[px][py]>=0 && getMapValue(7,px,py)){
                     initials[1]=waypoints[px][py];
                     break;
                 }
