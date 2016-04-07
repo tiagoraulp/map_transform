@@ -590,10 +590,10 @@ bool PddlGen::plan(void){
                             goals.push_back(waypoints[i][j]);
 
                             if(!getMapValue(5,i,j))
-                                goalsR[0].push_back(waypoints[i][j]);
+                                goalsR[1].push_back(waypoints[i][j]);
 
                             if(!getMapValue(4,i,j))
-                                goalsR[1].push_back(waypoints[i][j]);
+                                goalsR[0].push_back(waypoints[i][j]);
 
                         //}
                     }
