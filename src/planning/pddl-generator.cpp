@@ -259,6 +259,7 @@ void write_goals(stringstream & str, vector<int> goals, vector<cv::Point2i> name
     }
     str<<"\t)\n)\n)";
 }
+
 void write_goals(stringstream & str, int goals, vector<cv::Point2i> names)
 {
     str<<"(:goal (and"<<endl;
@@ -267,6 +268,26 @@ void write_goals(stringstream & str, int goals, vector<cv::Point2i> names)
         str<<"\t(visited waypoint"<<convertG2S(names[i])<<")"<<endl;
     }
     str<<"\t)\n)\n)";
+}
+
+void write_goals_GA(stringstream & str, vector<vector<int> > goalsR, vector<cv::Point2i> names)
+{
+    str<<"("<<endl;
+    unsigned int nr=goalsR.size();
+    for(unsigned int r=0; r<nr; r++){
+        if(goalsR[r].size()>0){
+            str<<"\t(#robot"<<r+1<<" ";
+            for(unsigned int i=0;i<goalsR[r].size();i++)
+            {
+                str<<"(visited waypoint"<<convertG2S(names[goalsR[r][i]])<<") ";
+            }
+            str<<")";
+            if(r!=(nr-1))
+                str<<";;";
+            str<<endl;
+        }
+    }
+    str<<")";
 }
 
 int win=3;
@@ -550,6 +571,10 @@ bool PddlGen::plan(void){
 
         vector<int> goals(0);
 
+        vector<vector<int> > goalsR(2, vector<int>(0));
+        goalsR[0].clear();
+        goalsR[1].clear();
+
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
                 if( getMapValue(4,i,j) || getMapValue(5,i,j) ){
@@ -563,6 +588,13 @@ bool PddlGen::plan(void){
                         //      && names[waypoints[i][j]].x>=49 && names[waypoints[i][j]].x<=52) )
                         //{
                             goals.push_back(waypoints[i][j]);
+
+                            if(!getMapValue(5,i,j))
+                                goalsR[0].push_back(waypoints[i][j]);
+
+                            if(!getMapValue(4,i,j))
+                                goalsR[1].push_back(waypoints[i][j]);
+
                         //}
                     }
                 }
@@ -596,7 +628,7 @@ bool PddlGen::plan(void){
 
         //cout<<pos_r0.x<<" "<<pos_r0.y<<" "<<pos_r1.x<<" "<<pos_r1.y<<" "<<endl;
 
-        stringstream strstream("");
+        stringstream strstream(""), strstreamGA("");
         write_preamble(strstream, 2,count, names);
         write_graph(strstream, graph, names);
         write_visible(strstream, visible, names);
@@ -604,16 +636,31 @@ bool PddlGen::plan(void){
         write_goals(strstream, goals, names);//only feasible
         //write_goals(strstream, count, names);//total coverage, even if not feasible
 
+        write_goals_GA(strstreamGA, goalsR, names);//only feasible
+
         ofstream myfile;
         string pddlFolder = ros::package::getPath("map_transform").append("/pddl/problem.pddl");
-        myfile.open (pddlFolder);
+        myfile.open(pddlFolder);
         if (myfile.is_open()){
             myfile << strstream.str();
+            ROS_INFO("Wrote to PDDL file.");
         }
         else{
-            ROS_INFO("Failed to open file.");
+            ROS_INFO("Failed to open PDDL file.");
         }
         myfile.close();
+
+        ofstream myfileGA;
+        pddlFolder = ros::package::getPath("map_transform").append("/pddl/GA.pddl");
+        myfileGA.open(pddlFolder);
+        if (myfileGA.is_open()){
+            myfileGA << strstreamGA.str();
+            ROS_INFO("Wrote to GA file.");
+        }
+        else{
+            ROS_INFO("Failed to open GA file.");
+        }
+        myfileGA.close();
 
         return true;
     }
