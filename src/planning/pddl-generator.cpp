@@ -8,6 +8,7 @@
 #include <opencv2/core/core.hpp>
 #include "nav_msgs/OccupancyGrid.h"
 #include "geometry_msgs/Point.h"
+#include "nav_msgs/Path.h"
 #include "tf/transform_listener.h"
 #include "visualization_msgs/MarkerArray.h"
 #include "vector_utils.hpp"
@@ -21,7 +22,11 @@ private:
     ros::NodeHandle nh_;
 
     ros::Subscriber sub1, sub2, sub3, sub4, sub5, sub6, sub7, sub8, sub9;
-    ros::Publisher pub_mar1, pub_mar2, pub_mar3, pub_mar4, pub_mar5;
+    ros::Publisher pub_mar1, pub_mar2, pub_mar3, pub_mar4, pub_mar5, pub1, pub2;
+
+    nav_msgs::Path path_0, path_1;
+
+    bool output;
 
     vector<vector<vector<bool> > >  msg_rcv;
     vector<int> countM;
@@ -54,6 +59,7 @@ private:
     geometry_msgs::Point convertI2W(cv::Point2i p);
     bool connection(int i, int j, int in, int jn, int r);
     bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v);
+    bool procPaths(ifstream file);
 public:
     PddlGen(ros::NodeHandle nh): nh_(nh)
     {
@@ -73,6 +79,11 @@ public:
         graph.clear();
         visible.clear();
 
+        output=false;
+
+        pub1 = nh_.advertise<nav_msgs::Path>("path0", 1,true);
+        pub2 = nh_.advertise<nav_msgs::Path>("path1", 1,true);
+
         pub_mar1 = nh_.advertise<visualization_msgs::MarkerArray>("waypoints", 1,true);
         pub_mar2 = nh_.advertise<visualization_msgs::MarkerArray>("connected_0", 1,true);
         pub_mar3 = nh_.advertise<visualization_msgs::MarkerArray>("visible_0", 1,true);
@@ -85,6 +96,7 @@ public:
     }
 
     bool plan(void);
+    void readOutput(void);
     void publish(void);
 };
 
@@ -667,7 +679,54 @@ bool PddlGen::plan(void){
     return false;
 }
 
+bool PddlGen::procPaths(ifstream file){
+    path_0.poses.clear();
+    path_1=path_0;
+    geometry_msgs::PoseStamped pw;
+    pw.header.frame_id   = "/map";
+    pw.header.stamp =  ros::Time::now();
+    pw.pose.orientation.w=1;
+
+//    if(path.points.size()!=0)
+//        for(unsigned int p_i=0;p_i<path.points.size();p_i++)
+//        {
+//            pw.pose.position=convertI2W(path.points[p_i]);
+
+//            path_0.poses.push_back(pw);
+//        }
+//    else
+//    {
+//        pw.pose.position=p;
+//        path_1.poses.push_back(pw);
+//    }
+    return false;
+}
+
+void PddlGen::readOutput(void){
+    if(!output){
+        ifstream myfile;
+        string pddlFolder = ros::package::getPath("map_transform").append("/pddl/paths.txt");
+        myfile.open(pddlFolder);
+        if (myfile.is_open()){
+            output=procPaths(myfile);
+        }
+        else{
+            ROS_INFO("Failed to open Paths file.");
+        }
+        myfile.close();
+    }
+}
+
 void PddlGen::publish(void){
+    if(output){
+        path_0.header.frame_id = "/map";
+        path_0.header.stamp =  ros::Time::now();
+        path_1.header.frame_id = "/map";
+        path_1.header.stamp =  ros::Time::now();
+        pub1.publish(path_0);
+        pub2.publish(path_1);
+    }
+
     visualization_msgs::MarkerArray points;
     visualization_msgs::Marker point;
 
@@ -841,6 +900,7 @@ int main(int argc, char **argv)
             //break;
         }
     }
+    pddl.readOutput();
     pddl.publish();
     loop_rate.sleep();
   }
