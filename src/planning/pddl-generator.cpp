@@ -59,7 +59,7 @@ private:
     geometry_msgs::Point convertI2W(cv::Point2i p);
     bool connection(int i, int j, int in, int jn, int r);
     bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v);
-    bool procPaths(ifstream file);
+    bool procPaths(ifstream& file);
 public:
     PddlGen(ros::NodeHandle nh): nh_(nh)
     {
@@ -679,7 +679,7 @@ bool PddlGen::plan(void){
     return false;
 }
 
-bool PddlGen::procPaths(ifstream file){
+bool PddlGen::procPaths(ifstream& file){
     path_0.poses.clear();
     path_1=path_0;
     geometry_msgs::PoseStamped pw;
