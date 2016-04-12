@@ -674,13 +674,13 @@ bool PddlGen::plan(void){
                             for(int n=max((int)j-rs[rr]-1,0);n<=min((int)j+rs[rr]+1,(int)waypoints[i].size()-1);n++){
                                 if( ((m-(int)i)*(m-(int)i)+(n-(int)j)*(n-(int)j))<=(rs[rr]*rs[rr]) ){
                                     //if( getMapValue(2,i,j) && getMapValue(0,m,n) ){
-                                    if(connection_ray(i,j,m,n,nrobots+rr,0)){
+                                    if(connection_ray(i,j,m,n,nrobots+rr,rr)){
                                         if(waypoints[m][n]>=0){
                                             visible[rr][waypoints[i][j]][waypoints[m][n]]=true;
                                             visibleT[rr][waypoints[m][n]]=true;
                                         }
                                     }
-                                    if(connection_ray(i,j,m,n,3*nrobots+rr,0)){
+                                    if(connection_ray(i,j,m,n,3*nrobots+rr,rr)){
                                         if(waypoints[m][n]>=0){
                                             visibleTR[rr][waypoints[m][n]]=true;
                                         }
@@ -692,6 +692,8 @@ bool PddlGen::plan(void){
                 }
             }
         }
+
+        vector<vector<bool> > visibleTRF=visibleTR;
 
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
@@ -706,8 +708,9 @@ bool PddlGen::plan(void){
                                 for(int jn=jmin;jn<=jmax;jn++){
                                     if(waypoints[in][jn]>=0){
                                         if( max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j) ){
-                                            if(connection_ray(in,jn,(int)i,(int)j,nrobots+rr,0)){
+                                            if(connection_ray(in,jn,(int)i,(int)j,nrobots+rr,rr)){
                                                 visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
+                                                visibleTRF[rr][waypoints[i][j]]=true;
                                             }
                                         }
                                     }
@@ -743,6 +746,11 @@ bool PddlGen::plan(void){
                             for(int rr=0;rr<nrobots;rr++){
                                 if(!getMapValue(2*nrobots+rr,i,j))
                                     goalsR[rr].push_back(waypoints[i][j]);
+                                else
+                                {
+                                    if( (!visibleTRF[rr][waypoints[i][j]] && !connectTR[rr][waypoints[i][j]]) )
+                                        goalsR[rr].push_back(waypoints[i][j]);
+                                }
                             }
                         //}
                     }
