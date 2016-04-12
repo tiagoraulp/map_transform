@@ -4,7 +4,7 @@
  <arg name="x_1" default="10"/>
  <arg name="y_1" default="10"/>
 
- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/pddl.rviz" />
+ <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/pddl_multi.rviz" />
 
  <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/longCorridor.png 0.1" respawn="false" > 
     <param name="frame_id" value="/map" />

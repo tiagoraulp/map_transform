@@ -84,8 +84,7 @@ private:
     bool validWaypoint(unsigned int i, unsigned int j);
     bool feasibleWaypoint(unsigned int i, unsigned int j);
 public:
-    PddlGen(ros::NodeHandle nh): nh_(nh)
-    {
+    PddlGen(ros::NodeHandle nh): nh_(nh){
         nh_.param("nrobots", nrobots, 2);
 
         countM.assign(4*nrobots+1,0);
@@ -128,8 +127,7 @@ public:
         v_f.push_back(&PddlGen::rcv_map20);
 
         subs.resize(nrobots*4+1);
-        for(unsigned int i=0;i<4;i++)
-        {
+        for(unsigned int i=0;i<4;i++){
             char top;
             switch (i) {
             case 0:
@@ -148,8 +146,7 @@ public:
                 top='c';
                 break;
             }
-            for(int j=0;j<nrobots;j++)
-            {
+            for(int j=0;j<nrobots;j++){
                 string topic="/robot_"+to_string(j)+"/"+top+"_map";
                 subs[i*nrobots+j]=nh_.subscribe(topic, 1, v_f[i*nrobots+j], this);
             }
@@ -165,8 +162,7 @@ public:
         //pub1 = nh_.advertise<nav_msgs::Path>("path0", 1,true);
         //pub2 = nh_.advertise<nav_msgs::Path>("path1", 1,true);
 
-        for(int j=0;j<nrobots;j++)
-        {
+        for(int j=0;j<nrobots;j++){
             string topic="path"+to_string(j);
             pubs[j]=nh_.advertise<nav_msgs::Path>(topic, 1,true);
         }
@@ -174,17 +170,26 @@ public:
         pub_mar.resize(nrobots*2+1);
 
         pub_mar[0] = nh_.advertise<visualization_msgs::MarkerArray>("waypoints", 1,true);
-        pub_mar[1] = nh_.advertise<visualization_msgs::MarkerArray>("connected_0", 1,true);
-        pub_mar[2] = nh_.advertise<visualization_msgs::MarkerArray>("visible_0", 1,true);
-        pub_mar[3] = nh_.advertise<visualization_msgs::MarkerArray>("connected_1", 1,true);
-        pub_mar[4] = nh_.advertise<visualization_msgs::MarkerArray>("visible_1", 1,true);
+
+        for(int j=0;j<nrobots;j++){
+            string topic="connected_"+to_string(j);
+            pub_mar[1+2*j]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
+            topic="visible_"+to_string(j);
+            pub_mar[1+2*j+1]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
+        }
+
+        //pub_mar[0] = nh_.advertise<visualization_msgs::MarkerArray>("waypoints", 1,true);
+        //pub_mar[1] = nh_.advertise<visualization_msgs::MarkerArray>("connected_0", 1,true);
+        //pub_mar[2] = nh_.advertise<visualization_msgs::MarkerArray>("visible_0", 1,true);
+        //pub_mar[3] = nh_.advertise<visualization_msgs::MarkerArray>("connected_1", 1,true);
+        //pub_mar[4] = nh_.advertise<visualization_msgs::MarkerArray>("visible_1", 1,true);
 
         rs.resize(nrobots);
-        for(int j=0;j<nrobots;j++)
-        {
+        for(int j=0;j<nrobots;j++){
             string param="/robot_"+to_string(j)+"/visibility/infl";
             nh_.param(param, rs[j], 5);
         }
+
         //nh_.param("/robot_0/visibility/infl", r0s, 5);
         //nh_.param("/robot_1/visibility/infl", r1s, 5);
 
@@ -629,7 +634,7 @@ bool PddlGen::plan(void){
                 if(waypoints[i][j]>=0){
                     int imin=(int)round(max((float)i-(1.5*((float)jump)),0.0));
                     int jmin=(int)round(max((float)j-(1.5*((float)jump)),0.0));
-                    int imax=(int)round(min((float)i+(1.5*((float)jump)),(double)waypoints[i].size()-1));
+                    int imax=(int)round(min((float)i+(1.5*((float)jump)),(double)waypoints.size()-1));
                     int jmax=(int)round(min((float)j+(1.5*((float)jump)),(double)waypoints[i].size()-1));
                     for(int in=imin;in<=imax;in++){
                         for(int jn=jmin;jn<=jmax;jn++){
@@ -694,22 +699,46 @@ bool PddlGen::plan(void){
         }
 
         vector<vector<bool> > visibleTRF=visibleTR;
+        vector<vector<bool> > visibleTF=visibleT;
 
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
                 if(waypoints[i][j]>=0){
                     for(int rr=0;rr<nrobots;rr++){
                         if(!visibleT[rr][waypoints[i][j]] || (!visibleTR[rr][waypoints[i][j]] && !connectTR[rr][waypoints[i][j]])){
-                            int imin=(int)round(max((float)i-(1.5*((float)jump)),0.0));
-                            int jmin=(int)round(max((float)j-(1.5*((float)jump)),0.0));
-                            int imax=(int)round(min((float)i+(1.5*((float)jump)),(double)waypoints[i].size()-1));
-                            int jmax=(int)round(min((float)j+(1.5*((float)jump)),(double)waypoints[i].size()-1));
+                            int imin=(int)round(max((float)i-(float)jump,(float)0.0));
+                            int jmin=(int)round(max((float)j-(float)jump,(float)0.0));
+                            int imax=(int)round(min((float)i+(float)jump,(float)waypoints.size()-1));
+                            int jmax=(int)round(min((float)j+(float)jump,(float)waypoints[i].size()-1));
                             for(int in=imin;in<=imax;in++){
                                 for(int jn=jmin;jn<=jmax;jn++){
                                     if(waypoints[in][jn]>=0){
                                         if( max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j) ){
                                             if(connection_ray(in,jn,(int)i,(int)j,nrobots+rr,rr)){
                                                 visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
+                                                visibleTF[rr][waypoints[i][j]]=true;
+                                            }
+                                            if(connection_ray(in,jn,(int)i,(int)j,3*nrobots+rr,rr)){
+                                                visibleTRF[rr][waypoints[i][j]]=true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if(!visibleTF[rr][waypoints[i][j]] || (!visibleTRF[rr][waypoints[i][j]] && !connectTR[rr][waypoints[i][j]])){
+                                float searchwin=1.0*((float)jump)+((float)rs[rr]);
+                                int imin=(int)round(max((float)i-searchwin,(float)0.0));
+                                int jmin=(int)round(max((float)j-searchwin,(float)0.0));
+                                int imax=(int)round(min((float)i+searchwin,(float)waypoints.size()-1));
+                                int jmax=(int)round(min((float)j+searchwin,(float)waypoints[i].size()-1));
+                                for(int in=imin;in<=imax;in++){
+                                    for(int jn=jmin;jn<=jmax;jn++){
+                                        if(waypoints[in][jn]>=0){
+                                            if(connection_ray(in,jn,(int)i,(int)j,nrobots+rr,rr)){
+                                                visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
+                                                visibleTF[rr][waypoints[i][j]]=true;
+                                            }
+                                            if(connection_ray(in,jn,(int)i,(int)j,3*nrobots+rr,rr)){
                                                 visibleTRF[rr][waypoints[i][j]]=true;
                                             }
                                         }
@@ -895,9 +924,6 @@ void PddlGen::publish(void){
         points.markers.clear();
 
         point.type=visualization_msgs::Marker::LINE_STRIP;
-        point.color.b = 1.0f;
-        point.color.r = 0.0f;
-        point.color.g = 1.0f;
         point.scale.x = 0.03;
         point.scale.y = 0.02;
         point.scale.z = 0.001;
@@ -905,85 +931,45 @@ void PddlGen::publish(void){
         p.x=0.0f; p.y=0.0f; p.z=0.0f;
         point.pose.position=p;
 
-        for(unsigned int i=0;i<graph[0].size();i++){
-            for(unsigned int j=0;j<graph[0][i].size();j++){
-                if( graph[0][i][j] ){
-                    p=convertI2W(wps[i]);
-                    point.points.clear();
-                    point.points.push_back(p);
-                    p=convertI2W(wps[j]);
-                    point.points.push_back(p);
-                    point.id = (i)*wps.size()+j;
-                    points.markers.push_back(point);
+        for(int rr=0;rr<nrobots;rr++){
+            point.color.b = 1.0f;
+            point.color.r = 0.0f;
+            point.color.g = 1.0f;
+            for(unsigned int i=0;i<graph[rr].size();i++){
+                for(unsigned int j=0;j<graph[rr][i].size();j++){
+                    if( graph[rr][i][j] ){
+                        p=convertI2W(wps[i]);
+                        point.points.clear();
+                        point.points.push_back(p);
+                        p=convertI2W(wps[j]);
+                        point.points.push_back(p);
+                        point.id = (i)*wps.size()+j;
+                        points.markers.push_back(point);
+                    }
                 }
             }
-        }
+            pub_mar[1+2*rr].publish(points);
+            points.markers.clear();
 
-        pub_mar[1].publish(points);
-        points.markers.clear();
-
-        point.color.r = 1.0f;
-        point.color.b = 0.0f;
-        point.color.g = 1.0f;
-
-        for(unsigned int i=0;i<visible[0].size();i++){
-            for(unsigned int j=0;j<visible[0][i].size();j++){
-                if( visible[0][i][j] ){
-                    p=convertI2W(wps[i]);
-                    point.points.clear();
-                    point.points.push_back(p);
-                    p=convertI2W(wps[j]);
-                    point.points.push_back(p);
-                    point.id = (i)*wps.size()+j;
-                    points.markers.push_back(point);
+            point.color.r = 1.0f;
+            point.color.b = 0.0f;
+            point.color.g = 1.0f;
+            for(unsigned int i=0;i<visible[rr].size();i++){
+                for(unsigned int j=0;j<visible[rr][i].size();j++){
+                    if( visible[rr][i][j] ){
+                        p=convertI2W(wps[i]);
+                        point.points.clear();
+                        point.points.push_back(p);
+                        p=convertI2W(wps[j]);
+                        point.points.push_back(p);
+                        point.id = (i)*wps.size()+j;
+                        points.markers.push_back(point);
+                    }
                 }
             }
+            pub_mar[1+2*rr+1].publish(points);
+            points.markers.clear();
         }
-
-        pub_mar[2].publish(points);
-        points.markers.clear();
-
-        point.color.b = 1.0f;
-        point.color.r = 0.0f;
-        point.color.g = 0.0f;
-
-        for(unsigned int i=0;i<graph[1].size();i++){
-            for(unsigned int j=0;j<graph[1][i].size();j++){
-                if( graph[1][i][j] ){
-                    p=convertI2W(wps[i]);
-                    point.points.clear();
-                    point.points.push_back(p);
-                    p=convertI2W(wps[j]);
-                    point.points.push_back(p);
-                    point.id = (i)*wps.size()+j;
-                    points.markers.push_back(point);
-                }
-            }
-        }
-
-        pub_mar[3].publish(points);
-        points.markers.clear();
-
-        point.color.r = 1.0f;
-        point.color.b = 0.0f;
-        point.color.g = 0.0f;
-
-        for(unsigned int i=0;i<visible[1].size();i++){
-            for(unsigned int j=0;j<visible[1][i].size();j++){
-                if( visible[1][i][j] ){
-                    p=convertI2W(wps[i]);
-                    point.points.clear();
-                    point.points.push_back(p);
-                    p=convertI2W(wps[j]);
-                    point.points.push_back(p);
-                    point.id = (i)*wps.size()+j;
-                    points.markers.push_back(point);
-                }
-            }
-        }
-
-        pub_mar[4].publish(points);
-        points.markers.clear();
     }
     else{
         visualization_msgs::MarkerArray points;
