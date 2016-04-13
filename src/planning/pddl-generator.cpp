@@ -78,7 +78,7 @@ private:
     cv::Point2i convertW2I(geometry_msgs::Point p);
     geometry_msgs::Point convertI2W(cv::Point2i p);
     bool connection(int i, int j, int in, int jn, int r);
-    bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v);
+    bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict=true);
     bool procPaths(vector<string> file);
     bool allMapsReceived(void);
     bool validWaypoint(unsigned int i, unsigned int j);
@@ -524,7 +524,7 @@ bool PddlGen::connection(int i, int j, int in, int jn, int r){
         return false;
 }
 
-bool PddlGen::connection_ray(int i, int j, int in, int jn, int r_e, int r_v){
+bool PddlGen::connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict){
     if(!getMapValue(r_e,i,j)){
         bool stop=false;
         for(int ii=max(i-win,0); ii<=min(i+win,(int)msg_rcv[r_e].size()-1); ii++){
@@ -545,6 +545,11 @@ bool PddlGen::connection_ray(int i, int j, int in, int jn, int r_e, int r_v){
     if(!getMapValue(r_v,in,jn)){
         return false;
     }
+
+    int rr=r_e%nrobots;
+
+    if( ((in-i)*(in-i)+(jn-j)*(jn-j))>(rs[rr]*rs[rr]) && strict)
+        return false;
 
     if(raytracing(or_map, i, j, in, jn, true))
         return true;
@@ -722,12 +727,12 @@ bool PddlGen::plan(void){
                                 for(int jn=jmin;jn<=jmax;jn++){
                                     if(waypoints[in][jn]>=0){
                                         if( ((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j))<=(searchwin*searchwin) ){
-                                            if(connection_ray(in,jn,(int)i,(int)j,nrobots+rr,rr) && !visibleT[rr][waypoints[i][j]]){
+                                            if(connection_ray(in,jn,(int)i,(int)j,nrobots+rr,rr, false) && !visibleT[rr][waypoints[i][j]]){
                                                 //visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
                                                 wp_v.iter((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j), waypoints[in][jn]);
                                                 visibleTF[rr][waypoints[i][j]]=true;
                                             }
-                                            if(connection_ray(in,jn,(int)i,(int)j,3*nrobots+rr,2*nrobots+rr) && !visibleTR[rr][waypoints[i][j]]){
+                                            if(connection_ray(in,jn,(int)i,(int)j,3*nrobots+rr,2*nrobots+rr, false) && !visibleTR[rr][waypoints[i][j]]){
                                                 //visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
                                                 wp_vr.iter((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j), waypoints[in][jn]);
                                                 visibleTRF[rr][waypoints[i][j]]=true;
