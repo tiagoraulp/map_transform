@@ -685,8 +685,9 @@ bool PddlGen::plan(void){
                                             visibleT[rr][waypoints[m][n]]=true;
                                         }
                                     }
-                                    if(connection_ray(i,j,m,n,3*nrobots+rr,rr)){
+                                    if(connection_ray(i,j,m,n,3*nrobots+rr,2*nrobots+rr)){
                                         if(waypoints[m][n]>=0){
+                                            visible[rr][waypoints[i][j]][waypoints[m][n]]=true;
                                             visibleTR[rr][waypoints[m][n]]=true;
                                         }
                                     }
@@ -705,45 +706,36 @@ bool PddlGen::plan(void){
             for(unsigned int j=0;j<waypoints[i].size();j++){
                 if(waypoints[i][j]>=0){
                     for(int rr=0;rr<nrobots;rr++){
-                        if(!visibleT[rr][waypoints[i][j]] || (!visibleTR[rr][waypoints[i][j]] && !connectTR[rr][waypoints[i][j]])){
-                            int imin=(int)round(max((float)i-(float)jump,(float)0.0));
-                            int jmin=(int)round(max((float)j-(float)jump,(float)0.0));
-                            int imax=(int)round(min((float)i+(float)jump,(float)waypoints.size()-1));
-                            int jmax=(int)round(min((float)j+(float)jump,(float)waypoints[i].size()-1));
+                        if( !visibleT[rr][waypoints[i][j]] || !visibleTR[rr][waypoints[i][j]] ){
+                            float searchwin=1.0*((float)jump)+((float)rs[rr]);
+                            int imin=(int)round(max((float)i-searchwin,(float)0.0));
+                            int jmin=(int)round(max((float)j-searchwin,(float)0.0));
+                            int imax=(int)round(min((float)i+searchwin,(float)waypoints.size()-1));
+                            int jmax=(int)round(min((float)j+searchwin,(float)waypoints[i].size()-1));
+                            FindMin<long int, long int> wp_v, wp_vr;
                             for(int in=imin;in<=imax;in++){
                                 for(int jn=jmin;jn<=jmax;jn++){
                                     if(waypoints[in][jn]>=0){
-                                        if( max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j) ){
-                                            if(connection_ray(in,jn,(int)i,(int)j,nrobots+rr,rr)){
-                                                visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
+                                        if( ((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j))<=(searchwin*searchwin) ){
+                                            if(connection_ray(in,jn,(int)i,(int)j,nrobots+rr,rr) && !visibleT[rr][waypoints[i][j]]){
+                                                //visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
+                                                wp_v.iter((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j), waypoints[in][jn]);
                                                 visibleTF[rr][waypoints[i][j]]=true;
                                             }
-                                            if(connection_ray(in,jn,(int)i,(int)j,3*nrobots+rr,rr)){
+                                            if(connection_ray(in,jn,(int)i,(int)j,3*nrobots+rr,2*nrobots+rr) && !visibleTR[rr][waypoints[i][j]]){
+                                                //visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
+                                                wp_vr.iter((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j), waypoints[in][jn]);
                                                 visibleTRF[rr][waypoints[i][j]]=true;
                                             }
                                         }
                                     }
                                 }
                             }
-                            if(!visibleTF[rr][waypoints[i][j]] || (!visibleTRF[rr][waypoints[i][j]] && !connectTR[rr][waypoints[i][j]])){
-                                float searchwin=1.0*((float)jump)+((float)rs[rr]);
-                                int imin=(int)round(max((float)i-searchwin,(float)0.0));
-                                int jmin=(int)round(max((float)j-searchwin,(float)0.0));
-                                int imax=(int)round(min((float)i+searchwin,(float)waypoints.size()-1));
-                                int jmax=(int)round(min((float)j+searchwin,(float)waypoints[i].size()-1));
-                                for(int in=imin;in<=imax;in++){
-                                    for(int jn=jmin;jn<=jmax;jn++){
-                                        if(waypoints[in][jn]>=0){
-                                            if(connection_ray(in,jn,(int)i,(int)j,nrobots+rr,rr)){
-                                                visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
-                                                visibleTF[rr][waypoints[i][j]]=true;
-                                            }
-                                            if(connection_ray(in,jn,(int)i,(int)j,3*nrobots+rr,rr)){
-                                                visibleTRF[rr][waypoints[i][j]]=true;
-                                            }
-                                        }
-                                    }
-                                }
+                            if(wp_v.valid()){
+                                visible[rr][wp_v.getP()][waypoints[i][j]]=true;
+                            }
+                            if(wp_vr.valid()){
+                                visible[rr][wp_vr.getP()][waypoints[i][j]]=true;
                             }
                         }
                     }
@@ -777,7 +769,7 @@ bool PddlGen::plan(void){
                                     goalsR[rr].push_back(waypoints[i][j]);
                                 else
                                 {
-                                    if( (!visibleTRF[rr][waypoints[i][j]] && !connectTR[rr][waypoints[i][j]]) )
+                                    if( !visibleTRF[rr][waypoints[i][j]] )
                                         goalsR[rr].push_back(waypoints[i][j]);
                                 }
                             }
