@@ -28,7 +28,6 @@ private:
     vector<ros::Publisher> pub_mar;
     vector<ros::Publisher> pubs;
 
-    //nav_msgs::Path path_0, path_1;
     vector<nav_msgs::Path> paths;
 
     bool output;
@@ -50,6 +49,7 @@ private:
     vector<cv::Point2i> wps;
     vector<vector<vector<bool> > > graph;
     vector<vector<vector<bool> > > visible;
+    vector<vector<long int> > wp_n2i;
 
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index);
     void rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg);
@@ -79,7 +79,7 @@ private:
     geometry_msgs::Point convertI2W(cv::Point2i p);
     bool connection(int i, int j, int in, int jn, int r);
     bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v);
-    bool procPaths(ifstream& file);
+    bool procPaths(vector<string> file);
     bool allMapsReceived(void);
     bool validWaypoint(unsigned int i, unsigned int j);
     bool feasibleWaypoint(unsigned int i, unsigned int j);
@@ -192,6 +192,8 @@ public:
 
         //nh_.param("/robot_0/visibility/infl", r0s, 5);
         //nh_.param("/robot_1/visibility/infl", r1s, 5);
+
+        paths.resize(nrobots);
 
         nh_.param("jump",jump, 5);
     }
@@ -603,6 +605,8 @@ bool PddlGen::plan(void){
         vector<vector<long int> > waypoints(msg_rcv[0].size(), vector<long int>(msg_rcv[0][0].size(),-1));
         vector<cv::Point2i> names(0);
 
+        wp_n2i.assign(waypoints.size()/jump+1, vector<long int>(waypoints[0].size()/jump+1,-1));
+
         long int count=0;
 
         //int jump=min(r0s,r1s)/2;
@@ -615,6 +619,7 @@ bool PddlGen::plan(void){
                 if( validWaypoint(i,j) ){
                     waypoints[i][j]=count;
                     names.push_back(cv::Point(in,jn));
+                    wp_n2i[in][jn]=count;
                     wps.push_back(cv::Point(i,j));
                     count++;
                 }
@@ -837,36 +842,131 @@ bool PddlGen::plan(void){
     return false;
 }
 
-bool PddlGen::procPaths(ifstream& file){
-    paths[0].poses.clear();
-    paths[1]=paths[0];
+bool PddlGen::procPaths(vector<string> input){
+    for(int rr=0;rr<nrobots;rr++){
+        paths[rr].poses.clear();
+    }
     geometry_msgs::PoseStamped pw;
     pw.header.frame_id   = "/map";
     pw.header.stamp =  ros::Time::now();
     pw.pose.orientation.w=1;
 
-//    if(path.points.size()!=0)
-//        for(unsigned int p_i=0;p_i<path.points.size();p_i++)
-//        {
-//            pw.pose.position=convertI2W(path.points[p_i]);
+    vector<vector<long int> > paths_robots(nrobots);
 
-//            path_0.poses.push_back(pw);
-//        }
-//    else
-//    {
-//        pw.pose.position=p;
-//        path_1.poses.push_back(pw);
-//    }
-    return false;
+    for(unsigned int i=0; i<input.size(); i++){
+        istringstream iss(input[i]);
+        string elem;
+        while(iss>>elem)
+        {
+            transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
+            if (elem.find("navigate") != std::string::npos) {
+                iss>>elem;
+                transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
+                size_t pos=elem.find("robot");
+                if (pos!= string::npos) {
+                    int rob_numb=stoi(elem.substr(pos+5)), waypoint1_x, waypoint1_y, waypoint2_x, waypoint2_y;
+                    iss>>elem;
+                    transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
+                    size_t pos=elem.find("waypoint");
+                    if (pos!= string::npos) {
+                        waypoint1_x=stoi(elem.substr(pos+8));
+                        size_t pos=elem.find("_");
+                        if (pos!= string::npos) {
+                            waypoint1_y=stoi(elem.substr(pos+1));
+                            iss>>elem;
+                            transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
+                            size_t pos=elem.find("waypoint");
+                            if (pos!= string::npos) {
+                                waypoint2_x=stoi(elem.substr(pos+8));
+                                size_t pos=elem.find("_");
+                                if (pos!= string::npos) {
+                                    waypoint2_y=stoi(elem.substr(pos+1));
+                                    if(rob_numb<=nrobots && waypoint1_x<(int)wp_n2i.size() && waypoint1_y<(int)wp_n2i[0].size() && waypoint2_x<(int)wp_n2i.size() && waypoint2_y<(int)wp_n2i[0].size()){
+                                        //cout<<"navigate: "<<rob_numb<<" "<<wp_n2i[waypoint1_x][waypoint1_y]<<" "<<wp_n2i[waypoint2_x][waypoint2_y]<<endl;
+                                        if(paths_robots[rob_numb-1].size()==0)
+                                        {
+                                            paths_robots[rob_numb-1].push_back(wp_n2i[waypoint1_x][waypoint1_y]);
+                                            paths_robots[rob_numb-1].push_back(wp_n2i[waypoint2_x][waypoint2_y]);
+                                        }
+                                        else
+                                            paths_robots[rob_numb-1].push_back(wp_n2i[waypoint2_x][waypoint2_y]);
+                                    }
+                                    else{
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (elem.find("look-at-point") != std::string::npos) {
+                iss>>elem;
+                transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
+                size_t pos=elem.find("robot");
+                if (pos!= string::npos) {
+                    int rob_numb=stoi(elem.substr(pos+5)), waypoint1_x, waypoint1_y, waypoint2_x, waypoint2_y;
+                    iss>>elem;
+                    transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
+                    size_t pos=elem.find("waypoint");
+                    if (pos!= string::npos) {
+                        waypoint1_x=stoi(elem.substr(pos+8));
+                        size_t pos=elem.find("_");
+                        if (pos!= string::npos) {
+                            waypoint1_y=stoi(elem.substr(pos+1));
+                            iss>>elem;
+                            transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
+                            size_t pos=elem.find("waypoint");
+                            if (pos!= string::npos) {
+                                waypoint2_x=stoi(elem.substr(pos+8));
+                                size_t pos=elem.find("_");
+                                if (pos!= string::npos) {
+                                    waypoint2_y=stoi(elem.substr(pos+1));
+                                    if(rob_numb<=nrobots && waypoint1_x<(int)wp_n2i.size() && waypoint1_y<(int)wp_n2i[0].size() && waypoint2_x<(int)wp_n2i.size() && waypoint2_y<(int)wp_n2i[0].size()){
+                                        //cout<<"look: "<<rob_numb<<" "<<wp_n2i[waypoint1_x][waypoint1_y]<<" "<<wp_n2i[waypoint2_x][waypoint2_y]<<endl;
+                                    }
+                                    else{
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            //cout<<elem<<" ";
+        }
+        //cout<<endl;
+    }
+
+    for(int rr=0;rr<nrobots;rr++)
+        if(paths_robots[rr].size()!=0)
+            for(unsigned int p_i=0;p_i<paths_robots[rr].size();p_i++)
+            {
+                pw.pose.position=convertI2W(wps[paths_robots[rr][p_i]]);
+
+                paths[rr].poses.push_back(pw);
+            }
+
+    return true;
 }
 
+bool suc=false;
+
 void PddlGen::readOutput(void){
-    if(!output){
+    if(!output && suc){
         ifstream myfile;
         string pddlFolder = ros::package::getPath("map_transform").append("/pddl/paths.txt");
         myfile.open(pddlFolder);
         if (myfile.is_open()){
-            output=procPaths(myfile);
+            string line;
+            vector<string> input;
+            while (getline(myfile, line)) {
+                input.push_back(line);
+            }
+            output=procPaths(input);
+            if(output)
+                ROS_INFO("Successfully read Paths file.");
         }
         else{
             ROS_INFO("Failed to open Paths file.");
@@ -877,12 +977,11 @@ void PddlGen::readOutput(void){
 
 void PddlGen::publish(void){
     if(output){
-        paths[0].header.frame_id = "/map";
-        paths[0].header.stamp =  ros::Time::now();
-        paths[1].header.frame_id = "/map";
-        paths[1].header.stamp =  ros::Time::now();
-        pubs[0].publish(paths[0]);
-        pubs[1].publish(paths[1]);
+        for(int rr=0;rr<nrobots;rr++){
+            paths[rr].header.frame_id = "/map";
+            paths[rr].header.stamp =  ros::Time::now();
+            pubs[rr].publish(paths[rr]);
+        }
     }
 
     visualization_msgs::MarkerArray points;
@@ -976,14 +1075,14 @@ void PddlGen::publish(void){
         //points.markers.push_back(point);
 
         pub_mar[0].publish(points);
-        pub_mar[1].publish(points);
-        pub_mar[2].publish(points);
-        pub_mar[3].publish(points);
-        pub_mar[4].publish(points);
+        for(int rr=0;rr<nrobots;rr++){
+            pub_mar[1+2*rr].publish(points);
+            pub_mar[1+2*rr+1].publish(points);
+        }
     }
 }
 
-bool suc=false;
+
 
 // Replacement SIGINT handler
 void HandlerStop(int)
