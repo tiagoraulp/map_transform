@@ -567,7 +567,8 @@ bool PddlGen::allMapsReceived(void){
 
 bool PddlGen::validWaypoint(unsigned int i, unsigned int j){
     for(int rr=0; rr<nrobots; rr++){
-        if(getMapValue(rr,i,j))
+        //if(getMapValue(rr,i,j))
+        if(getMapValue(nrobots*4,i,j))
             return true;
     }
     return false;
@@ -615,7 +616,6 @@ bool PddlGen::plan(void){
         long int count=0;
 
         //int jump=min(r0s,r1s)/2;
-        //int jump=15;
 
         for(unsigned int i=0;i<waypoints.size();i=i+jump){
             unsigned int in=i/jump;
@@ -762,30 +762,21 @@ bool PddlGen::plan(void){
 
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
-                if( feasibleWaypoint(i,j) ){
+                //if( feasibleWaypoint(i,j) ){
                     if(waypoints[i][j]>=0){
-                        // only feasible for both robots in maze 3;
-                        //if( (names[waypoints[i][j]].y>=21 && names[waypoints[i][j]].y<=33
-                        //      && names[waypoints[i][j]].x>=30 && names[waypoints[i][j]].x<=52) ||
-                        //    (names[waypoints[i][j]].y>=46 && names[waypoints[i][j]].y<=52
-                        //      && names[waypoints[i][j]].x>=30 && names[waypoints[i][j]].x<=52) ||
-                        //    (names[waypoints[i][j]].y>=21 && names[waypoints[i][j]].y<=52
-                        //      && names[waypoints[i][j]].x>=49 && names[waypoints[i][j]].x<=52) )
-                        //{
-                            goals.push_back(waypoints[i][j]);
+                        goals.push_back(waypoints[i][j]);
 
-                            for(int rr=0;rr<nrobots;rr++){
-                                if(!getMapValue(2*nrobots+rr,i,j))
+                        for(int rr=0;rr<nrobots;rr++){
+                            if(!getMapValue(2*nrobots+rr,i,j))
+                                goalsR[rr].push_back(waypoints[i][j]);
+                            else
+                            {
+                                if( !visibleTRF[rr][waypoints[i][j]] )
                                     goalsR[rr].push_back(waypoints[i][j]);
-                                else
-                                {
-                                    if( !visibleTRF[rr][waypoints[i][j]] )
-                                        goalsR[rr].push_back(waypoints[i][j]);
-                                }
                             }
-                        //}
+                        }
                     }
-                }
+                //}
             }
         }
 
@@ -806,17 +797,21 @@ bool PddlGen::plan(void){
             }
         }
 
-        //cout<<pos_r0.x<<" "<<pos_r0.y<<" "<<pos_r1.x<<" "<<pos_r1.y<<" "<<endl;
-
         stringstream strstream(""), strstreamGA("");
         write_preamble(strstream, nrobots,count, names);
         write_graph(strstream, graph, names);
         write_visible(strstream, visible, names);
         write_initRobots(strstream, nrobots, initials, names);
-        write_goals(strstream, goals, names);//only feasible
-        //write_goals(strstream, count, names);//total coverage, even if not feasible
+        //write_goals(strstream, goals, names);//only feasible
+        write_goals(strstream, count, names);//total coverage, even if not feasible
 
         write_goals_GA(strstreamGA, goalsR, names);//only feasible
+
+//        cout<<count<<endl;
+//        for(unsigned int i=0; i<goalsR.size();i++)
+//        {
+//            cout<<count-goalsR[i].size()<<" "<<((float)(goalsR[i].size()))/((float)count)<<endl;
+//        }
 
         ofstream myfile;
         string pddlFolder = ros::package::getPath("map_transform").append("/pddl/problem.pddl");
