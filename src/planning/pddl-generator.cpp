@@ -842,6 +842,71 @@ bool PddlGen::plan(void){
     return false;
 }
 
+enum ActionID {navigate, look, null};
+
+struct Action{
+    ActionID actID;
+    int robID;
+    vector<cv::Point2i> wps;
+    int size_x, size_y, rob_max;
+    Action(): actID(null), robID(-1){
+        wps.assign(2,cv::Point2i(-1,-1));
+        rob_max=-1;
+        size_x=-1;
+        size_y=-1;
+    }
+    Action(int sx,int sy, int rm): size_x(sx), size_y(sy), rob_max(rm){
+        Action();
+        rob_max=rm;
+        size_x=sx;
+        size_y=sy;
+    }
+    bool valid(){
+        return (actID!=null) && (wps[0].x>=0) && (wps[0].y>=0) && (wps[1].x>=0) && (wps[1].y>=0) &&
+                (wps[0].x<size_x) && (wps[0].y<size_y) && (wps[1].x<size_x) && (wps[1].y<size_y) && (robID>0) && (robID<=rob_max);
+    }
+};
+
+bool procAct(string elem, Action& act){
+    transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
+    if (elem.find("navigate") != std::string::npos) {
+        act.actID=navigate;
+        return true;
+    }
+    if (elem.find("look-at-point") != std::string::npos) {
+        act.actID=look;
+        return true;
+    }
+    return false;
+}
+
+bool procRob(string elem, Action& act){
+    transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
+    size_t pos=elem.find("robot");
+    if (pos!= string::npos) {
+        act.robID=stoi(elem.substr(pos+5));
+        return true;
+    }
+    return false;
+}
+
+bool procWP(string elem, Action& act, unsigned int ind){
+    if(ind==0 || ind==1)
+    {
+        transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
+        size_t pos=elem.find("waypoint");
+        if (pos!= string::npos) {
+            act.wps[ind].x=stoi(elem.substr(pos+8));
+            size_t pos=elem.find("_");
+            if (pos!= string::npos) {
+                act.wps[ind].y=stoi(elem.substr(pos+1));
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool PddlGen::procPaths(vector<string> input){
     for(int rr=0;rr<nrobots;rr++){
         paths[rr].poses.clear();
@@ -856,87 +921,33 @@ bool PddlGen::procPaths(vector<string> input){
     for(unsigned int i=0; i<input.size(); i++){
         istringstream iss(input[i]);
         string elem;
-        while(iss>>elem)
-        {
-            transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
-            if (elem.find("navigate") != std::string::npos) {
+        Action act(wp_n2i.size(), wp_n2i[0].size(), nrobots);
+        while(iss>>elem){
+            if( procAct(elem, act) ){
                 iss>>elem;
-                transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
-                size_t pos=elem.find("robot");
-                if (pos!= string::npos) {
-                    int rob_numb=stoi(elem.substr(pos+5)), waypoint1_x, waypoint1_y, waypoint2_x, waypoint2_y;
+                if( procRob(elem,act) ){
                     iss>>elem;
-                    transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
-                    size_t pos=elem.find("waypoint");
-                    if (pos!= string::npos) {
-                        waypoint1_x=stoi(elem.substr(pos+8));
-                        size_t pos=elem.find("_");
-                        if (pos!= string::npos) {
-                            waypoint1_y=stoi(elem.substr(pos+1));
-                            iss>>elem;
-                            transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
-                            size_t pos=elem.find("waypoint");
-                            if (pos!= string::npos) {
-                                waypoint2_x=stoi(elem.substr(pos+8));
-                                size_t pos=elem.find("_");
-                                if (pos!= string::npos) {
-                                    waypoint2_y=stoi(elem.substr(pos+1));
-                                    if(rob_numb<=nrobots && waypoint1_x<(int)wp_n2i.size() && waypoint1_y<(int)wp_n2i[0].size() && waypoint2_x<(int)wp_n2i.size() && waypoint2_y<(int)wp_n2i[0].size()){
-                                        //cout<<"navigate: "<<rob_numb<<" "<<wp_n2i[waypoint1_x][waypoint1_y]<<" "<<wp_n2i[waypoint2_x][waypoint2_y]<<endl;
-                                        if(paths_robots[rob_numb-1].size()==0)
-                                        {
-                                            paths_robots[rob_numb-1].push_back(wp_n2i[waypoint1_x][waypoint1_y]);
-                                            paths_robots[rob_numb-1].push_back(wp_n2i[waypoint2_x][waypoint2_y]);
-                                        }
-                                        else
-                                            paths_robots[rob_numb-1].push_back(wp_n2i[waypoint2_x][waypoint2_y]);
-                                    }
-                                    else{
-                                        continue;
-                                    }
+                    if( procWP(elem,act,0) ){
+                        iss>>elem;
+                        if( procWP(elem,act,1) ){
+                            if( act.valid() && act.actID==navigate ){
+                                //cout<<"navigate: "<<act.robID<<" "<<wp_n2i[wps[0].x][wps[0].y]<<" "<<wp_n2i[wps[1].x][wps[1].y]<<endl;
+                                if(paths_robots[act.robID-1].size()==0)
+                                {
+                                    paths_robots[act.robID-1].push_back(wp_n2i[wps[0].x][wps[0].y]);
+                                    paths_robots[act.robID-1].push_back(wp_n2i[wps[1].x][wps[1].y]);
                                 }
+                                else
+                                    paths_robots[act.robID-1].push_back(wp_n2i[wps[1].x][wps[1].y]);
+                            }
+                            if( act.valid() && act.actID==look ){
+                                //cout<<"look: "<<act.robID<<" "<<wp_n2i[wps[0].x][wps[0].y]<<" "<<wp_n2i[wps[1].x][wps[1].y]<<endl;
                             }
                         }
                     }
                 }
             }
-            if (elem.find("look-at-point") != std::string::npos) {
-                iss>>elem;
-                transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
-                size_t pos=elem.find("robot");
-                if (pos!= string::npos) {
-                    int rob_numb=stoi(elem.substr(pos+5)), waypoint1_x, waypoint1_y, waypoint2_x, waypoint2_y;
-                    iss>>elem;
-                    transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
-                    size_t pos=elem.find("waypoint");
-                    if (pos!= string::npos) {
-                        waypoint1_x=stoi(elem.substr(pos+8));
-                        size_t pos=elem.find("_");
-                        if (pos!= string::npos) {
-                            waypoint1_y=stoi(elem.substr(pos+1));
-                            iss>>elem;
-                            transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
-                            size_t pos=elem.find("waypoint");
-                            if (pos!= string::npos) {
-                                waypoint2_x=stoi(elem.substr(pos+8));
-                                size_t pos=elem.find("_");
-                                if (pos!= string::npos) {
-                                    waypoint2_y=stoi(elem.substr(pos+1));
-                                    if(rob_numb<=nrobots && waypoint1_x<(int)wp_n2i.size() && waypoint1_y<(int)wp_n2i[0].size() && waypoint2_x<(int)wp_n2i.size() && waypoint2_y<(int)wp_n2i[0].size()){
-                                        //cout<<"look: "<<rob_numb<<" "<<wp_n2i[waypoint1_x][waypoint1_y]<<" "<<wp_n2i[waypoint2_x][waypoint2_y]<<endl;
-                                    }
-                                    else{
-                                        continue;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            //cout<<elem<<" ";
         }
-        //cout<<endl;
     }
 
     for(int rr=0;rr<nrobots;rr++)
