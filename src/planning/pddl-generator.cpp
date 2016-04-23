@@ -680,23 +680,17 @@ enum ActionID {navigate, look, null};
 struct Action{
     ActionID actID;
     int robID;
-    vector<cv::Point2i> wps;
+    vector<cv::Point2i> wp;
     int size_x, size_y, rob_max;
-    Action(): actID(null), robID(-1){
-        wps.assign(2,cv::Point2i(-1,-1));
-        rob_max=-1;
-        size_x=-1;
-        size_y=-1;
-    }
-    Action(int sx,int sy, int rm): size_x(sx), size_y(sy), rob_max(rm){
-        Action();
+    Action(int sx,int sy, int rm): actID(null), robID(-1), size_x(sx), size_y(sy), rob_max(rm){
+        wp.assign(2,cv::Point2i(-1,-1));
         rob_max=rm;
         size_x=sx;
         size_y=sy;
     }
     bool valid(){
-        return (actID!=null) && (wps[0].x>=0) && (wps[0].y>=0) && (wps[1].x>=0) && (wps[1].y>=0) &&
-                (wps[0].x<size_x) && (wps[0].y<size_y) && (wps[1].x<size_x) && (wps[1].y<size_y) && (robID>0) && (robID<=rob_max);
+        return (actID!=null) && (wp[0].x>=0) && (wp[0].y>=0) && (wp[1].x>=0) && (wp[1].y>=0) &&
+                (wp[0].x<size_x) && (wp[0].y<size_y) && (wp[1].x<size_x) && (wp[1].y<size_y) && (robID>0) && (robID<=rob_max);
     }
 };
 
@@ -729,10 +723,10 @@ bool procWP(string elem, Action& act, unsigned int ind){
         transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
         size_t pos=elem.find("waypoint");
         if (pos!= string::npos) {
-            act.wps[ind].x=stoi(elem.substr(pos+8));
+            act.wp[ind].x=stoi(elem.substr(pos+8));
             size_t pos=elem.find("_");
             if (pos!= string::npos) {
-                act.wps[ind].y=stoi(elem.substr(pos+1));
+                act.wp[ind].y=stoi(elem.substr(pos+1));
                 return true;
             }
         }
@@ -750,7 +744,6 @@ bool PddlGen::procPaths(vector<string> input){
     pw.pose.orientation.w=1;
 
     vector<vector<long int> > paths_robots(nrobots);
-
     for(unsigned int i=0; i<input.size(); i++){
         istringstream iss(input[i]);
         string elem;
@@ -764,17 +757,18 @@ bool PddlGen::procPaths(vector<string> input){
                         iss>>elem;
                         if( procWP(elem,act,1) ){
                             if( act.valid() && act.actID==navigate ){
-                                //cout<<"navigate: "<<act.robID<<" "<<wp_n2i[wps[0].x][wps[0].y]<<" "<<wp_n2i[wps[1].x][wps[1].y]<<endl;
+                                //cout<<"navigate: "<<act.robID<<" "<<act.wp[0].x<<" "<<act.wp[0].y<<" "<<act.wp[1].x<<" "<<act.wp[1].y<<endl;
+                                //cout<<"navigate: "<<act.robID<<" "<<wp_n2i[act.wp[0].x][act.wp[0].y]<<" "<<wp_n2i[act.wp[1].x][act.wp[1].y]<<endl;
                                 if(paths_robots[act.robID-1].size()==0)
                                 {
-                                    paths_robots[act.robID-1].push_back(wp_n2i[wps[0].x][wps[0].y]);
-                                    paths_robots[act.robID-1].push_back(wp_n2i[wps[1].x][wps[1].y]);
+                                    paths_robots[act.robID-1].push_back(wp_n2i[act.wp[0].x][act.wp[0].y]);
+                                    paths_robots[act.robID-1].push_back(wp_n2i[act.wp[1].x][act.wp[1].y]);
                                 }
                                 else
-                                    paths_robots[act.robID-1].push_back(wp_n2i[wps[1].x][wps[1].y]);
+                                    paths_robots[act.robID-1].push_back(wp_n2i[act.wp[1].x][act.wp[1].y]);
                             }
                             if( act.valid() && act.actID==look ){
-                                //cout<<"look: "<<act.robID<<" "<<wp_n2i[wps[0].x][wps[0].y]<<" "<<wp_n2i[wps[1].x][wps[1].y]<<endl;
+                                //cout<<"look: "<<act.robID<<" "<<wp_n2i[act.wp[0].x][act.wp[0].y]<<" "<<wp_n2i[act.wp[1].x][act.wp[1].y]<<endl;
                             }
                         }
                     }
@@ -782,7 +776,6 @@ bool PddlGen::procPaths(vector<string> input){
             }
         }
     }
-
     for(int rr=0;rr<nrobots;rr++)
         if(paths_robots[rr].size()!=0)
             for(unsigned int p_i=0;p_i<paths_robots[rr].size();p_i++)
