@@ -20,6 +20,7 @@ INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/planning)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/visibility)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/utils)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/map)
 
 #uncomment if you have defined messages
 rosbuild_genmsg()
@@ -110,6 +111,12 @@ rosbuild_add_executable(${target} src/planning/pddl-generator.cpp src/planning/A
 ADD_DEPENDENCIES(${target} utils_libraries)
 TARGET_LINK_LIBRARIES(${target} utils_libraries)
 #rosbuild_add_executable(pddl-gen src/planning/pddl-generator.cpp src/utils/vector_utils.cpp)
+
+
+SET(target map-gen)
+rosbuild_add_executable(${target} src/map/map-generator.cpp)
+ADD_DEPENDENCIES(${target} utils_libraries)
+TARGET_LINK_LIBRARIES(${target} utils_libraries)
 
 #target_link_libraries(visibility ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 
