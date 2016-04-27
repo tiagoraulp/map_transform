@@ -118,6 +118,9 @@ rosbuild_add_executable(${target} src/map/map-generator.cpp)
 ADD_DEPENDENCIES(${target} utils_libraries)
 TARGET_LINK_LIBRARIES(${target} utils_libraries)
 
+SET(target room-gen)
+rosbuild_add_executable(${target} src/map/room-generator.cpp)
+
 #target_link_libraries(visibility ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 
 #target_link_libraries(visNC ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})

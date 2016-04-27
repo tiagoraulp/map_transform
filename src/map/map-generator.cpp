@@ -8,15 +8,17 @@
 #include <sstream>
 #include <opencv2/core/core.hpp>
 #include "ray.hpp"
-#include <opencv2/highgui/highgui.hpp>
+#include "std_srvs/Empty.h"
 
 using namespace std;
 
 class MapGen{
 private:
     ros::NodeHandle nh_;
+    ros::ServiceServer service;
     ros::Publisher pub;
     nav_msgs::OccupancyGrid grid;
+    bool gen;
     float res;
     int width,height;
     cv::Mat or_map;
@@ -24,13 +26,22 @@ private:
     geometry_msgs::Point convertI2W(cv::Point2i p);
     bool process(stringstream& iss);
     bool convert(void);
+    bool generate(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res);
 public:
     MapGen(ros::NodeHandle nh): nh_(nh){
         pub=nh_.advertise<nav_msgs::OccupancyGrid>("map", 1,true);
+        service = nh_.advertiseService("generateMap", &MapGen::generate, this);
+        gen=false;
     }
     bool run(void);
     void publish(void);
 };
+
+bool MapGen::generate(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res){
+    gen=true;
+    return true;
+}
+
 
 
 cv::Point2i MapGen::convertW2I(geometry_msgs::Point p){
@@ -62,6 +73,8 @@ bool MapGen::convert(void){
     return true;
 }
 
+
+
 bool MapGen::process(stringstream& iss){
     if(iss>>res>>height>>width){
         if( res>0 && height>0 && width>0 ){
@@ -85,7 +98,7 @@ bool MapGen::process(stringstream& iss){
                     //cout<<p0.x<<" "<<p0.y<<" "<<p1.x<<" "<<p1.y<<" "<<dist_t<<endl;
                     raytracing(&or_map, p0i, p0i, p1i, dist_t);
                     if(p0i.x>=0 && p0i.x<height && p0i.y>=0 && p0i.y<width)
-                    or_map.at<uchar>(p0i.x,p0i.y)=0;
+                        or_map.at<uchar>(p0i.x,p0i.y)=0;
                 }
                 //cout<<res<<" "<<height<<" "<<width<<" "<<grid.info.origin.position.x<<" "<<grid.info.origin.position.y<<" "<<grid.info.origin.orientation.w<<endl;
                 //cv::imshow("TestSQwA",or_map);
@@ -99,24 +112,26 @@ bool MapGen::process(stringstream& iss){
 }
 
 bool MapGen::run(void){
-    ifstream myfile;
-    string pddlFolder = ros::package::getPath("map_transform").append("/maps/map.txt");
-    myfile.open(pddlFolder);
-    if (myfile.is_open()){
-        stringstream ss;
-        string line;
-        while (getline(myfile, line)) {
-            //input.push_back(line);
-            ss<<line<<endl;
+    if(gen){
+        ifstream myfile;
+        string mapFile = ros::package::getPath("map_transform").append("/maps/map.txt");
+        myfile.open(mapFile);
+        if (myfile.is_open()){
+            stringstream ss;
+            string line;
+            while (getline(myfile, line)) {
+                //input.push_back(line);
+                ss<<line<<endl;
+            }
+            if(process(ss))
+                if(convert())
+                    return true;
         }
-        if(process(ss))
-            if(convert())
-                return true;
+        else{
+            //ROS_INFO("Failed to open Map file.");
+        }
+        myfile.close();
     }
-    else{
-        //ROS_INFO("Failed to open Map file.");
-    }
-    myfile.close();
     return false;
 }
 
@@ -139,7 +154,7 @@ void HandlerStop(int){
 int main(int argc, char **argv){
   ros::init(argc, argv, "map", ros::init_options::NoSigintHandler);
   signal(SIGINT, HandlerStop);
-  ros::NodeHandle nh("~");
+  ros::NodeHandle nh;//("~");
   MapGen map(nh);
   ros::Rate loop_rate(10);
   while (ros::ok()){

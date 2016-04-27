@@ -1,0 +1,4 @@
+<launch>
+  <node pkg="map_transform" type="map-gen" name="map_generator" output="screen"/>
+  <node pkg="map_transform" type="room-gen" name="room_generator" output="screen"/>
+</launch>
