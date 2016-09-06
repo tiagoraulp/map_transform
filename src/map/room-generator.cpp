@@ -136,24 +136,45 @@ public:
     }
 };
 
+class Room{
+private:
+    cv::Point2f pt;
+    vector<Wall> walls;
+    float wallMin;
+    float wallMax;
+    float doorMin;
+    float doorMax;
+    void generate(){
+        walls.push_back(Wall(pt, Hor, Pos, wallMin, wallMax, doorMin, doorMax));
+        walls.push_back(Wall(pt, Ver, Pos, wallMin, wallMax, doorMin, doorMax));
+        walls.push_back(walls[0]);
+        walls[2].update(walls[1].getEnd());
+        walls.push_back(walls[1]);
+        walls[3].update(walls[0].getEnd());
+    }
+public:
+    Room(cv::Point2f p0_, float wmin, float wmax, float dmin, float dmax):
+            pt(p0_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax) {
+        walls.clear();
+        generate();
+    }
+    template<class T>
+    void print(T& map){
+        for(int i=0; i<walls.size();i++){
+            walls[i].print(map);
+        }
+    }
+};
+
 void RoomGen::process(ofstream& map){
     res=0.1;
     height=200;
     width=200;
     map<<res<<" "<<height<<" "<<width<<" "<<endl;
     map<<0<<" "<<0<<" "<<0<<" "<<endl;
-    stringstream ss;
     float wallMin=2.0, wallMax=6.0, doorMin=0.8, doorMax=2.0;
-    Wall wall1(cv::Point2f(5,5), Hor, Pos, wallMin, wallMax, doorMin, doorMax);
-    wall1.print(map);
-    Wall wall2=Wall(cv::Point2f(5,5), Ver, Pos, wallMin, wallMax, doorMin, doorMax);
-    wall2.print(map);
-    Wall wall=wall1;
-    wall.update(wall2.getEnd());
-    wall.print(map);
-    wall=wall2;
-    wall.update(wall1.getEnd());
-    wall.print(map);
+    Room room(cv::Point2f(5,5), wallMin, wallMax, doorMin, doorMax);
+    room.print(map);
 }
 
 bool RoomGen::run(void){
