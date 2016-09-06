@@ -23,43 +23,137 @@ public:
     bool finish(void);
 };
 
+class Door{
+private:
+    float pos;
+    float size;
+    float doorMin;
+    float doorMax;
+    float wall;
+    float doorN, doorP;
+    void generate(){
+        pos=doorMin/2.0+((float)rand()/RAND_MAX)*(wall-2.0*doorMin/2.0);
+        size=doorMin+((float)rand()/RAND_MAX)*(doorMax-doorMin);
+        doorN=pos-size/2.0;
+        doorP=pos+size/2.0;
+        if(doorN<0)
+            doorN=0;
+        if(doorP>wall)
+            doorP=wall;
+        pos=(doorN+doorP)/2.0;
+        size=(doorP-doorN)/2.0;
+    }
+public:
+    Door(float dmin, float dmax, float wall_): doorMin(dmin), doorMax(dmax), wall(wall_){
+        generate();
+    }
+    Door(){}
+    float getSize(){
+        return size;
+    }
+    float getN(){
+        return doorN;
+    }
+    float getP(){
+        return doorP;
+    }
+};
+
+enum Dir{Hor, Ver};
+enum Sign{Pos, Neg};
+
+class Wall{
+private:
+    vector<cv::Point2f> pt;
+    Dir dir;
+    float sign;
+    float wall_size;
+    float wallMin;
+    float wallMax;
+    bool hasDoor;
+    Door door;
+    float doorMin;
+    float doorMax;
+    void updatePosition(int index, float size){
+        if(dir==Hor)
+            pt[index].y+=sign*size;
+        else
+            pt[index].x+=sign*size;
+    }
+    void generate(){
+        wall_size=wallMin+((float)rand()/RAND_MAX)*(wallMax-wallMin);
+        updatePosition(1, wall_size);
+    }
+public:
+    Wall(cv::Point2f p0_, Dir dir_, Sign sign_, float wmin, float wmax, float dmin, float dmax):
+            dir(dir_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax) {
+        if(sign_==Pos)
+            sign=1.0;
+        else
+            sign=-1.0;
+        pt.assign(4,p0_);
+        hasDoor=false;
+        generate();
+        createDoor(doorMin, doorMax);
+    }
+    void update(cv::Point2f p){
+        pt.assign(4,p);
+        updatePosition(1, wall_size);
+        hasDoor=false;
+        createDoor(doorMin, doorMax);
+    }
+    void createDoor(float dmin, float dmax){
+        hasDoor=true;
+        door=Door(dmin, dmax, wall_size);
+        //door.generate();
+        updatePosition(2, door.getN());
+        updatePosition(3, door.getP());
+    }
+    template<class T>
+    void print(T& ss){
+        if(!hasDoor)
+            ss<<pt[0].x<<" "<<pt[0].y<<" "<<pt[1].x<<" "<<pt[1].y<<endl;
+        else{
+            ss<<pt[0].x<<" "<<pt[0].y<<" "<<pt[2].x<<" "<<pt[2].y<<endl;
+            ss<<pt[3].x<<" "<<pt[3].y<<" "<<pt[1].x<<" "<<pt[1].y<<endl;
+        }
+    }
+    bool has_door(void){
+        return hasDoor;
+    }
+//    cv::Point2f getPoint(int index){
+//        if(index<0)
+//            index=0;
+//        else if(index>3)
+//            index=3;
+//        return pt[index];
+//    }
+    cv::Point2f getInit(void){
+        return pt[0];
+    }
+    cv::Point2f getEnd(void){
+        return pt[1];
+    }
+};
+
 void RoomGen::process(ofstream& map){
     res=0.1;
-    height=100;
+    height=200;
     width=200;
     map<<res<<" "<<height<<" "<<width<<" "<<endl;
     map<<0<<" "<<0<<" "<<0<<" "<<endl;
-    cv::Point2f p0, p1, pdn, pdp;
-    p0.x=5;p0.y=5;p1=p0; pdn=p0; pdp=p0;
-    float wallMin=2.0, wallMax=8.0;
-    float wall=wallMin+((float)rand()/RAND_MAX)*(wallMax-wallMin);
-    p1.y+=(int)round(wall);
-
-    float doorMin=0.6, doorMax=2.0;
-    float door_pos=doorMin/2.0+((float)rand()/RAND_MAX)*(wall-2.0*doorMin/2.0);
-    float doorSize=doorMin+((float)rand()/RAND_MAX)*(doorMax-doorMin);
-    float doorN=door_pos-doorSize/2.0, doorP=door_pos+doorSize/2.0;
-
-    if(doorN<0)
-        doorN=0;
-    if(doorP>wall)
-        doorP=wall;
-
-    door_pos=(doorN+doorP)/2.0;
-    doorSize=(doorP-doorN)/2.0;
-
-    pdn.y+=doorN;
-    pdp.y+=doorP;
-
-    map<<p0.x<<" "<<p0.y<<" "<<pdn.x<<" "<<pdn.y<<endl;
-    map<<pdp.x<<" "<<pdp.y<<" "<<p1.x<<" "<<p1.y<<endl;
-
-
-    //cout<<p0.x<<" "<<p0.y<<" "<<p1.x<<" "<<p1.y<<" "<<dist_t<<endl;
-    //cout<<res<<" "<<height<<" "<<width<<" "<<grid.info.origin.position.x<<" "<<grid.info.origin.position.y<<" "<<grid.info.origin.orientation.w<<endl;
-    //cv::imshow("TestSQwA",or_map);
-    //cv::waitKey(10);
-    //cout<<(int)or_map.at<uchar>(50,50)<<" "<<(int)or_map.at<uchar>(50,51)<<" "<<(int)or_map.at<uchar>(51,55)<<" "<<(int)or_map.at<uchar>(49,55)<<endl;
+    stringstream ss;
+    float wallMin=2.0, wallMax=6.0, doorMin=0.8, doorMax=2.0;
+    Wall wall1(cv::Point2f(5,5), Hor, Pos, wallMin, wallMax, doorMin, doorMax);
+    wall1.print(map);
+    Wall wall2=Wall(cv::Point2f(5,5), Ver, Pos, wallMin, wallMax, doorMin, doorMax);
+    wall2.print(map);
+    Wall wall=wall1;
+    wall.update(wall2.getEnd());
+    wall.print(map);
+    wall=wall2;
+    wall.update(wall1.getEnd());
+    wall.print(map);
 }
 
 bool RoomGen::run(void){

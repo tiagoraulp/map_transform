@@ -44,3 +44,4 @@ pddl/*
 lib/*
 src/map_transform/*
 maps/map_test.txt
+maps/map.txt
