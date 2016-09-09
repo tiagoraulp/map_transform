@@ -4,6 +4,7 @@
 #include <fstream>
 #include <opencv2/core/core.hpp>
 #include "std_srvs/Empty.h"
+#include <queue>
 
 using namespace std;
 
@@ -32,8 +33,7 @@ private:
     float wall;
     float doorN, doorP;
     void generate(){
-        pos=doorMin/2.0+((float)rand()/RAND_MAX)*(wall-2.0*doorMin/2.0);
-        size=doorMin+((float)rand()/RAND_MAX)*(doorMax-doorMin);
+        pos=size/2.0+((float)rand()/RAND_MAX)*(wall-2.0*size/2.0);
         doorN=pos-size/2.0;
         doorP=pos+size/2.0;
         if(doorN<0)
@@ -41,10 +41,11 @@ private:
         if(doorP>wall)
             doorP=wall;
         pos=(doorN+doorP)/2.0;
-        size=(doorP-doorN)/2.0;
+        size=(doorP-doorN);
     }
 public:
     Door(float dmin, float dmax, float wall_): doorMin(dmin), doorMax(dmax), wall(wall_){
+        size=doorMin+((float)rand()/RAND_MAX)*(doorMax-doorMin);
         generate();
     }
     Door(){}
@@ -57,6 +58,10 @@ public:
     float getP(){
         return doorP;
     }
+    void update(float wall_size){
+        wall=wall_size;
+        generate();
+    }
 };
 
 enum Dir{Hor, Ver};
@@ -64,6 +69,8 @@ enum Sign{Pos, Neg};
 
 class Wall{
 private:
+    static int nID;
+    int id;
     vector<cv::Point2f> pt;
     Dir dir;
     float sign;
@@ -86,7 +93,7 @@ private:
     }
 public:
     Wall(cv::Point2f p0_, Dir dir_, Sign sign_, float wmin, float wmax, float dmin, float dmax):
-            dir(dir_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax) {
+            id(nID++), dir(dir_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax) {
         if(sign_==Pos)
             sign=1.0;
         else
@@ -96,11 +103,22 @@ public:
         generate();
         createDoor(doorMin, doorMax);
     }
+    Wall(){
+        hasDoor=false;
+    }
     void update(cv::Point2f p){
         pt.assign(4,p);
+        id=nID++;
         updatePosition(1, wall_size);
         hasDoor=false;
         createDoor(doorMin, doorMax);
+    }
+    bool updateFromDoor(void){
+        if(!hasDoor)
+            return false;
+        id=nID++;
+        wall_size=max(wallMin,door.getSize())+((float)rand()/RAND_MAX)*(wallMax-max(wallMin,door.getSize()));
+        door.update(wall_size);
     }
     void createDoor(float dmin, float dmax){
         hasDoor=true;
@@ -134,7 +152,37 @@ public:
     cv::Point2f getEnd(void){
         return pt[1];
     }
+    int getID(void){
+        return id;
+    }
 };
+
+int Wall::nID=0;
+
+class wallnode{
+private:
+    int wall_id;
+    int priority;
+public:
+    wallnode(int id_, int pr): wall_id(id_), priority(pr){
+    }
+    wallnode(int id_): wall_id(id_){
+    }
+    int getPriority(void) const{
+        return priority;
+    }
+    void updatePriority(int pr){
+        priority=pr;
+    }
+    int getID(void) const{
+        return wall_id;
+    }
+};
+
+bool operator<(const wallnode & a, const wallnode & b)
+{
+  return a.getPriority() < b.getPriority();
+}
 
 class Room{
 private:
@@ -175,6 +223,27 @@ void RoomGen::process(ofstream& map){
     float wallMin=2.0, wallMax=6.0, doorMin=0.8, doorMax=2.0;
     Room room(cv::Point2f(5,5), wallMin, wallMax, doorMin, doorMax);
     room.print(map);
+
+    priority_queue<wallnode> pq;
+    Wall test(cv::Point2f(0.0), Hor, Pos, 2, 5, 0.5, 1.5);
+    pq.push(wallnode(test.getID(),2));
+
+    vector<int> open_walls(pq.top().getID()+1, 0);
+    vector<bool> closed_walls(pq.top().getID()+1, false);
+    vector<Wall> walls(pq.top().getID()+1);
+    walls[pq.top().getID()]=test;
+    open_walls[pq.top().getID()]=pq.top().getPriority();
+
+    while(!pq.empty())
+    {
+       Wall wall=walls[pq.top().getID()];
+       pq.pop();
+       //cout<<wall.getID()<<endl;
+       if(closed_walls[wall.getID()])
+           continue;
+       closed_walls[wall.getID()]=true;
+       //extend pq with new walls
+    }
 }
 
 bool RoomGen::run(void){
