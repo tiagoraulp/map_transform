@@ -12,8 +12,9 @@ class VisC_transf: public Vis_transf<map_transform::ParametersConfig>{
 protected:
     int infl;
     int defl;
-    ros::Publisher  graph_publisher;
+    ros::Publisher  graph_publisher, act_dist_pub;
     bool opt;
+    cv::Mat_<int> act_dist;
 
     bool reachability_map(cv::Point3i pos, cv::Mat & r_map);
     cv::Mat ext_vis(Unreachable, cv::Mat vis_map, cv::Mat r_map, bool _opt=true);
