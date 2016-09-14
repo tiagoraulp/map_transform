@@ -233,6 +233,91 @@ bool VisC_transf::valid_pos(cv::Point3i pos)
     return value;
 }
 
+cv::Mat_<int> distance_transform(cv::Mat r_map, cv::Point pos){
+    cv::Mat_<int> ret=cv::Mat_<int>::ones(r_map.rows, r_map.cols)*-1;
+    if(pos.x<0 || pos.x>=r_map.rows || pos.y<0 || pos.y>=r_map.cols)
+        return ret;
+    if(r_map.at<uchar>(pos.x,pos.y)==0)
+        return ret;
+
+    vector<cv::Point> vc;
+    vc.clear();
+    vc.push_back(pos);
+    ret(pos.x,pos.y)=0;
+
+    while(vc.size()!=0){
+        //cout<<vc[0].x<<" "<<vc[0].y<<" "<<ret(vc[0].x,vc[0].y)<<endl;
+        int lx=boundPos(vc[0].x-1,r_map.rows);
+        int ux=boundPos(vc[0].x+1,r_map.rows);
+        int ly=boundPos(vc[0].y-1,r_map.cols);
+        int uy=boundPos(vc[0].y+1,r_map.cols);
+
+        for(int i=lx; i<=ux; i++){
+            for(int j=ly; j<=uy; j++){
+                if( r_map.at<uchar>(i,j)!=0 && ret(i,j)==-1 ){
+                    vc.push_back(cv::Point(i,j));
+                    ret(i,j)=ret(vc[0].x,vc[0].y)+1;
+                }
+            }
+        }
+        vc.erase(vc.begin());
+    }
+
+    return ret;
+}
+
+cv::Mat_<int> create_robot_model(int size){
+    cv::Mat_<int> ret=cv::Mat_<int>::zeros(2*size+1, 2*size+1);
+    for(int i=0;i<ret.rows;i++){
+        for(int j=0;j<ret.cols;j++){
+            if( ((i-size)*(i-size)+(j-size)*(j-size))<=(size*size) ){
+                ret(i,j)=1;
+            }
+        }
+    }
+    return ret;
+}
+
+cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size){
+    cv::Mat_<int> ret=cv::Mat_<int>::ones(r_map.rows, r_map.cols)*-1;
+    if(pos.x<0 || pos.x>=r_map.rows || pos.y<0 || pos.y>=r_map.cols)
+        return ret;
+    if(r_map.at<uchar>(pos.x,pos.y)==0)
+        return ret;
+
+    cv::Mat_<int> reach=cv::Mat_<int>::ones(r_map.rows, r_map.cols)*-1;
+
+    cv::Mat_<int> robot=create_robot_model(size);
+
+    vector<cv::Point> vc;
+    vc.clear();
+    vc.push_back(pos);
+    reach(pos.x,pos.y)=0;
+
+
+    while(vc.size()!=0){
+        //cout<<vc[0].x<<" "<<vc[0].y<<" "<<ret(vc[0].x,vc[0].y)<<endl;
+        int lx=boundPos(vc[0].x-size,r_map.rows);
+        int ux=boundPos(vc[0].x+size,r_map.rows);
+        int ly=boundPos(vc[0].y-size,r_map.cols);
+        int uy=boundPos(vc[0].y+size,r_map.cols);
+
+        for(int i=lx; i<=ux; i++){
+            for(int j=ly; j<=uy; j++){
+                if(robot(i-vc[0].x+size,j-vc[0].y+size) && ret(i,j)==-1 ){
+                    ret(i,j)=reach(vc[0].x,vc[0].y)+1;
+                }
+                if( r_map.at<uchar>(i,j)!=0 && reach(i,j)==-1 && max(abs(i-vc[0].x),abs(j-vc[0].y))<=1 ){
+                    vc.push_back(cv::Point(i,j));
+                    reach(i,j)=reach(vc[0].x,vc[0].y)+1;
+                }
+            }
+        }
+        vc.erase(vc.begin());
+    }
+
+    return ret;
+}
 
 void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 {
@@ -244,6 +329,17 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
     {
         int rad=min(infl,defl);  //if defl<infl, visibility is given by morphological closing
 
+        ros::Time ttt;
+
+        ttt=ros::Time::now();
+
+        cv::Mat_<int> dist_transf=actuation_transform(r_map, cv::Point(pos.x,pos.y), rad);
+        cout<<ros::Time::now()-ttt<<endl;
+        double min_, max_;
+        cv::minMaxLoc(dist_transf, &min_, &max_);
+        cv::Mat dist;
+        dist_transf.convertTo(dist, CV_8U , 255 / max_);
+        cv::imshow("dist",dist);
 
         cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
                                                cv::Size( 2*rad + 1, 2*rad+1 ),
@@ -251,7 +347,11 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         cv::Mat act_map=r_map.clone();
 
+        ttt=ros::Time::now();
+
         dilate( act_map, act_map, element);  //actuation space
+
+        cout<<ros::Time::now()-ttt<<endl;
 
         cv::Mat vis_map=act_map.clone();
 
