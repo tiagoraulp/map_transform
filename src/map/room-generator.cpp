@@ -5,6 +5,7 @@
 #include <opencv2/core/core.hpp>
 #include "std_srvs/Empty.h"
 #include <queue>
+#include <cmath>
 
 using namespace std;
 
@@ -84,6 +85,76 @@ Sign neg(Sign sign_){
         return Pos;
 }
 
+struct Limits{
+    float xmin, xmax, ymin, ymax;
+    Limits(float xmin_,float xmax_,float ymin_,float ymax_): xmin(xmin_), xmax(xmax_), ymin(ymin_), ymax(ymax_){
+    }
+    Limits(): xmin(0), xmax(0), ymin(0), ymax(0){
+    }
+    bool inside(float x, float y){
+        if( x>=xmin && x<=xmax && y>=ymin && y<=ymax )
+            return true;
+        else
+            return false;
+    }
+    bool inside(cv::Point2f pt){
+        return inside(pt.x, pt.y);
+    }
+    void fix(float& x,float& y){
+        if(x<xmin)
+            x=xmin;
+        else if (x>xmax)
+            x=xmax;
+
+        if (y<ymin)
+            y=ymin;
+        else if (y>ymax)
+            y=ymax;
+    }
+    void fix(cv::Point2f& pt){
+        fix(pt.x, pt.y);
+    }
+    float diff(float x,float y){
+        if(x<xmin)
+            return xmin-x;
+        else if (x>xmax)
+            return xmax-x;
+
+        if (y<ymin)
+            return ymin-y;
+        else if (y>ymax)
+            return y-ymax;
+
+        return -1;
+    }
+    bool diff(cv::Point2f pt){
+        return diff(pt.x, pt.y);
+    }
+    void left(float& x,float& y){
+        x=min(x-xmin,xmax-x);
+        y=min(y-ymin,ymax-y);
+    }
+    void left(cv::Point2f& pt){
+        left(pt.x, pt.y);
+    }
+    void leftAbs(float& x,float& y){
+        x=min(abs(x-xmin),abs(xmax-x));
+        y=min(abs(y-ymin),abs(ymax-y));
+    }
+    void leftAbs(cv::Point2f& pt){
+        leftAbs(pt.x, pt.y);
+    }
+    bool border(float x, float y, float th){
+        if( x<=(xmin+th) || x>=(xmax-th) || y<=(ymin+th) || y>=(ymax-th) )
+            return true;
+        else
+            return false;
+    }
+    bool border(cv::Point2f pt, float th){
+        return border(pt.x, pt.y, th);
+    }
+};
+
 class Wall{
 private:
     static unsigned int nID;
@@ -98,19 +169,57 @@ private:
     Door door;
     float doorMin;
     float doorMax;
+    Limits limits;
     void updatePosition(int index, float size){
         if(dir==Hor)
             pt[index].y+=sign*size;
         else
             pt[index].x+=sign*size;
     }
+    float chooseDir(float x, float y){
+        if(dir==Hor)
+            return y;
+        else
+            return x;
+    }
+    void correct_limits(int ind){
+        if(!limits.inside(pt[ind].x,pt[ind].y)){
+            wall_size-=limits.diff(pt[ind].x,pt[ind].y)<0?0:limits.diff(pt[ind].x,pt[ind].y);
+            limits.fix(pt[ind].x,pt[ind].y);
+        }
+        else{
+            float xleft=pt[ind].x, yleft=pt[ind].y;
+            limits.left(xleft, yleft);
+            float diff=chooseDir(xleft,yleft);
+            if(diff>=wallMin)
+                return;
+            else{
+                float sign_;
+                if(ind==1)
+                    sign_=1;
+                else
+                    sign_=-1;
+                if( (wall_size-(wallMin-diff))<wallMin ){
+                    wall_size+=diff;
+                    updatePosition(ind,sign_*diff);
+                }
+                else{
+                    float margin=((float)rand()/RAND_MAX)*(wall_size+diff-2*wallMin);
+                    float diff_margin=wallMin+margin-wall_size;
+                    wall_size+=diff_margin;
+                    updatePosition(ind,sign_*diff_margin);
+                }
+            }
+        }
+    }
     void generate(){
         wall_size=wallMin+((float)rand()/RAND_MAX)*(wallMax-wallMin);
         updatePosition(1, wall_size);
+        correct_limits(1);
     }
 public:
-    Wall(cv::Point2f p0_, Dir dir_, Sign sign_, float wmin, float wmax, float dmin, float dmax):
-            id(nID++), dir(dir_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax) {
+    Wall(cv::Point2f p0_, Dir dir_, Sign sign_, float wmin, float wmax, float dmin, float dmax, Limits limits_):
+            id(nID++), dir(dir_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax), limits(limits_) {
         if(sign_==Pos)
             sign=1.0;
         else
@@ -118,6 +227,8 @@ public:
         pt.assign(4,p0_);
         hasDoor=false;
         generate();
+        if( limits.border(getInit(), wallMin/2.0) && limits.border(getEnd(), wallMin/2.0) )
+            return;
         createDoor(doorMin, doorMax);
     }
     Wall(){
@@ -128,6 +239,8 @@ public:
         id=nID++;
         updatePosition(1, wall_size);
         hasDoor=false;
+        if( limits.border(getInit(), wallMin/2.0) && limits.border(getEnd(), wallMin/2.0) )
+            return;
         createDoor(doorMin, doorMax);
     }
     bool updateFromDoor(void){
@@ -139,6 +252,8 @@ public:
         door.update(wall_size);
         updatePosition(0,prev_door.getN()-door.getN());
         updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+        correct_limits(0);
+        correct_limits(1);
         return true;
     }
     void createDoor(float dmin, float dmax){
@@ -238,6 +353,8 @@ bool operator<(const wallnode & a, const wallnode & b)
 
 class Room{
 private:
+    static unsigned int nID;
+    unsigned int id;
     cv::Point2f pt;
     vector<Wall> walls;
     vector<GD> gds;
@@ -245,11 +362,11 @@ private:
     float wallMax;
     float doorMin;
     float doorMax;
-    float xMax, yMax;
+    Limits limits;
     unsigned int level;
     void generate(){
-        walls.push_back(Wall(pt, Hor, Pos, wallMin, wallMax, doorMin, doorMax));
-        walls.push_back(Wall(pt, Ver, Pos, wallMin, wallMax, doorMin, doorMax));
+        walls.push_back(Wall(pt, Hor, Pos, wallMin, wallMax, doorMin, doorMax, limits));
+        walls.push_back(Wall(pt, Ver, Pos, wallMin, wallMax, doorMin, doorMax, limits));
         walls.push_back(walls[0]);
         walls[2].update(walls[1].getEnd());
         walls.push_back(walls[1]);
@@ -268,7 +385,7 @@ private:
         walls.push_back(prev);
         //cout<<walls[0].getInit().x<<";"<<walls[0].getInit().y<<" to "<<walls[0].getEnd().x<<";"<<walls[0].getEnd().y<<endl;
         //cout<<prev.getSize()<<endl;
-        walls.push_back(Wall(walls[0].getInit(), dir, sign, wallMin, wallMax, doorMin, doorMax));
+        walls.push_back(Wall(walls[0].getInit(), dir, sign, wallMin, wallMax, doorMin, doorMax, limits));
         //cout<<walls[1].getInit().x<<";"<<walls[1].getInit().y<<" to "<<walls[1].getEnd().x<<";"<<walls[1].getEnd().y<<endl;
         walls.push_back(walls[0]);
         walls[2].update(walls[1].getEnd());
@@ -283,15 +400,18 @@ private:
         gds.push_back(GD(neg(dir),walls[0].getSign()));
     }
 public:
-    Room(cv::Point2f p0_, float wmin, float wmax, float dmin, float dmax):
-            pt(p0_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax) {
+    Room(cv::Point2f p0_, float wmin, float wmax, float dmin, float dmax, Limits limits_):
+            pt(p0_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax), limits(limits_) {
+        id=nID++;
         walls.clear();
         gds.clear();
         generate();
         level=0;
+
     }
-    Room(float wmin, float wmax, float dmin, float dmax, Wall prev, GD gd):
-            wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax) {
+    Room(float wmin, float wmax, float dmin, float dmax, Limits limits_, Wall prev, GD gd):
+            wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax), limits(limits_) {
+        id=nID++;
         walls.clear();
         gds.clear();
         generate_from1Wall(prev, gd);
@@ -317,7 +437,12 @@ public:
             open_walls_[walls[i].getID()]=priority;
         }
     }
+    static unsigned int getCountID(void){
+        return nID;
+    }
 };
+
+unsigned int Room::nID=0;
 
 void RoomGen::process(ofstream& map){
     res=0.1;
@@ -326,7 +451,16 @@ void RoomGen::process(ofstream& map){
     map<<res<<" "<<height<<" "<<width<<" "<<endl;
     map<<0<<" "<<0<<" "<<0<<" "<<endl;
     float wallMin=2.0, wallMax=6.0, doorMin=0.8, doorMax=2.0; // wallMax>=2*wallMin;
-    Room room(cv::Point2f(5,5), wallMin, wallMax, doorMin, doorMax);
+
+    Limits limits(5.0*res, ((float)height-5.0)*res, 5.0*res, ((float)width-5.0)*res);
+
+    //cv::Point2f p0(5,5);
+    cv::Point2f p0(5.0*res,5.0*res);
+
+    if(!limits.inside(p0.x,p0.y))
+        return;
+
+    Room room(p0, wallMin, wallMax, doorMin, doorMax, limits);
     room.print(map);
 
     priority_queue<wallnode> pq;
@@ -355,11 +489,11 @@ void RoomGen::process(ofstream& map){
            continue;
        closed_walls[wall.getID()]=true;
 
-       Room room_(wallMin, wallMax, doorMin, doorMax, wall, gd);
+       Room room_(wallMin, wallMax, doorMin, doorMax, limits, wall, gd);
        room_.print(map);
-       //room_.getWalls(pq, walls, open_walls, closed_walls);
+       room_.getWalls(pq, walls, open_walls, closed_walls);
        //extend pq with new walls
-       if(Wall::getCountID()>60)
+       if(Wall::getCountID()>600000)
            break;
     }
     cout<<"Number walls: "<<Wall::getCountID()<<endl;
