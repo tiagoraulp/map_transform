@@ -366,11 +366,19 @@ private:
     unsigned int level;
     void generate(){
         walls.push_back(Wall(pt, Hor, Pos, wallMin, wallMax, doorMin, doorMax, limits));
+        //cout<<"!!!"<<walls[0].getID()<<endl;
+        //cout<<walls[0].getInit().x<<";"<<walls[0].getInit().y<<" to "<<walls[0].getEnd().x<<";"<<walls[0].getEnd().y<<endl;
         walls.push_back(Wall(pt, Ver, Pos, wallMin, wallMax, doorMin, doorMax, limits));
+        //cout<<"!!!"<<walls[1].getID()<<endl;
+        //cout<<walls[1].getInit().x<<";"<<walls[1].getInit().y<<" to "<<walls[1].getEnd().x<<";"<<walls[1].getEnd().y<<endl;
         walls.push_back(walls[0]);
         walls[2].update(walls[1].getEnd());
+        //cout<<"!!!"<<walls[2].getID()<<endl;
+        //cout<<walls[2].getInit().x<<";"<<walls[2].getInit().y<<" to "<<walls[2].getEnd().x<<";"<<walls[2].getEnd().y<<endl;
         walls.push_back(walls[1]);
         walls[3].update(walls[0].getEnd());
+        //cout<<"!!!"<<walls[3].getID()<<endl;
+        //cout<<walls[3].getInit().x<<";"<<walls[3].getInit().y<<" to "<<walls[3].getEnd().x<<";"<<walls[3].getEnd().y<<endl;
         gds.push_back(GD(Ver,Neg));
         gds.push_back(GD(Hor,Neg));
         gds.push_back(GD(Ver,Pos));
@@ -381,18 +389,23 @@ private:
         Sign sign=gd.sign;
         //cout<<prev.getInit().x<<";"<<prev.getInit().y<<" to "<<prev.getEnd().x<<";"<<prev.getEnd().y<<endl;
         //cout<<prev.getSize()<<endl;
-        prev.updateFromDoor();
+        if(!prev.updateFromDoor())
+            return;
         walls.push_back(prev);
+        //cout<<walls[0].getID()<<endl;
         //cout<<walls[0].getInit().x<<";"<<walls[0].getInit().y<<" to "<<walls[0].getEnd().x<<";"<<walls[0].getEnd().y<<endl;
         //cout<<prev.getSize()<<endl;
         walls.push_back(Wall(walls[0].getInit(), dir, sign, wallMin, wallMax, doorMin, doorMax, limits));
+        //cout<<walls[1].getID()<<endl;
         //cout<<walls[1].getInit().x<<";"<<walls[1].getInit().y<<" to "<<walls[1].getEnd().x<<";"<<walls[1].getEnd().y<<endl;
         walls.push_back(walls[0]);
         walls[2].update(walls[1].getEnd());
+        //cout<<walls[2].getID()<<endl;
         //cout<<walls[2].getInit().x<<";"<<walls[2].getInit().y<<" to "<<walls[2].getEnd().x<<";"<<walls[2].getEnd().y<<endl;
         //cout<<prev.getSize()<<endl;
         walls.push_back(walls[1]);
         walls[3].update(walls[0].getEnd());
+        //cout<<walls[3].getID()<<endl;
         //cout<<walls[3].getInit().x<<";"<<walls[3].getInit().y<<" to "<<walls[3].getEnd().x<<";"<<walls[3].getEnd().y<<endl;
         gds.push_back(GD(dir,neg(sign)));
         gds.push_back(GD(neg(dir),neg(walls[0].getSign())));
@@ -426,6 +439,8 @@ public:
     void getWalls(priority_queue<wallnode>& pq, vector<Wall> & walls_, vector<int> & open_walls_, vector<bool> & closed_walls_){
         for(unsigned int i=level; i<walls.size();i++){
             //cout<<"Adding - "<<walls[i].getID()<<endl;
+            if(!walls[i].has_door())
+                continue;
             int priority=0;
             pq.push(wallnode(walls[i].getID(),gds[i],priority));
             if((walls[i].getID()+1)>walls_.size()){
@@ -439,6 +454,9 @@ public:
     }
     static unsigned int getCountID(void){
         return nID;
+    }
+    bool empty(void){
+        return walls.size()==0;
     }
 };
 
@@ -474,26 +492,29 @@ void RoomGen::process(ofstream& map){
     vector<bool> closed_walls(0, false);
     vector<Wall> walls(0);
 
-    room.getWalls(pq, walls, open_walls, closed_walls);
+    if(!room.empty())
+        room.getWalls(pq, walls, open_walls, closed_walls);
 
     //walls[pq.top().getID()]=test;
     //open_walls[pq.top().getID()]=pq.top().getPriority();
 
     while(!pq.empty())
     {
-       Wall wall=walls[pq.top().getID()];
-       GD gd=pq.top().getGD();
-       pq.pop();
-       //cout<<wall.getID()<<endl;
-       if(closed_walls[wall.getID()])
-           continue;
-       closed_walls[wall.getID()]=true;
+        Wall wall=walls[pq.top().getID()];
+        GD gd=pq.top().getGD();
+        pq.pop();
+        //cout<<wall.getID()<<endl;
+        if(closed_walls[wall.getID()])
+            continue;
+        closed_walls[wall.getID()]=true;
 
-       Room room_(wallMin, wallMax, doorMin, doorMax, limits, wall, gd);
-       room_.print(map);
-       room_.getWalls(pq, walls, open_walls, closed_walls);
-       //extend pq with new walls
-       if(Wall::getCountID()>600000)
+        Room room_(wallMin, wallMax, doorMin, doorMax, limits, wall, gd);
+        if(!room.empty()){
+            room_.print(map);
+            room_.getWalls(pq, walls, open_walls, closed_walls);
+            //extend pq with new walls
+        }
+        if(Wall::getCountID()>60000)
            break;
     }
     cout<<"Number walls: "<<Wall::getCountID()<<endl;
