@@ -207,6 +207,7 @@ private:
     float doorMin;
     float doorMax;
     Limits limits;
+    unsigned int roomID;
     void updatePosition(int index, float size){
         if(dir==Hor)
             pt[index].y+=sign*size;
@@ -337,8 +338,8 @@ private:
         }
     }
 public:
-    Wall(cv::Point2f p0_, Dir dir_, Sign sign_, float wmin, float wmax, float dmin, float dmax, Limits limits_):
-            id(nID++), dir(dir_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax), limits(limits_) {
+    Wall(cv::Point2f p0_, Dir dir_, Sign sign_, float wmin, float wmax, float dmin, float dmax, Limits limits_, unsigned int roomID_):
+            id(nID++), dir(dir_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax), limits(limits_), roomID(roomID_) {
         if(sign_==Pos)
             sign=1.0;
         else
@@ -463,6 +464,9 @@ public:
     cv::Point2f getEnd(void){
         return pt[1];
     }
+    void updateRoomID(unsigned int roomID_){
+        roomID=roomID_;
+    }
     unsigned int getID(void){
         return id;
     }
@@ -540,10 +544,10 @@ private:
     Limits limits;
     unsigned int level;
     void generate(){
-        walls.push_back(Wall(pt, Hor, Pos, wallMin, wallMax, doorMin, doorMax, limits));
+        walls.push_back(Wall(pt, Hor, Pos, wallMin, wallMax, doorMin, doorMax, limits, id));
         //cout<<"!!!"<<walls[0].getID()<<endl;
         //cout<<walls[0].getInit().x<<";"<<walls[0].getInit().y<<" to "<<walls[0].getEnd().x<<";"<<walls[0].getEnd().y<<endl;
-        walls.push_back(Wall(pt, Ver, Pos, wallMin, wallMax, doorMin, doorMax, limits));
+        walls.push_back(Wall(pt, Ver, Pos, wallMin, wallMax, doorMin, doorMax, limits, id));
         //cout<<"!!!"<<walls[1].getID()<<endl;
         //cout<<walls[1].getInit().x<<";"<<walls[1].getInit().y<<" to "<<walls[1].getEnd().x<<";"<<walls[1].getEnd().y<<endl;
         walls.push_back(walls[0]);
@@ -566,11 +570,12 @@ private:
         //cout<<prev.getSize()<<endl;
         if(!prev.updateFromDoor())
             return;
+        prev.updateRoomID(id);
         walls.push_back(prev);
         //cout<<walls[0].getID()<<endl;
         //cout<<walls[0].getInit().x<<";"<<walls[0].getInit().y<<" to "<<walls[0].getEnd().x<<";"<<walls[0].getEnd().y<<endl;
         //cout<<prev.getSize()<<endl;
-        walls.push_back(Wall(walls[0].getInit(), dir, sign, wallMin, wallMax, doorMin, doorMax, limits));
+        walls.push_back(Wall(walls[0].getInit(), dir, sign, wallMin, wallMax, doorMin, doorMax, limits, id));
         //cout<<walls[1].getID()<<endl;
         //cout<<walls[1].getInit().x<<";"<<walls[1].getInit().y<<" to "<<walls[1].getEnd().x<<";"<<walls[1].getEnd().y<<endl;
         walls.push_back(walls[0]);
@@ -604,6 +609,10 @@ public:
         generate_from1Wall(prev, gd);
         level=1;
     }
+    Room(){
+        walls.clear();
+        gds.clear();
+    }
     template<class T>
     void print(T& map){
         for(int i=0; i<walls.size();i++){
@@ -629,8 +638,14 @@ public:
     static unsigned int getCountID(void){
         return nID;
     }
+    unsigned int getID(void){
+        return id;
+    }
     bool empty(void){
         return walls.size()==0;
+    }
+    Wall getFirstWall(void){
+        return walls[0];
     }
 };
 
@@ -654,7 +669,6 @@ void RoomGen::process(ofstream& map){
         return;
 
     Room room(p0, wallMin, wallMax, doorMin, doorMax, limits);
-    room.print(map);
 
     priority_queue<wallnode> pq;
 
@@ -662,8 +676,17 @@ void RoomGen::process(ofstream& map){
     vector<bool> closed_walls(0, false);
     vector<Wall> walls(0);
 
-    if(!room.empty())
+    vector<Room> rooms(0);
+    vector<int> wall2wall(0,-1);
+
+    if(!room.empty()){
+        room.print(map);
         room.getWalls(pq, walls, open_walls, closed_walls);
+        if((room.getID()+1)>rooms.size()){
+            rooms.resize(room.getID()+1);
+        }
+        rooms[room.getID()]=room;
+    }
 
     while(!pq.empty())
     {
@@ -679,9 +702,23 @@ void RoomGen::process(ofstream& map){
         if(!room.empty()){
             room_.print(map);
             room_.getWalls(pq, walls, open_walls, closed_walls);
-            //extend pq with new walls
+            if((room.getID()+1)>rooms.size()){
+                rooms.resize(room.getID()+1);
+            }
+            rooms[room.getID()]=room;
+
+            unsigned int wallMaxID=max(room_.getFirstWall().getID(),wall.getID());
+            if((wallMaxID+1)>wall2wall.size()){
+                wall2wall.resize(wallMaxID+1,-1);
+            }
+            wall2wall[wall.getID()]=room_.getFirstWall().getID();
+            wall2wall[room_.getFirstWall().getID()]=wall.getID();
+            //test if initial and created wall have the same opening
         }
-        if(Wall::getCountID()>40)
+        else{
+            //// TODO: if not possible to create room, close wall!
+        }
+        if(Wall::getCountID()>100)
            break;
     }
     cout<<"Number walls: "<<Wall::getCountID()<<endl;
