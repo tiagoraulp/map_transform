@@ -66,6 +66,17 @@ public:
         wall=wall_size;
         generate();
     }
+    void update(float wall_size, float posN_){
+        wall=wall_size;
+        doorN=posN_;
+        doorP=doorN+size;
+        if(doorN<0)
+            doorN=0;
+        if(doorP>wall)
+            doorP=wall;
+        pos=(doorN+doorP)/2.0;
+        size=(doorP-doorN);
+    }
 };
 
 enum Dir{Hor, Ver};
@@ -118,7 +129,7 @@ struct Limits{
         if(x<xmin)
             return xmin-x;
         else if (x>xmax)
-            return xmax-x;
+            return x-xmax;
 
         if (y<ymin)
             return ymin-y;
@@ -134,8 +145,21 @@ struct Limits{
         x=min(x-xmin,xmax-x);
         y=min(y-ymin,ymax-y);
     }
+    void left(float& x,float& y, float direction){
+        if(direction>0){
+            x=xmax-x;
+            y=ymax-y;
+        }
+        else{
+            x=x-xmin;
+            y=y-ymin;
+        }
+    }
     void left(cv::Point2f& pt){
         left(pt.x, pt.y);
+    }
+    void left(cv::Point2f& pt, float direction){
+        left(pt.x, pt.y, direction);
     }
     void leftAbs(float& x,float& y){
         x=min(abs(x-xmin),abs(xmax-x));
@@ -152,6 +176,19 @@ struct Limits{
     }
     bool border(cv::Point2f pt, float th){
         return border(pt.x, pt.y, th);
+    }
+    int closer_to_border(cv::Point2f pt0, cv::Point2f pt1, Dir dir){
+        if(dir==Hor)
+            return closer_to_border(pt0.y, pt1.y, ymin, ymax);
+        else
+            return closer_to_border(pt0.x, pt1.x, xmin, xmax);
+    }
+    int closer_to_border(float z0, float z1, float zmin, float zmax){
+        float diff0=min(z0-zmin, zmax-z0), diff1=min(z1-zmin, zmax-z1);
+        if(diff0<diff1)
+            return 0;
+        else
+            return 1;
     }
 };
 
@@ -182,6 +219,9 @@ private:
         else
             return x;
     }
+    float chooseDir(cv::Point2f pt){
+        return chooseDir(pt.x,pt.y);
+    }
     void correct_limits(int ind){
         if(!limits.inside(pt[ind].x,pt[ind].y)){
             wall_size-=limits.diff(pt[ind].x,pt[ind].y)<0?0:limits.diff(pt[ind].x,pt[ind].y);
@@ -189,25 +229,80 @@ private:
         }
         else{
             float xleft=pt[ind].x, yleft=pt[ind].y;
-            limits.left(xleft, yleft);
+            float direction;
+            if( (ind==0 && sign>0) || (ind==1 && sign<0))
+                direction=-1.0;
+            else
+                direction=1.0;
+            limits.left(xleft, yleft, direction);
             float diff=chooseDir(xleft,yleft);
-            if(diff>=wallMin)
-                return;
+            if(diff>=wallMin){
+                if(wall_size<wallMin){
+                    float sign_;
+                    if(ind==1)
+                        sign_=1;
+                    else
+                        sign_=-1;
+                    float margin=wallMin-wall_size;
+                    wall_size+=margin;
+                    updatePosition(ind,sign_*margin);
+                }
+                if(wall_size>wallMax){
+                    float adj_diff, sign_;
+                    if(ind==1){
+                        sign_=1.0;
+                        adj_diff=door.getWallSize()-door.getP();
+                    }else{
+                        sign_=-1.0;
+                        adj_diff=door.getN();
+                    }
+                    if((wall_size-wallMax)>adj_diff){
+                        cout<<"Error Max size wall, impossible to reduce to garantee max limit; ";
+                        cout<<wall_size<<"; "<<wallMax<<endl;
+                    }
+                    else{
+                        float diff_margin=(wall_size-wallMax);
+                        wall_size-=diff_margin;
+                        updatePosition(ind,-sign_*diff_margin);
+                    }
+
+                }
+            }
             else{
                 float sign_;
                 if(ind==1)
                     sign_=1;
                 else
                     sign_=-1;
-                if( (wall_size-(wallMin-diff))<wallMin ){
-                    wall_size+=diff;
-                    updatePosition(ind,sign_*diff);
+                if(!has_door()){
+                    if( (wall_size-(wallMin-diff))<wallMin ){
+                        wall_size+=diff;
+                        updatePosition(ind,sign_*diff);
+                    }
+                    else{
+                        float margin=((float)rand()/RAND_MAX)*(wall_size+diff-2*wallMin);
+                        float diff_margin=wallMin+margin-wall_size;
+                        wall_size+=diff_margin;
+                        updatePosition(ind,sign_*diff_margin);
+                    }
                 }
                 else{
-                    float margin=((float)rand()/RAND_MAX)*(wall_size+diff-2*wallMin);
-                    float diff_margin=wallMin+margin-wall_size;
-                    wall_size+=diff_margin;
-                    updatePosition(ind,sign_*diff_margin);
+                    float adj_diff;
+                    if(ind==1){
+                        adj_diff=door.getWallSize()-door.getP();
+                    }else{
+                        adj_diff=door.getN();
+                    }
+                    if( (wallMin-diff)>adj_diff){
+                        wall_size+=diff;
+                        updatePosition(ind,sign_*diff);
+                    }
+                    else{
+                        float margin=((float)rand()/RAND_MAX)*(adj_diff-(wallMin-diff));
+                        float diff_margin=(wallMin-diff)+margin;
+                        wall_size-=diff_margin;
+                        updatePosition(ind,-sign_*diff_margin);
+                    }
                 }
             }
         }
@@ -216,6 +311,30 @@ private:
         wall_size=wallMin+((float)rand()/RAND_MAX)*(wallMax-wallMin);
         updatePosition(1, wall_size);
         correct_limits(1);
+        if(!limits.inside(getInit().x,getInit().y)){
+            cout<<"Error Generate init: ";
+            cout<<getInit().x<<" "<<getInit().y<<endl;
+        }
+        if(!limits.inside(getEnd().x,getEnd().y)){
+            cout<<"Error Generate end: ";
+            cout<<getEnd().x<<" "<<getEnd().y<<endl;
+        }
+        if(wall_size<wallMin){
+            cout<<"Error Generate wallmin: ";
+            cout<<wall_size<<"=size which is < minsize="<<wallMin<<endl;
+        }
+        if(wall_size>wallMax){
+            cout<<"Error Generate wallmax: ";
+            cout<<wall_size<<"=size which is > maxsize="<<wallMax<<endl;
+        }
+        if((wall_size-(abs(getEnd().x-getInit().x)+abs(getEnd().y-getInit().y)))>0.01){
+            cout<<"Error Generate wall size diff pts: ";
+            cout<<wall_size<<"; "<<getInit().x<<" "<<getInit().y<<"; "<<getEnd().x<<" "<<getEnd().y<<endl;
+        }
+        if( (chooseDir(pt[2]-pt[0])*sign)<0 || (chooseDir(pt[3]-pt[2])*sign)<0 || (chooseDir(pt[1]-pt[3])*sign)<0 ){
+            cout<<"Error Correct pt order: ";
+            cout<<getInit().x<<" "<<getInit().y<<"; "<<pt[2].x<<" "<<pt[2].y<<"; "<<pt[3].x<<" "<<pt[3].y<<"; "<<getEnd().x<<" "<<getEnd().y<<endl;
+        }
     }
 public:
     Wall(cv::Point2f p0_, Dir dir_, Sign sign_, float wmin, float wmax, float dmin, float dmax, Limits limits_):
@@ -230,6 +349,16 @@ public:
         if( limits.border(getInit(), wallMin/2.0) && limits.border(getEnd(), wallMin/2.0) )
             return;
         createDoor(doorMin, doorMax);
+        if( ((wall_size-door.getWallSize())>0.01) || (abs(abs(chooseDir(pt[3]-pt[2]))-door.getSize())>0.01) || (abs(abs(chooseDir(pt[2]-pt[0]))-door.getN())>0.01) || (abs(abs(chooseDir(pt[1]-pt[3]))-abs(door.getWallSize()-door.getP()))>0.01) ){
+            cout<<"Error Correct door wall integrity: Wall: ";
+            cout<<getInit().x<<" "<<getInit().y<<"; "<<pt[2].x<<" "<<pt[2].y<<"; "<<pt[3].x<<" "<<pt[3].y<<"; "<<getEnd().x<<" "<<getEnd().y<<"; ";
+            cout<<"Door: "<<door.getWallSize()<<"; "<<door.getSize()<<" "<<door.getN()<<"; "<<door.getP()<<endl;
+        }
+        if( (abs(door.getSize()-abs(door.getP()-door.getN()))>0.01) || (door.getSize()>doorMax) || (door.getSize()<doorMin) ){
+            cout<<"Error Door integrity: Door limits: ";
+            cout<<doorMin<<"; "<<doorMax<<"; ";
+            cout<<"Door: "<<door.getWallSize()<<"; "<<door.getSize()<<" "<<door.getN()<<"; "<<door.getP()<<endl;
+        }
     }
     Wall(){
         hasDoor=false;
@@ -242,6 +371,16 @@ public:
         if( limits.border(getInit(), wallMin/2.0) && limits.border(getEnd(), wallMin/2.0) )
             return;
         createDoor(doorMin, doorMax);
+        if( ((wall_size-door.getWallSize())>0.01) || (abs(abs(chooseDir(pt[3]-pt[2]))-door.getSize())>0.01) || (abs(abs(chooseDir(pt[2]-pt[0]))-door.getN())>0.01) || (abs(abs(chooseDir(pt[1]-pt[3]))-abs(door.getWallSize()-door.getP()))>0.01) ){
+            cout<<"Error Correct door wall integrity: Wall: ";
+            cout<<getInit().x<<" "<<getInit().y<<"; "<<pt[2].x<<" "<<pt[2].y<<"; "<<pt[3].x<<" "<<pt[3].y<<"; "<<getEnd().x<<" "<<getEnd().y<<"; ";
+            cout<<"Door: "<<door.getWallSize()<<"; "<<door.getSize()<<" "<<door.getN()<<"; "<<door.getP()<<endl;
+        }
+        if( (abs(door.getSize()-abs(door.getP()-door.getN()))>0.01) || (door.getSize()>doorMax) || (door.getSize()<doorMin) ){
+            cout<<"Error Door integrity: Door limits: ";
+            cout<<doorMin<<"; "<<doorMax<<"; ";
+            cout<<"Door: "<<door.getWallSize()<<"; "<<door.getSize()<<" "<<door.getN()<<"; "<<door.getP()<<endl;
+        }
     }
     bool updateFromDoor(void){
         if(!hasDoor)
@@ -252,14 +391,50 @@ public:
         door.update(wall_size);
         updatePosition(0,prev_door.getN()-door.getN());
         updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
-        correct_limits(0);
-        correct_limits(1);
+        int ind=limits.closer_to_border(getInit(),getEnd(), dir);
+        correct_limits(ind);
+        door.update(wall_size, abs(chooseDir(pt[0]-pt[2])));
+        correct_limits(1-ind);
+        door.update(wall_size, abs(chooseDir(pt[0]-pt[2])));
+        if(!limits.inside(getInit().x,getInit().y)){
+            cout<<"Error from Door Init: ";
+            cout<<getInit().x<<" "<<getInit().y<<endl;
+        }
+        if(!limits.inside(getEnd().x,getEnd().y)){
+            cout<<"Error from Door End: ";
+            cout<<getEnd().x<<" "<<getEnd().y<<endl;
+        }
+        if(wall_size<wallMin){
+            cout<<"Error Correct wallmin: ";
+            cout<<wall_size<<"=size which is < minsize="<<wallMin<<endl;
+        }
+        if(wall_size>wallMax){
+            cout<<"Error Correct wallmax: ";
+            cout<<wall_size<<"=size which is > maxsize="<<wallMax<<endl;
+        }
+        if((wall_size-(abs(getEnd().x-getInit().x)+abs(getEnd().y-getInit().y)))>0.01){
+            cout<<"Error Correct wall size diff pts: ";
+            cout<<wall_size<<"; "<<getInit().x<<" "<<getInit().y<<"; "<<getEnd().x<<" "<<getEnd().y<<endl;
+        }
+        if( (chooseDir(pt[2]-pt[0])*sign)<0 || (chooseDir(pt[3]-pt[2])*sign)<0 || (chooseDir(pt[1]-pt[3])*sign)<0 ){
+            cout<<"Error Correct pt order: ";
+            cout<<getInit().x<<" "<<getInit().y<<"; "<<pt[2].x<<" "<<pt[2].y<<"; "<<pt[3].x<<" "<<pt[3].y<<"; "<<getEnd().x<<" "<<getEnd().y<<endl;
+        }
+        if( ((wall_size-door.getWallSize())>0.01) || (abs(abs(chooseDir(pt[3]-pt[2]))-door.getSize())>0.01) || (abs(abs(chooseDir(pt[2]-pt[0]))-door.getN())>0.01) || (abs(abs(chooseDir(pt[1]-pt[3]))-abs(door.getWallSize()-door.getP()))>0.01) ){
+            cout<<"Error Correct door wall integrity: Wall: ";
+            cout<<getInit().x<<" "<<getInit().y<<"; "<<pt[2].x<<" "<<pt[2].y<<"; "<<pt[3].x<<" "<<pt[3].y<<"; "<<getEnd().x<<" "<<getEnd().y<<"; ";
+            cout<<"Door: "<<door.getWallSize()<<"; "<<door.getSize()<<" "<<door.getN()<<"; "<<door.getP()<<endl;
+        }
+        if( (abs(door.getSize()-abs(door.getP()-door.getN()))>0.01) || (door.getSize()>doorMax) || (door.getSize()<doorMin) ){
+            cout<<"Error Door integrity: Door limits: ";
+            cout<<doorMin<<"; "<<doorMax<<"; ";
+            cout<<"Door: "<<door.getWallSize()<<"; "<<door.getSize()<<" "<<door.getN()<<"; "<<door.getP()<<endl;
+        }
         return true;
     }
     void createDoor(float dmin, float dmax){
         hasDoor=true;
         door=Door(dmin, dmax, wall_size);
-        //door.generate();
         updatePosition(2, door.getN());
         updatePosition(3, door.getP());
     }
@@ -275,13 +450,13 @@ public:
     bool has_door(void){
         return hasDoor;
     }
-//    cv::Point2f getPoint(int index){
-//        if(index<0)
-//            index=0;
-//        else if(index>3)
-//            index=3;
-//        return pt[index];
-//    }
+    cv::Point2f getPoint(int index){
+        if(index<0)
+            index=0;
+        else if(index>3)
+            index=3;
+        return pt[index];
+    }
     cv::Point2f getInit(void){
         return pt[0];
     }
@@ -420,7 +595,6 @@ public:
         gds.clear();
         generate();
         level=0;
-
     }
     Room(float wmin, float wmax, float dmin, float dmax, Limits limits_, Wall prev, GD gd):
             wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax), limits(limits_) {
@@ -468,12 +642,13 @@ void RoomGen::process(ofstream& map){
     width=200;
     map<<res<<" "<<height<<" "<<width<<" "<<endl;
     map<<0<<" "<<0<<" "<<0<<" "<<endl;
-    float wallMin=2.0, wallMax=6.0, doorMin=0.8, doorMax=2.0; // wallMax>=2*wallMin;
+    float wallMin=2.0, wallMax=6.0, doorMin=0.8, doorMax=2.0; // wallMax>=2*wallMin; doorMax<=wallMin??...
+    // && ??? with wallMx size, it should be impossible for wall to be with less than wallMin distance to border in both sides;????
 
     Limits limits(5.0*res, ((float)height-5.0)*res, 5.0*res, ((float)width-5.0)*res);
 
-    //cv::Point2f p0(5,5);
-    cv::Point2f p0(5.0*res,5.0*res);
+    cv::Point2f p0(5,5);
+    //cv::Point2f p0(5.0*res,5.0*res);
 
     if(!limits.inside(p0.x,p0.y))
         return;
@@ -482,21 +657,13 @@ void RoomGen::process(ofstream& map){
     room.print(map);
 
     priority_queue<wallnode> pq;
-    //Wall test(cv::Point2f(0.0), Hor, Pos, 2, 5, 0.5, 1.5);
-    //pq.push(wallnode(test.getID(),2));
 
-    //vector<int> open_walls(pq.top().getID()+1, 0);
-    //vector<bool> closed_walls(pq.top().getID()+1, false);
-    //vector<Wall> walls(pq.top().getID()+1);
     vector<int> open_walls(0, 0);
     vector<bool> closed_walls(0, false);
     vector<Wall> walls(0);
 
     if(!room.empty())
         room.getWalls(pq, walls, open_walls, closed_walls);
-
-    //walls[pq.top().getID()]=test;
-    //open_walls[pq.top().getID()]=pq.top().getPriority();
 
     while(!pq.empty())
     {
@@ -514,10 +681,11 @@ void RoomGen::process(ofstream& map){
             room_.getWalls(pq, walls, open_walls, closed_walls);
             //extend pq with new walls
         }
-        if(Wall::getCountID()>60000)
+        if(Wall::getCountID()>40)
            break;
     }
     cout<<"Number walls: "<<Wall::getCountID()<<endl;
+    cout<<"Number rooms: "<<Room::getCountID()<<endl;
 }
 
 bool RoomGen::run(void){
