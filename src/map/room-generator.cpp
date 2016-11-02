@@ -192,6 +192,17 @@ struct Limits{
     }
 };
 
+struct growing_direction{
+    Dir dir;
+    Sign sign;
+    growing_direction(Dir dir_, Sign sign_): dir(dir_), sign(sign_){
+    }
+    growing_direction(){
+    }
+};
+
+typedef growing_direction GD;
+
 class Wall{
 private:
     static unsigned int nID;
@@ -208,6 +219,7 @@ private:
     float doorMax;
     Limits limits;
     unsigned int roomID;
+    GD gd;
     void updatePosition(int index, float size){
         if(dir==Hor)
             pt[index].y+=sign*size;
@@ -222,6 +234,15 @@ private:
     }
     float chooseDir(cv::Point2f pt){
         return chooseDir(pt.x,pt.y);
+    }
+    float chooseConstDir(float x, float y){
+        if(dir==Hor)
+            return x;
+        else
+            return y;
+    }
+    float chooseConstDir(cv::Point2f pt){
+        return chooseConstDir(pt.x,pt.y);
     }
     void correct_limits(int ind){
         if(!limits.inside(pt[ind].x,pt[ind].y)){
@@ -338,8 +359,8 @@ private:
         }
     }
 public:
-    Wall(cv::Point2f p0_, Dir dir_, Sign sign_, float wmin, float wmax, float dmin, float dmax, Limits limits_, unsigned int roomID_):
-            id(nID++), dir(dir_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax), limits(limits_), roomID(roomID_) {
+    Wall(cv::Point2f p0_, Dir dir_, Sign sign_, float wmin, float wmax, float dmin, float dmax, Limits limits_, unsigned int roomID_, GD gd_):
+            id(nID++), dir(dir_), wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax), limits(limits_), roomID(roomID_), gd(gd_) {
         if(sign_==Pos)
             sign=1.0;
         else
@@ -488,28 +509,39 @@ public:
     static unsigned int getCountID(void){
         return nID;
     }
+    float getConstPos(void){
+        return chooseConstDir(pt[0]);
+    }
+    float getInitChangingPos(void){
+        return chooseDir(getInit());
+    }
+    float getEndChangingPos(void){
+        return chooseDir(getEnd());
+    }
+    float getChangingPos(Sign sign_){
+        if( (sign>0 && sign_==Pos) || (sign<0 && sign_==Neg) )
+            return chooseDir(pt[1]);
+        else
+            return chooseDir(pt[0]);
+    }
+    GD getGD(void) const{
+        return gd;
+    }
+    void setGD(GD gd_){
+        gd=gd_;
+    }
 };
 
 unsigned int Wall::nID=0;
 
-struct growing_direction{
-    Dir dir;
-    Sign sign;
-    growing_direction(Dir dir_, Sign sign_): dir(dir_), sign(sign_){
-    }
-};
-
-typedef growing_direction GD;
-
 class wallnode{
 private:
     unsigned int wall_id;
-    GD gd;
     int priority;
 public:
-    wallnode(unsigned int id_, GD gd_, int pr): wall_id(id_), gd(gd_), priority(pr){
+    wallnode(unsigned int id_, int pr): wall_id(id_), priority(pr){
     }
-    wallnode(unsigned int id_, GD gd_): wall_id(id_), gd(gd_){
+    wallnode(unsigned int id_): wall_id(id_){
     }
     int getPriority(void) const{
         return priority;
@@ -519,9 +551,6 @@ public:
     }
     unsigned int getID(void) const{
         return wall_id;
-    }
-    GD getGD(void) const{
-        return gd;
     }
 };
 
@@ -544,26 +573,25 @@ private:
     Limits limits;
     unsigned int level;
     void generate(){
-        walls.push_back(Wall(pt, Hor, Pos, wallMin, wallMax, doorMin, doorMax, limits, id));
+        walls.push_back(Wall(pt, Hor, Pos, wallMin, wallMax, doorMin, doorMax, limits, id, GD(Ver,Neg)));
         //cout<<"!!!"<<walls[0].getID()<<endl;
         //cout<<walls[0].getInit().x<<";"<<walls[0].getInit().y<<" to "<<walls[0].getEnd().x<<";"<<walls[0].getEnd().y<<endl;
-        walls.push_back(Wall(pt, Ver, Pos, wallMin, wallMax, doorMin, doorMax, limits, id));
+        walls.push_back(Wall(pt, Ver, Pos, wallMin, wallMax, doorMin, doorMax, limits, id, GD(Hor,Neg)));
         //cout<<"!!!"<<walls[1].getID()<<endl;
         //cout<<walls[1].getInit().x<<";"<<walls[1].getInit().y<<" to "<<walls[1].getEnd().x<<";"<<walls[1].getEnd().y<<endl;
         walls.push_back(walls[0]);
         walls[2].update(walls[1].getEnd());
+        walls[2].setGD(GD(Ver,Pos));
         //cout<<"!!!"<<walls[2].getID()<<endl;
         //cout<<walls[2].getInit().x<<";"<<walls[2].getInit().y<<" to "<<walls[2].getEnd().x<<";"<<walls[2].getEnd().y<<endl;
         walls.push_back(walls[1]);
         walls[3].update(walls[0].getEnd());
+        walls[2].setGD(GD(Hor,Pos));
         //cout<<"!!!"<<walls[3].getID()<<endl;
         //cout<<walls[3].getInit().x<<";"<<walls[3].getInit().y<<" to "<<walls[3].getEnd().x<<";"<<walls[3].getEnd().y<<endl;
-        gds.push_back(GD(Ver,Neg));
-        gds.push_back(GD(Hor,Neg));
-        gds.push_back(GD(Ver,Pos));
-        gds.push_back(GD(Hor,Pos));
     }
-    void generate_from1Wall(Wall prev, GD gd){
+    void generate_from1Wall(Wall prev){
+        GD gd=prev.getGD();
         Dir dir=gd.dir;
         Sign sign=gd.sign;
         //cout<<prev.getInit().x<<";"<<prev.getInit().y<<" to "<<prev.getEnd().x<<";"<<prev.getEnd().y<<endl;
@@ -572,25 +600,24 @@ private:
             return;
         prev.updateRoomID(id);
         walls.push_back(prev);
+        walls[0].setGD(GD(dir,neg(sign)));
         //cout<<walls[0].getID()<<endl;
         //cout<<walls[0].getInit().x<<";"<<walls[0].getInit().y<<" to "<<walls[0].getEnd().x<<";"<<walls[0].getEnd().y<<endl;
         //cout<<prev.getSize()<<endl;
-        walls.push_back(Wall(walls[0].getInit(), dir, sign, wallMin, wallMax, doorMin, doorMax, limits, id));
+        walls.push_back(Wall(walls[0].getInit(), dir, sign, wallMin, wallMax, doorMin, doorMax, limits, id, GD(neg(dir),neg(walls[0].getSign()))));
         //cout<<walls[1].getID()<<endl;
         //cout<<walls[1].getInit().x<<";"<<walls[1].getInit().y<<" to "<<walls[1].getEnd().x<<";"<<walls[1].getEnd().y<<endl;
         walls.push_back(walls[0]);
         walls[2].update(walls[1].getEnd());
+        walls[2].setGD(GD(dir,sign));
         //cout<<walls[2].getID()<<endl;
         //cout<<walls[2].getInit().x<<";"<<walls[2].getInit().y<<" to "<<walls[2].getEnd().x<<";"<<walls[2].getEnd().y<<endl;
         //cout<<prev.getSize()<<endl;
         walls.push_back(walls[1]);
         walls[3].update(walls[0].getEnd());
+        walls[3].setGD(GD(neg(dir),walls[0].getSign()));
         //cout<<walls[3].getID()<<endl;
         //cout<<walls[3].getInit().x<<";"<<walls[3].getInit().y<<" to "<<walls[3].getEnd().x<<";"<<walls[3].getEnd().y<<endl;
-        gds.push_back(GD(dir,neg(sign)));
-        gds.push_back(GD(neg(dir),neg(walls[0].getSign())));
-        gds.push_back(GD(dir,sign));
-        gds.push_back(GD(neg(dir),walls[0].getSign()));
     }
 public:
     Room(cv::Point2f p0_, float wmin, float wmax, float dmin, float dmax, Limits limits_):
@@ -601,12 +628,12 @@ public:
         generate();
         level=0;
     }
-    Room(float wmin, float wmax, float dmin, float dmax, Limits limits_, Wall prev, GD gd):
+    Room(float wmin, float wmax, float dmin, float dmax, Limits limits_, Wall prev):
             wallMin(wmin), wallMax(wmax), doorMin(dmin), doorMax(dmax), limits(limits_) {
         id=nID++;
         walls.clear();
         gds.clear();
-        generate_from1Wall(prev, gd);
+        generate_from1Wall(prev);
         level=1;
     }
     Room(){
@@ -625,7 +652,7 @@ public:
             if(!walls[i].has_door())
                 continue;
             int priority=0;
-            pq.push(wallnode(walls[i].getID(),gds[i],priority));
+            pq.push(wallnode(walls[i].getID(),priority));
             if((walls[i].getID()+1)>walls_.size()){
                 walls_.resize(walls[i].getID()+1);
                 open_walls_.resize(walls[i].getID()+1,0);
@@ -691,14 +718,13 @@ void RoomGen::process(ofstream& map){
     while(!pq.empty())
     {
         Wall wall=walls[pq.top().getID()];
-        GD gd=pq.top().getGD();
         pq.pop();
         //cout<<wall.getID()<<endl;
         if(closed_walls[wall.getID()])
             continue;
         closed_walls[wall.getID()]=true;
 
-        Room room_(wallMin, wallMax, doorMin, doorMax, limits, wall, gd);
+        Room room_(wallMin, wallMax, doorMin, doorMax, limits, wall);
         if(!room.empty()){
             room_.print(map);
             room_.getWalls(pq, walls, open_walls, closed_walls);
