@@ -74,6 +74,7 @@ private:
     int getActMapValue(int n, int i, int j);
     cv::Point2i convertW2I(geometry_msgs::Point p);
     geometry_msgs::Point convertI2W(cv::Point2i p);
+    bool valid(int i, int j, int r);
     bool connection(int i, int j, int in, int jn, int r);
     bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict=true);
     bool procPaths(vector<string> file);
@@ -384,9 +385,16 @@ void write_visible(stringstream & str, vector<vector<vector<bool> > > visible, v
 }
 
 void write_initRobots(stringstream & str, int nr, vector<long int> initials, vector<cv::Point2i> names){
-    for(int i=0; i<nr; i++)
-        str<<"\t(at robot"<<i+1<< " waypoint"<<convertG2S(names[initials[i]])<<")"<<endl;
+    for(int i=0; i<nr; i++){
+        if(initials[i]>=0 && (initials[i]<((long int)names.size()))){
+            str<<"\t(at robot"<<i+1<< " waypoint"<<convertG2S(names[initials[i]])<<")"<<endl;
+        }
+        else{
+            str<<"\t(at robot"<<i+1<< " waypoint"<<")"<<endl;
+        }
+    }
     str<<endl;
+
     for(int i=0; i<nr; i++)
         str<<"\t(available robot"<<i+1<<")"<<endl;
     str<<")"<<endl<<endl;
@@ -464,6 +472,26 @@ void write_goals_GAP_Heur(stringstream & str, vector<vector<int> > goalsRPH){
 
 int win=3;
 float adj=1.2;
+
+
+bool PddlGen::valid(int i, int j, int r){
+    if(!getMapValue(r,i,j)){
+        bool stop=false;
+        for(int ii=max(i-win,0); ii<=min(i+win,(int)msg_rcv[r].size()-1); ii++){
+            for(int jj=max(j-win,0); jj<=min(j+win,(int)msg_rcv[r][ii].size()-1); jj++){
+                if(getMapValue(r,ii,jj)){
+                    stop=true;
+                    break;
+                }
+            }
+            if(stop)
+                break;
+        }
+        if(!stop)
+            return false;
+    }
+    return true;
+}
 
 bool PddlGen::connection(int i, int j, int in, int jn, int r){
     if(!getMapValue(r,i,j)){
@@ -741,9 +769,11 @@ bool PddlGen::run(void){
                 int px=pos[rr].x+hlx[h].x;
                 int py=pos[rr].y+hlx[h].y;
                 if(px>=0 && py>=0 && px<(int)waypoints.size() && py<(int)waypoints[0].size()){
-                    if(waypoints[px][py]>=0 && getMapValue(3*nrobots+rr,px,py)){
-                        initials[rr]=waypoints[px][py];
-                        break;
+                    if(waypoints[px][py]>=0 && valid(px,py,3*nrobots+rr)){
+                        if( connectTR[rr][waypoints[px][py]] ){
+                            initials[rr]=waypoints[px][py];
+                            break;
+                        }
                     }
                 }
             }
