@@ -40,8 +40,13 @@ resultsL4.txt
 resultsL3.txt
 resultsL2.txt
 resultsL1.txt
-pddl/*
 lib/*
 src/map_transform/*
 maps/map_test.txt
 maps/map.txt
+pddl/GA.pddl
+pddl/GAP.pddl
+pddl/Heur.pddl
+pddl/problem.pddl
+pddl/pddl_heuristic.zip
+pddl/pddl_heuristics_multipleScenarios.zip
