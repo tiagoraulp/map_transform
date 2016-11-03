@@ -44,6 +44,19 @@ private:
         pos=(doorN+doorP)/2.0;
         size=(doorP-doorN);
     }
+    void generate(float max_pos){
+        //pos=size/2.0+((float)rand()/RAND_MAX)*(min(wall-size/2.0,max_pos)-size/2.0);
+        //// TODO: generate random pos so there is random space between rooms!
+        pos=max_pos;
+        doorN=pos-size/2.0;
+        doorP=pos+size/2.0;
+        if(doorN<0) //unnecessary from here since pos is calculated using size
+            doorN=0;
+        if(doorP>wall)
+            doorP=wall;
+        pos=(doorN+doorP)/2.0;
+        size=(doorP-doorN);
+    }
 public:
     Door(float dmin, float dmax, float wall_): doorMin(dmin), doorMax(dmax), wall(wall_){
         size=doorMin+((float)rand()/RAND_MAX)*(doorMax-doorMin);
@@ -52,6 +65,12 @@ public:
     Door(){}
     float getSize(){
         return size;
+    }
+    void invert(void){
+        pos=size-pos;
+        float posNtemp=doorN;
+        doorN=size-doorP;
+        doorP=size-posNtemp;
     }
     float getWallSize(){
         return wall;
@@ -65,6 +84,10 @@ public:
     void update(float wall_size){
         wall=wall_size;
         generate();
+    }
+    void updateMP(float wall_size, float max_pos){
+        wall=wall_size;
+        generate(max_pos);
     }
     void update(float wall_size, float posN_){
         wall=wall_size;
@@ -220,6 +243,18 @@ private:
     Limits limits;
     unsigned int roomID;
     GD gd;
+    void invert(void){
+        sign*=-1;
+        vector<cv::Point2f> pt_temp=pt;
+        for(unsigned int i=0; i<pt.size(); i++){
+            if(i<2)
+                pt[i]=pt_temp[1-i];
+            else
+                pt[i]=pt_temp[5-i];
+
+        }
+        door.invert();
+    }
     void updatePosition(int index, float size){
         if(dir==Hor)
             pt[index].y+=sign*size;
@@ -452,6 +487,25 @@ public:
             cout<<doorMin<<"; "<<doorMax<<"; ";
             cout<<"Door: "<<door.getWallSize()<<"; "<<door.getSize()<<" "<<door.getN()<<"; "<<door.getP()<<endl;
         }
+        return true;
+    }
+    bool updateFromDoor(Wall other){
+        if(!hasDoor)
+            return false;
+        id=nID++;
+
+        if( ((other.getConstPos()<chooseDir(pt[3])) && sign<0) || ((other.getConstPos()>chooseDir(pt[2])) && sign>0) )
+            invert();
+
+
+        wall_size=max(wallMin,door.getP())+((float)rand()/RAND_MAX)*(wallMax-max(wallMin,door.getP()));
+        Door prev_door=door;
+        door.update(wall_size);
+        updatePosition(0,prev_door.getN()-door.getN());
+        updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+        correct_limits(1);
+        door.update(wall_size, abs(chooseDir(pt[0]-pt[2])));
+
         return true;
     }
     void createDoor(float dmin, float dmax){
