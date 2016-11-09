@@ -400,7 +400,7 @@ void write_initRobots(stringstream & str, int nr, vector<long int> initials, vec
     str<<")"<<endl<<endl;
 }
 
-void write_goals(stringstream & str, vector<int> goals, vector<cv::Point2i> names){
+void write_goals(stringstream & str, vector<long int> goals, vector<cv::Point2i> names){
     str<<"(:goal (and"<<endl;
     for(unsigned int i=0;i<goals.size();i++){
         str<<"\t(visited waypoint"<<convertG2S(names[goals[i]])<<")"<<endl;
@@ -416,7 +416,15 @@ void write_goals(stringstream & str, int goals, vector<cv::Point2i> names){
     str<<"\t)\n)\n)";
 }
 
-void write_goals_GA(stringstream & str, vector<vector<int> > goalsR, vector<cv::Point2i> names){
+void write_goals_UT(stringstream & str, vector<long int> goalsUT, vector<cv::Point2i> names){
+    str<<"(:notgoal (and"<<endl;
+    for(unsigned int i=0;i<goalsUT.size();i++){
+        str<<"\t(visited waypoint"<<convertG2S(names[goalsUT[i]])<<")"<<endl;
+    }
+    str<<"\t)\n)";
+}
+
+void write_goals_GA(stringstream & str, vector<vector<long int> > goalsR, vector<cv::Point2i> names){
     str<<"("<<endl;
     unsigned int nr=goalsR.size();
     for(unsigned int r=0; r<nr; r++){
@@ -434,7 +442,7 @@ void write_goals_GA(stringstream & str, vector<vector<int> > goalsR, vector<cv::
     str<<")";
 }
 
-void write_goals_GAP(stringstream & str, vector<vector<int> > goalsRP, vector<cv::Point2i> names){
+void write_goals_GAP(stringstream & str, vector<vector<long int> > goalsRP, vector<cv::Point2i> names){
     str<<"("<<endl;
     unsigned int nr=goalsRP.size();
     for(unsigned int r=0; r<nr; r++){
@@ -452,7 +460,7 @@ void write_goals_GAP(stringstream & str, vector<vector<int> > goalsRP, vector<cv
     str<<")";
 }
 
-void write_goals_GAP_Heur(stringstream & str, vector<vector<int> > goalsRPH){
+void write_goals_GAP_Heur(stringstream & str, vector<vector<long int> > goalsRPH){
     str<<"("<<endl;
     unsigned int nr=goalsRPH.size();
     for(unsigned int r=0; r<nr; r++){
@@ -464,6 +472,28 @@ void write_goals_GAP_Heur(stringstream & str, vector<vector<int> > goalsRPH){
             str<<")";
             if(r!=(nr-1))
                 str<<";;";
+            str<<endl;
+        }
+    }
+    str<<")";
+}
+
+void write_goals_GA_P_Heur(stringstream & str, vector<vector<long int> > goalsRP, vector<cv::Point2i> names, vector<vector<long int> > goalsRPH){
+    if( (goalsRP.size() != goalsRPH.size()) || (goalsRP.size()==0) )
+        return;
+    for(unsigned int r=0; r<goalsRP.size(); r++){
+        if(goalsRP[r].size()!= goalsRPH[r].size())
+                return;
+    }
+    str<<"("<<endl;
+    unsigned int nr=goalsRP.size();
+    for(unsigned int r=0; r<nr; r++){
+        if(goalsRP[r].size()>0){
+            str<<"\t(robot"<<r+1<<" ";
+            for(unsigned int i=0;i<goalsRP[r].size();i++){
+                str<<"((visited waypoint"<<convertG2S(names[goalsRP[r][i]])<<") "<<goalsRPH[r][i]<<") ";
+            }
+            str<<")";
             str<<endl;
         }
     }
@@ -730,13 +760,18 @@ bool PddlGen::run(void){
                 }
             }
         }
-        vector<int> goals(0);
-        vector<vector<int> > goalsR(nrobots, vector<int>(0));
-        vector<vector<int> > goalsRP(nrobots, vector<int>(0));
-        vector<vector<int> > goalsRPH(nrobots, vector<int>(0));
+        vector<long int> goals(0);
+        vector<vector<long int> > goalsR(nrobots, vector<long int>(0));
+        vector<vector<long int> > goalsRP(nrobots, vector<long int>(0));
+        vector<vector<long int> > goalsRPH(nrobots, vector<long int>(0));
         for(int rr=0;rr<nrobots;rr++){
             goalsR[rr].clear();
+            goalsRP[rr].clear();
+            goalsRPH[rr].clear();
         }
+        vector<long int> goalsUT(0);
+        goalsUT.clear();
+        vector<int> unfeasible_waypoints(count, 0);
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
                 //if( feasibleWaypoint(i,j) ){
@@ -744,17 +779,24 @@ bool PddlGen::run(void){
                         goals.push_back(waypoints[i][j]);
 
                         for(int rr=0;rr<nrobots;rr++){
-                            if(!getMapValue(2*nrobots+rr,i,j))
+                            if(!getMapValue(2*nrobots+rr,i,j)){
                                 goalsR[rr].push_back(waypoints[i][j]);
+                                unfeasible_waypoints[waypoints[i][j]]++;
+                            }
                             else
                             {
-                                if( !visibleTRF[rr][waypoints[i][j]] )
+                                if( !visibleTRF[rr][waypoints[i][j]] ){
                                     goalsR[rr].push_back(waypoints[i][j]);
+                                    unfeasible_waypoints[waypoints[i][j]]++;
+                                }
                                 else{
                                     goalsRP[rr].push_back(waypoints[i][j]);
                                     goalsRPH[rr].push_back((int)round(((float)getActMapValue(rr,i,j))/((float)jump)));
                                 }
                             }
+                        }
+                        if(unfeasible_waypoints[waypoints[i][j]]==nrobots){
+                            goalsUT.push_back(waypoints[i][j]);
                         }
                     }
                 //}
@@ -778,16 +820,18 @@ bool PddlGen::run(void){
                 }
             }
         }
-        stringstream strstream(""), strstreamGA(""), strstreamGAP(""), strstreamGAP_Heur("");
+        stringstream strstream(""), strstreamGA(""), strstreamGAP(""), strstreamGAP_Heur(""), strstreamGA_P_Heur(""), strstreamUT("");
         write_preamble(strstream, nrobots,count, names);
         write_graph(strstream, graph, names);
         write_visible(strstream, visible, names);
         write_initRobots(strstream, nrobots, initials, names);
         //write_goals(strstream, goals, names);//only feasible
         write_goals(strstream, count, names);//total coverage, even if not feasible
-        write_goals_GA(strstreamGA, goalsR, names);//only feasible
+        write_goals_GA(strstreamGA, goalsR, names);//only unfeasible
         write_goals_GAP(strstreamGAP, goalsRP, names);
         write_goals_GAP_Heur(strstreamGAP_Heur, goalsRPH);
+        write_goals_GA_P_Heur(strstreamGA_P_Heur, goalsRP, names, goalsRPH);
+        write_goals_UT(strstreamUT, goalsUT, names);//only unfeasible
 //        cout<<count<<endl;
 //        for(unsigned int i=0; i<goalsR.size();i++)
 //        {
@@ -839,6 +883,31 @@ bool PddlGen::run(void){
             ROS_INFO("Failed to open Heur file.");
         }
         myfileGAP_Heur.close();
+
+        ofstream myfileGA_P_Heur;
+        pddlFolder = ros::package::getPath("map_transform").append("/pddl/input.lisp");
+        myfileGA_P_Heur.open(pddlFolder);
+        if (myfileGA_P_Heur.is_open()){
+            myfileGA_P_Heur << strstreamGA_P_Heur.str();
+            ROS_INFO("Wrote to Lisp Input file.");
+        }
+        else{
+            ROS_INFO("Failed to open List Input file.");
+        }
+        myfileGA_P_Heur.close();
+
+        ofstream myfileUT;
+        pddlFolder = ros::package::getPath("map_transform").append("/pddl/unfeasible.lisp");
+        myfileUT.open(pddlFolder);
+        if (myfileUT.is_open()){
+            myfileUT << strstreamUT.str();
+            ROS_INFO("Wrote to Lisp Unfeasible file.");
+        }
+        else{
+            ROS_INFO("Failed to open List Unfeasible file.");
+        }
+        myfileUT.close();
+
         return true;
     }
     return false;

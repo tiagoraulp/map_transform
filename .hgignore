@@ -63,3 +63,5 @@ pddl/problem_test.pddl
 pddl/problemV2.pddl
 pddl/.~*
 pddl/paths.txt
+pddl/input.lisp
+pddl/unfeasible.lisp
