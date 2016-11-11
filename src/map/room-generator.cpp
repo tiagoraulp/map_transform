@@ -85,6 +85,9 @@ public:
         wall=wall_size;
         generate();
     }
+    void updateIWS(float wall_size){
+        wall=wall_size;
+    }
     void updateMP(float wall_size, float max_pos){
         wall=wall_size;
         generate(max_pos);
@@ -494,17 +497,183 @@ public:
             return false;
         id=nID++;
 
-        if( ((other.getConstPos()<chooseDir(pt[3])) && sign<0) || ((other.getConstPos()>chooseDir(pt[2])) && sign>0) )
+        if( ((other.getConstPos()<chooseDir(pt[2])) && sign<0) || ((other.getConstPos()>chooseDir(pt[2])) && sign>0) )
             invert();
 
+        cv::Point2f temp=pt[3];
+        limits.left(temp, sign);
+        float dist=chooseDir(temp);
 
-        wall_size=max(wallMin,door.getP())+((float)rand()/RAND_MAX)*(wallMax-max(wallMin,door.getP()));
+        float maxPos=abs(chooseDir(pt[2])-other.getConstPos());
+        float doorN_Pos=((float)rand()/RAND_MAX)*(maxPos);
+        float marginNI=maxPos-doorN_Pos;
+        float marginND=doorN_Pos;
+        float minSize=doorN_Pos+door.getSize();
+        float maxSize=min(wallMax,minSize+dist);
+        float wSize=minSize+((float)rand()/RAND_MAX)*(maxSize-minSize);
+        float marginPD=wSize-minSize;
+        float marginPI=minSize+dist-wSize;
+
         Door prev_door=door;
-        door.update(wall_size);
+        door.update(wSize, doorN_Pos);
+        wall_size=wSize;
+
         updatePosition(0,prev_door.getN()-door.getN());
         updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
-        correct_limits(1);
-        door.update(wall_size, abs(chooseDir(pt[0]-pt[2])));
+
+        if(marginPI<wallMin){
+            if(wSize<wallMin){
+                wSize=wall_size+marginPI;
+                Door prev_door=door;
+                door.updateIWS(wSize);
+                wall_size=wSize;
+                updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+
+                float distMiss=(wallMin-wSize);
+                if(marginNI>=distMiss){
+                    wSize=wall_size+distMiss;
+                    doorN_Pos+=distMiss;
+                    Door prev_door=door;
+                    door.update(wSize, doorN_Pos);
+                    wall_size=wSize;
+                    updatePosition(0,prev_door.getN()-door.getN());
+                    updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+                }
+                else{
+                    return false;
+                }
+            }
+            else{
+                // 3 techniques
+                float wSI=wSize+marginPI-marginND;
+                float change=wallMin-marginPI;
+                float wSDMax=wSize-change+marginNI;
+                float wSDMin=wSize-change;
+                bool methodI=false;
+                if( (wSI<=wallMax) && (change<=marginPD && wSDMax>=wallMin && wSDMin<=wallMax) )
+                {
+                    if( rand()<=0.5 )
+                        methodI=true;
+                    else
+                        methodI=false;
+                }
+                else if( wSI<=wallMax )
+                    methodI=true;
+                else if( change<=marginPD && wSDMax>=wallMin && wSDMin<=wallMax )
+                    methodI=false;
+                else
+                    return false;
+
+                if(methodI){
+                    wSize=wall_size+marginPI;
+                    Door prev_door=door;
+                    door.updateIWS(wSize);
+                    wall_size=wSize;
+                    updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+
+                    float distMiss=wSize-wallMax;
+                    if(distMiss>0){
+                        wSize=wall_size-distMiss;
+                        doorN_Pos-=distMiss;
+                        Door prev_door=door;
+                        door.update(wSize, doorN_Pos);
+                        wall_size=wSize;
+                        updatePosition(0,prev_door.getN()-door.getN());
+                        updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+                    }
+                }
+                else{
+                    wSize=wall_size-change;
+                    Door prev_door=door;
+                    door.updateIWS(wSize);
+                    wall_size=wSize;
+                    updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+
+                    float distMiss=wallMin-wSize;
+                    if(distMiss>0){
+                        wSize=wall_size+distMiss;
+                        doorN_Pos+=distMiss;
+                        Door prev_door=door;
+                        door.update(wSize, doorN_Pos);
+                        wall_size=wSize;
+                        updatePosition(0,prev_door.getN()-door.getN());
+                        updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+                    }
+                }
+            }
+        }
+        else{
+            if(wSize<wallMin){
+                float distMiss=(wallMin-wSize);
+                float change=min(distMiss, marginNI);
+                wSize=wall_size+change;
+                doorN_Pos+=change;
+                Door prev_door=door;
+                door.update(wSize, doorN_Pos);
+                wall_size=wSize;
+                updatePosition(0,prev_door.getN()-door.getN());
+                updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+
+                distMiss=wallMin-wSize;
+                if((marginPI-distMiss)>=wallMin){
+                    wSize=wall_size+distMiss;
+                    Door prev_door=door;
+                    door.updateIWS(wSize);
+                    wall_size=wSize;
+                    updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+                }
+                else{
+                    if(marginPI>=distMiss){
+                        wSize=wall_size+marginPI;
+                        Door prev_door=door;
+                        door.updateIWS(wSize);
+                        wall_size=wSize;
+                        updatePosition(1,-(prev_door.getWallSize()-prev_door.getP())+(door.getWallSize()-door.getP()));
+                    }
+                    else{
+                        return false;
+                    }
+                }
+            }
+        }
+
+        //correct_limits(1);
+        //door.update(wall_size, abs(chooseDir(pt[0]-pt[2])));
+
+        if(!limits.inside(getInit().x,getInit().y)){
+            cout<<"Error from Door Init: ";
+            cout<<getInit().x<<" "<<getInit().y<<endl;
+        }
+        if(!limits.inside(getEnd().x,getEnd().y)){
+            cout<<"Error from Door End: ";
+            cout<<getEnd().x<<" "<<getEnd().y<<endl;
+        }
+        if(wall_size<wallMin){
+            cout<<"Error Correct wallmin: ";
+            cout<<wall_size<<"=size which is < minsize="<<wallMin<<endl;
+        }
+        if(wall_size>wallMax){
+            cout<<"Error Correct wallmax: ";
+            cout<<wall_size<<"=size which is > maxsize="<<wallMax<<endl;
+        }
+        if((wall_size-(abs(getEnd().x-getInit().x)+abs(getEnd().y-getInit().y)))>0.01){
+            cout<<"Error Correct wall size diff pts: ";
+            cout<<wall_size<<"; "<<getInit().x<<" "<<getInit().y<<"; "<<getEnd().x<<" "<<getEnd().y<<endl;
+        }
+        if( (chooseDir(pt[2]-pt[0])*sign)<0 || (chooseDir(pt[3]-pt[2])*sign)<0 || (chooseDir(pt[1]-pt[3])*sign)<0 ){
+            cout<<"Error Correct pt order: ";
+            cout<<getInit().x<<" "<<getInit().y<<"; "<<pt[2].x<<" "<<pt[2].y<<"; "<<pt[3].x<<" "<<pt[3].y<<"; "<<getEnd().x<<" "<<getEnd().y<<endl;
+        }
+        if( ((wall_size-door.getWallSize())>0.01) || (abs(abs(chooseDir(pt[3]-pt[2]))-door.getSize())>0.01) || (abs(abs(chooseDir(pt[2]-pt[0]))-door.getN())>0.01) || (abs(abs(chooseDir(pt[1]-pt[3]))-abs(door.getWallSize()-door.getP()))>0.01) ){
+            cout<<"Error Correct door wall integrity: Wall: ";
+            cout<<getInit().x<<" "<<getInit().y<<"; "<<pt[2].x<<" "<<pt[2].y<<"; "<<pt[3].x<<" "<<pt[3].y<<"; "<<getEnd().x<<" "<<getEnd().y<<"; ";
+            cout<<"Door: "<<door.getWallSize()<<"; "<<door.getSize()<<" "<<door.getN()<<"; "<<door.getP()<<endl;
+        }
+        if( (abs(door.getSize()-abs(door.getP()-door.getN()))>0.01) || (door.getSize()>doorMax) || (door.getSize()<doorMin) ){
+            cout<<"Error Door integrity: Door limits: ";
+            cout<<doorMin<<"; "<<doorMax<<"; ";
+            cout<<"Door: "<<door.getWallSize()<<"; "<<door.getSize()<<" "<<door.getN()<<"; "<<door.getP()<<endl;
+        }
 
         return true;
     }
