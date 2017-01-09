@@ -15,6 +15,8 @@
 
 #include "std_msgs/Int16MultiArray.h"
 
+#include <ros/package.h>
+
 using namespace std;
 
 static const double PI = 3.141592653589793;
@@ -115,21 +117,58 @@ void VisC_transf::show(void)
 {
     if(count>0 && _debug){
         cv::imshow(M_WINDOW,map_or);
+
+        string filename = ros::package::getPath("map_transform").append("/images/map.png");
+        cv::imwrite(filename, map_or);
+
         cv::imshow(C_WINDOW,map_closeOp);
+
+        filename = ros::package::getPath("map_transform").append("/images/map_closed.png");
+        cv::imwrite(filename, map_closeOp);
+
         if(pos_rcv)
         {
             cv::imshow(E_WINDOW,map_erosionOpPrintColor);
+
+            filename = ros::package::getPath("map_transform").append("/images/map_erosion_pt.png");
+            cv::imwrite(filename, map_erosionOpPrintColor);
+
+            filename = ros::package::getPath("map_transform").append("/images/map_erosion.png");
+            cv::imwrite(filename, map_erosionOp);
+
             cv::imshow(L_WINDOW,map_label);
+
+            filename = ros::package::getPath("map_transform").append("/images/navigable.png");
+            cv::imwrite(filename, map_label);
+
             cv::imshow(A_WINDOW,map_act);
+
+            filename = ros::package::getPath("map_transform").append("/images/actuation.png");
+            cv::imwrite(filename, map_act);
+
             cv::imshow(V_WINDOW,map_vis);
+
+            filename = ros::package::getPath("map_transform").append("/images/visibility.png");
+            cv::imwrite(filename, map_vis);
+
             cv::imshow(D_WINDOW,map_debug);
+
+            filename = ros::package::getPath("map_transform").append("/images/debug.png");
+            cv::imwrite(filename, map_debug);
 
             if(gt)
             {
                 cv::imshow(G_WINDOW,map_truth);
                 cv::waitKey(2);
+
+                filename = ros::package::getPath("map_transform").append("/images/truth.png");
+                cv::imwrite(filename, map_truth);
+
                 cv::imshow(CP_WINDOW,map_comp);
                 cv::waitKey(2);
+
+                filename = ros::package::getPath("map_transform").append("/images/comp.png");
+                cv::imwrite(filename, map_comp);
             }
             else
             {
@@ -296,7 +335,7 @@ cv::Mat_<int> create_robot_model(int size){
     cv::Mat_<int> ret=cv::Mat_<int>::zeros(2*size+1, 2*size+1);
     for(int i=0;i<ret.rows;i++){
         for(int j=0;j<ret.cols;j++){
-            if( ((i-size)*(i-size)+(j-size)*(j-size))<=(size*size) ){
+            if( round(sqrt((i-size)*(i-size)+(j-size)*(j-size)))<=round((size)) ){
                 ret(i,j)=1;
             }
         }
@@ -342,11 +381,17 @@ cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size){
         vc.erase(vc.begin());
     }
 
+    cout<<cv::countNonZero(ret)<<"; Size: "<<ret.rows*ret.cols<<endl;
+
     return ret;
 }
 
 void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 {
+    ros::Time ttt;
+
+    ttt=ros::Time::now();
+
     cv::Mat r_map=map_erosionOp.clone();
 
     bool new_v=reachability_map(pos,r_map);
@@ -355,9 +400,9 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
     {
         int rad=min(infl,defl);  //if defl<infl, visibility is given by morphological closing
 
-        ros::Time ttt;
+        //ros::Time ttt;
 
-        ttt=ros::Time::now();
+        //ttt=ros::Time::now();
 
         cv::Mat_<int> dist_transf=actuation_transform(r_map, cv::Point(pos.x,pos.y), rad);
         //cout<<ros::Time::now()-ttt<<endl;
@@ -366,6 +411,9 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         cv::Mat dist;
         dist_transf.convertTo(dist, CV_8U , 255 / max_);
         cv::imshow("dist",dist);
+
+        string filename = ros::package::getPath("map_transform").append("/images/dist.png");
+        cv::imwrite(filename, dist);
 
         act_dist=dist_transf;
 
@@ -380,7 +428,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         dilate( act_map, act_map, element);  //actuation space
 
-        //cout<<ros::Time::now()-ttt<<endl;
+        cout<<ros::Time::now()-ttt<<endl;
 
         cv::Mat vis_map=act_map.clone();
 
@@ -405,42 +453,91 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         ROS_INFO("%s - Time for visibility: %f", tf_pref.c_str(), diff.toSec());
 
-//        unsigned char c123[3]={0,200,200};
-//        unsigned char c12[3]={255,255,0};
-//        unsigned char c13[3]={255,0,255};
-//        unsigned char c23[3]={0,0,200};
-//        unsigned char c10[3]={0,255,0};
-//        unsigned char c20[3]={255,255,255};
-//        unsigned char c30[3]={150,0,0};
-//        unsigned char c00[3]={0,0,0};
-//        unsigned char ctest[3]={18,143,226};
+        unsigned char c123[3]={0,200,200};
+        unsigned char c12[3]={255,255,0};
+        unsigned char c13[3]={255,0,255};
+        unsigned char c23[3]={0,0,200};
+        unsigned char c10[3]={0,255,0};
+        unsigned char c20[3]={255,255,255};
+        unsigned char c30[3]={150,0,0};
+        unsigned char c00[3]={0,0,0};
+        unsigned char ctest[3]={18,143,226};
 
-//        unsigned char c1[3]={0,150,0};
-//        unsigned char c2[3]={0,0,0};
-//        unsigned char c3[3]={0,150,0};
-//        unsigned char c0[3]={150,0,0};
-
-
-//        cv::Mat map_debug1=color_print(map_erosionOp, map_or,  c1, c2, c3, c0);
-
-//        cv::imshow("CS",map_debug1);
-//        cv::waitKey(3);
-
-//        cv::Mat map_debug2=color_print3(map_erosionOp, map_closeOp, map_or, c123, c12, c13, c23, c10, c20, c30, c00 );
-
-//        cv::imshow("CO",map_debug2);
-//        cv::waitKey(3);
+        unsigned char c1[3]={0,150,0};
+        unsigned char c2[3]={0,0,0};
+        unsigned char c3[3]={0,150,0};
+        unsigned char c0[3]={150,0,0};
 
 
-//        cv::Mat map_debug3=color_print3(map_label, map_act, map_or, c123, c12, c13, c23, c10, c20, c30, c00 );
+        cv::Mat_<int> robot_mod=create_robot_model(infl);
+        //cout<<ros::Time::now()-ttt<<endl;
+        double minR_, maxR_;
+        cv::minMaxLoc(robot_mod, &minR_, &maxR_);
 
-//        cv::imshow("AS",map_debug3);
-//        cv::waitKey(3);
+        cv::Mat rob;
+        robot_mod.convertTo(rob, CV_8U , 255 / maxR_);
+        cv::imshow("robot",rob);
 
-//        cv::Mat map_debug4=color_print3(map_vis, map_act, map_or, c20, c12, ctest, c23, c10, c20, c00, c00 );
+        filename = ros::package::getPath("map_transform").append("/images/robot.png");
+        cv::imwrite(filename, rob);
 
-//        cv::imshow("VS",map_debug4);
-//        cv::waitKey(3);
+        cv::Mat_<int> sensor_mod=create_robot_model(defl+1);
+        //cout<<ros::Time::now()-ttt<<endl;
+        cv::minMaxLoc(sensor_mod, &minR_, &maxR_);
+
+        cv::Mat sens;
+        sensor_mod.convertTo(sens, CV_8U , 255 / maxR_);
+
+        sensor_mod=create_robot_model(defl-1);
+        //cout<<ros::Time::now()-ttt<<endl;
+        cv::minMaxLoc(sensor_mod, &minR_, &maxR_);
+
+        cv::Mat sens2, sens3;
+        sensor_mod.convertTo(sens2, CV_8U , 255 / maxR_);
+        cout<<sens.rows<<" "<<sens.cols<<" "<<sens2.rows<<" "<<sens2.cols<<endl;
+
+        //value = Scalar( 0, rng.uniform(0, 255), rng.uniform(0, 255) );
+        copyMakeBorder( sens2, sens3, 2, 2, 2, 2, cv::BORDER_CONSTANT, 0 );
+
+        cout<<sens2.rows<<" "<<sens2.cols<<" "<<sens3.rows<<" "<<sens3.cols<<endl;
+
+        cv::imshow("sensor",sens-sens3);
+
+        filename = ros::package::getPath("map_transform").append("/images/sensor.png");
+        cv::imwrite(filename, sens-sens3);
+
+        cv::Mat map_debug1=color_print(map_erosionOp, map_or,  c1, c2, c3, c0);
+
+        cv::imshow("CS",map_debug1);
+        cv::waitKey(3);
+
+        filename = ros::package::getPath("map_transform").append("/images/cs.png");
+        cv::imwrite(filename, map_debug1);
+
+        cv::Mat map_debug2=color_print3(map_erosionOp, map_closeOp, map_or, c123, c12, c13, c23, c10, c20, c30, c00 );
+
+        cv::imshow("CO",map_debug2);
+        cv::waitKey(3);
+
+        filename = ros::package::getPath("map_transform").append("/images/mc.png");
+        cv::imwrite(filename, map_debug2);
+
+
+        cv::Mat map_debug3=color_print3(map_label, map_act, map_or, c123, c12, c13, c23, c10, c20, c30, c00 );
+
+        cv::imshow("AS",map_debug3);
+        cv::waitKey(3);
+
+        filename = ros::package::getPath("map_transform").append("/images/act.png");
+        cv::imwrite(filename, map_debug3);
+
+        cv::Mat map_debug4=color_print3(map_vis, map_act, map_or, c20, c12, ctest, c23, c10, c20, c00, c00 );
+
+        cv::imshow("VS",map_debug4);
+        cv::waitKey(3);
+
+        filename = ros::package::getPath("map_transform").append("/images/vis.png");
+        cv::imwrite(filename, map_debug4);
 
 
 

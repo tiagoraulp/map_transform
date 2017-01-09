@@ -500,7 +500,7 @@ void write_goals_GA_P_Heur(stringstream & str, vector<vector<long int> > goalsRP
     str<<")";
 }
 
-int win=3;
+int win=4;
 float adj=1.2;
 
 
@@ -791,7 +791,8 @@ bool PddlGen::run(void){
                                 }
                                 else{
                                     goalsRP[rr].push_back(waypoints[i][j]);
-                                    goalsRPH[rr].push_back((int)round(((float)getActMapValue(rr,i,j))/((float)jump)));
+                                    //goalsRPH[rr].push_back((int)round(((float)getActMapValue(rr,i,j))/((float)jump)));
+                                    goalsRPH[rr].push_back((int)ceil(((float)getActMapValue(rr,i,j))/((float)jump)));
                                 }
                             }
                         }
