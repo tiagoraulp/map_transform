@@ -227,12 +227,17 @@ void vector_reserve(vector<cv::Point> & list, Elem sensor)
     vector_reserve(list, 2*sensor.pb);
 }
 
+/// opt_rep - while doing raycasting, saves valid points as visible - done with matrix
+/// opt_repM - same as before, but with list instead of matrix - should be more efficient
+///
+/// opt - helix around test point for reach search, instead of square matrix
+
 template <typename T, typename T2>
 cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool opt_rep, bool opt_repM)
 {
     cv::Mat result=map.clone();
 
-    cv::Mat test_points=cv::Mat::ones(map.rows, map.cols, CV_8UC1)*255, test_pt_temp=cv::Mat(0,0,CV_8UC1);//, test_pt_temp2=cv::Mat::ones(map.rows, map.cols, CV_8UC1)*255;
+    cv::Mat test_points=cv::Mat::ones(map.rows, map.cols, CV_8UC1)*255, test_pt_temp=cv::Mat(0,0,CV_8UC1);
 
     if(opt_repM)
         opt_rep=false;
@@ -282,7 +287,6 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool o
             {
                 if(test_points.at<uchar>(i,j)!=255)
                 {
-                    //test_pt_temp2.at<uchar>(i,j)=0;
                     continue;
                 }
             }
@@ -317,21 +321,26 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt, cv::Mat act, bool o
                     found=true;
             }
 
+            /// TODO: check if lists can be used even if ray casting returns false
+            /// in principle yes, because lists include valid points until raycasting detected obstacle and returned false
+            /// but needs to guarantee false points are not included (e.g. last point)
+
+            if(opt_rep)
+            {
+                test_points=test_pt_temp.clone();
+            }
+
+            if(opt_repM)
+            {
+                for(unsigned int ir=0;ir<pt_vis_list.size();ir++)
+                {
+                    if( found || (pt_vis_list[ir].x!=i || pt_vis_list[ir].y!=j) )
+                        test_points.at<uchar>(pt_vis_list[ir].x,pt_vis_list[ir].y)=0;
+                }
+            }
+
             if(found)
             {
-                if(opt_rep)
-                {
-                    test_points=test_pt_temp.clone();
-                }
-
-                if(opt_repM)
-                {
-                    for(unsigned int ir=0;ir<pt_vis_list.size();ir++)
-                    {
-                        test_points.at<uchar>(pt_vis_list[ir].x,pt_vis_list[ir].y)=0;
-                    }
-                }
-
                 continue;
             }
 
@@ -408,23 +417,28 @@ cv::Mat bf_pt(cv::Mat map, T pt, T2 defl, cv::Mat vis, bool opt_rep, bool opt_re
             if(bf_sq( map, reach , defl, i, j, test_pt_temp, pt_vis_list) )
                 found=true;
 
+            /// TODO: check if lists can be used even if ray casting returns false
+            /// in principle yes, because lists include valid points until raycasting detected obstacle and returned false
+            /// but needs to guarantee false points are not included (e.g. last point)
+
+            if(opt_rep)
+            {
+                test_points=test_pt_temp.clone();
+            }
+
+            if(opt_repM)
+            {
+                for(unsigned int ir=0;ir<pt_vis_list.size();ir++)
+                {
+                    if( found || (pt_vis_list[ir].x!=i || pt_vis_list[ir].y!=j) )
+                        test_points.at<uchar>(pt_vis_list[ir].x,pt_vis_list[ir].y)=0;
+                    if(pt_vis_list[ir].x==182 && pt_vis_list[ir].y==11)
+                        cout<<"182,11 by: "<< i<<"; "<<j <<endl;
+                }
+            }
+
             if(found)
             {
-                if(opt_rep)
-                {
-                    test_points=test_pt_temp.clone();
-                }
-
-                if(opt_repM)
-                {
-                    for(unsigned int ir=0;ir<pt_vis_list.size();ir++)
-                    {
-                        test_points.at<uchar>(pt_vis_list[ir].x,pt_vis_list[ir].y)=0;
-                        if(pt_vis_list[ir].x==182 && pt_vis_list[ir].y==11)
-                            cout<<"182,11 by: "<< i<<"; "<<j <<endl;
-                    }
-                }
-
                 continue;
             }
 

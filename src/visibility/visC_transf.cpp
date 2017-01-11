@@ -335,7 +335,8 @@ cv::Mat_<int> create_robot_model(int size){
     cv::Mat_<int> ret=cv::Mat_<int>::zeros(2*size+1, 2*size+1);
     for(int i=0;i<ret.rows;i++){
         for(int j=0;j<ret.cols;j++){
-            if( round(sqrt((i-size)*(i-size)+(j-size)*(j-size)))<=round((size)) ){
+            if( ((i-size)*(i-size)+(j-size)*(j-size))<=(size*size) ){
+            //if( round(sqrt((i-size)*(i-size)+(j-size)*(j-size)))<=round((size)) ){
                 ret(i,j)=1;
             }
         }
@@ -625,8 +626,8 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             //t3=ros::Time::now();
 
-            map_truth=brute_force(eff_gt, reach_list,defl, false, map_act,true, true);
-            //map_truth=brute_force(map_or, reach_list,defl, false, map_act,true, true);
+            map_truth=brute_force(eff_gt, reach_list,defl, false, map_act,false, false);
+            //map_truth=brute_force(map_or, reach_list,defl, false, map_act,false, false);
 
             cout<<"VM: "<<(unsigned int)map_vis.at<uchar>(182,11)<<"; GT: "<<(unsigned int)map_truth.at<uchar>(182,11)<<endl;
 
@@ -929,7 +930,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                         else
                         {
                             //cout<<"Here: "<<crit_point.x<<"; "<<crit_point.y<<endl;
-                            vis_map_temp=bf_pt(map_or, crit_point, defl, vis_map_temp, true, true);
+                            vis_map_temp=bf_pt(map_or, crit_point, defl, vis_map_temp, false, false);
 
                             if(k==1)
                             {

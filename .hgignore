@@ -66,3 +66,4 @@ pddl/paths.txt
 pddl/input.lisp
 pddl/unfeasible.lisp
 images/*
+pddl/new lab.zip

@@ -3,12 +3,16 @@
 
 using namespace std;
 
+/// opt and dest define angle
+/// ref is starting point
+/// dist_t is maximum distance from opt
+
 bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest, float dist_t, bool (*func)(cv::Mat *,cv::Point2i,cv::Point2i),  cv::Mat & test_pt, vector<cv::Point> & list)
 {
     bool boost=true, boost_list=true;
     if(test_pt.rows!=map->rows && test_pt.cols!=map->cols)
         boost=false;
-    if(list.size()!=1)
+    if(list.size()==0)
         boost_list=false;
 
     float angle=atan2(dest.y-opt.y, dest.x-opt.x);
@@ -75,6 +79,10 @@ bool raytracing(cv::Mat *map, cv::Point2i opt, cv::Point2i ref, cv::Point2i dest
         if(cos_ang!=0)
         {
             temp_tx=(p_x+sign_x*0.5-tempx)/cos_ang;
+            /// TODO: understand this. only equal to zero if rounding before has error.
+            /// And in that case, correcting 0 might not be good, and maybe it would be self correcting if temp=0.
+            /// But if that was the case, why did I add this here?... Probably it was stuck in infinite cycle!
+            /// if solution is not correct, there would be lines jumping middle points (both when printing or checking)...
             if(temp_tx==0)
                 temp_tx=sign_x*1/cos_ang;
             if(sin_ang!=0)
