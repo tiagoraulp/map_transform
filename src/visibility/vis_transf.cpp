@@ -290,7 +290,7 @@ bool Vis_transf<T>::getPos(cv::Point3i&pos)
 }
 
 template <typename T>
-vector<cv::Point> Vis_transf<T>::expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp)
+vector<cv::Point> Vis_transf<T>::expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp, vector<cv::Point> &vis_map_temp_list)
 {
     vector<cv::Point> occ;
     for(int rowx=max((crit.x-defl),0);rowx<=min((crit.x+defl),regions.rows-1);rowx++)
@@ -309,6 +309,7 @@ vector<cv::Point> Vis_transf<T>::expVisibility_obs(cv::Point2i crit, int defl, c
             if(reg && (dist<=(1*defl*defl)) && (regions.at<uchar>(rowx,coly)==(k+2) ) )
             {
                 vis_map_temp.at<uchar>(rowx,coly)=255;
+                vis_map_temp_list.push_back(cv::Point(rowx,coly));
             }
             else if (reg && (dist<=(1*defl*defl)) && (map_or.at<uchar>(rowx,coly)==0) )
             {

@@ -360,7 +360,6 @@ cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size){
     vc.push_back(pos);
     reach(pos.x,pos.y)=0;
 
-
     while(vc.size()!=0){
         //cout<<vc[0].x<<" "<<vc[0].y<<" "<<ret(vc[0].x,vc[0].y)<<endl;
         int lx=boundPos(vc[0].x-size,r_map.rows);
@@ -381,9 +380,6 @@ cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size){
         }
         vc.erase(vc.begin());
     }
-
-    cout<<cv::countNonZero(ret)<<"; Size: "<<ret.rows*ret.cols<<endl;
-
     return ret;
 }
 
@@ -395,18 +391,31 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
     cv::Mat r_map=map_erosionOp.clone();
 
+    ros::Time tt;
+
+    tt=ros::Time::now();
+
     bool new_v=reachability_map(pos,r_map);
+
+    ros::Duration diff_tt = ros::Time::now() - tt;
+
 
     if( (new_v) || (prev.x<0) || (prev.y<0) || proc )  //if visibility is changed
     {
+        //cout<<"Time Reach: "<<diff_tt<<endl;
+
+
         int rad=min(infl,defl);  //if defl<infl, visibility is given by morphological closing
 
         //ros::Time ttt;
 
         //ttt=ros::Time::now();
 
+        tt=ros::Time::now();
         cv::Mat_<int> dist_transf=actuation_transform(r_map, cv::Point(pos.x,pos.y), rad);
-        //cout<<ros::Time::now()-ttt<<endl;
+        //cout<<"Time Act_Transf: "<<ros::Time::now()-tt<<endl;
+
+        tt=ros::Time::now();
         double min_, max_;
         cv::minMaxLoc(dist_transf, &min_, &max_);
         cv::Mat dist;
@@ -417,30 +426,37 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         cv::imwrite(filename, dist);
 
         act_dist=dist_transf;
+        //cout<<"Time Act_Transf Post Processing: "<<ros::Time::now()-tt<<endl;
 
 
+        tt=ros::Time::now();
         cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
                                                cv::Size( 2*rad + 1, 2*rad+1 ),
                                                cv::Point( rad, rad ) );
 
         cv::Mat act_map=r_map.clone();
 
-        ttt=ros::Time::now();
-
         dilate( act_map, act_map, element);  //actuation space
 
-        cout<<ros::Time::now()-ttt<<endl;
+        //cout<<"Time Dilation: "<<ros::Time::now()-tt<<endl;
+
 
         cv::Mat vis_map=act_map.clone();
 
+        tt=ros::Time::now();
+
         Unreachable unreach(map_or, act_map);
+
+        //cout<<"Time Unreach: "<<ros::Time::now()-tt<<endl;
 
         map_debug=unreach.unreach_map;
 
+        tt=ros::Time::now();
         if(infl<defl)  //extended sensing radius
         {
             vis_map=ext_vis(unreach, vis_map, r_map, opt);
         }
+        //cout<<"Time Ext_Vis: "<<ros::Time::now()-tt<<endl;
 
         map_label=r_map;
         map_act=act_map;
@@ -495,12 +511,12 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         cv::Mat sens2, sens3;
         sensor_mod.convertTo(sens2, CV_8U , 255 / maxR_);
-        cout<<sens.rows<<" "<<sens.cols<<" "<<sens2.rows<<" "<<sens2.cols<<endl;
+        //cout<<sens.rows<<" "<<sens.cols<<" "<<sens2.rows<<" "<<sens2.cols<<endl;
 
         //value = Scalar( 0, rng.uniform(0, 255), rng.uniform(0, 255) );
         copyMakeBorder( sens2, sens3, 2, 2, 2, 2, cv::BORDER_CONSTANT, 0 );
 
-        cout<<sens2.rows<<" "<<sens2.cols<<" "<<sens3.rows<<" "<<sens3.cols<<endl;
+        //cout<<sens2.rows<<" "<<sens2.cols<<" "<<sens3.rows<<" "<<sens3.cols<<endl;
 
         cv::imshow("sensor",sens-sens3);
 
@@ -572,13 +588,14 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             map_debug=eff_gt.clone();
 
-//            t3=ros::Time::now();
+            t3=ros::Time::now();
 
-//            map_truth=brute_force(map_or, map_label,defl, true, map_act);
+            map_truth=brute_force(eff_gt, map_label,defl, true, map_act,false, false);
+            //map_truth=brute_force(map_or, map_label,defl, true, map_act);
 
-//            diff = ros::Time::now() - t3;
+            diff = ros::Time::now() - t3;
 
-//            ROS_INFO("%s - Time for  Optimized brute force sq with act: %f", tf_pref.c_str(), diff.toSec());
+            ROS_INFO("%s - Time for  Optimized brute force sq with act: %f", tf_pref.c_str(), diff.toSec());
 
 //            cv::imshow("TestSQwA",this->map_truth);
 //            cv::waitKey(3);
@@ -626,14 +643,14 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             //t3=ros::Time::now();
 
-            map_truth=brute_force(eff_gt, reach_list,defl, false, map_act,false, false);
+            //map_truth=brute_force(eff_gt, reach_list,defl, false, map_act,false, false);
             //map_truth=brute_force(map_or, reach_list,defl, false, map_act,false, false);
 
             cout<<"VM: "<<(unsigned int)map_vis.at<uchar>(182,11)<<"; GT: "<<(unsigned int)map_truth.at<uchar>(182,11)<<endl;
 
-            diff = ros::Time::now() - t3;
+            //diff = ros::Time::now() - t3;
 
-            ROS_INFO("%s - Time for  Optimized brute force list with act: %f", tf_pref.c_str(), diff.toSec());
+            //ROS_INFO("%s - Time for  Optimized brute force list with act: %f", tf_pref.c_str(), diff.toSec());
 
             //cv::imshow("TestLwA",this->map_truth);
             //cv::waitKey(3);
@@ -693,11 +710,14 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
 cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map, bool optRay)
 {
+    ros::Time tt=ros::Time::now();
     unreach.getFrontiers();
+    //cout<<" - time Frontiers: "<<ros::Time::now()-tt<<endl;
 
     cv::Mat regions=unreach.regions;
 
     cv::Mat vis_map_temp;
+    vector<cv::Point> vis_map_temp_list;
 
     CritPoints critP(map_or, r_map, infl);
 
@@ -705,7 +725,6 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
     //vis_.assign(vis_map.rows*vis_map.cols, -2);
     vis_.vis.assign(vis_map.rows*vis_map.cols, -2);
     vis_.crit_points.assign(vis_map.rows*vis_map.cols,map_transform::VisNode());
-
 
     for (unsigned int k=0;k<unreach.frontiers.size();k++){//1;k++){//
         long int countP=0;
@@ -716,7 +735,9 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
             if(frontier.size()>0)
             {
+                tt=ros::Time::now();
                 cv::Point2i crit=critP.find_crit_point(frontier);
+                //cout<<" - time Crit Point "<<k<<";"<<ff<<": "<<ros::Time::now()-tt<<endl;
 
                 if(!critP.valid())
                 {
@@ -725,7 +746,9 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                 }
                 else
                 {
+                    tt=ros::Time::now();
                     critP.frontier_extremes();
+                    //cout<<" - time Frontier Extremes: "<<ros::Time::now()-tt<<endl;
 
                     //// TODO:neighbor points
 
@@ -738,7 +761,9 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
                         cv::Point2i crit_point=crit;
                         vector<float> extremes=critP.getExtremes();
+                        tt=ros::Time::now();
                         unsigned int obt=critP.getObt();
+                        //cout<<" - time Determine Obtuse: "<<ros::Time::now()-tt<<endl;
 
                         //cout<<"Region: "<<k<<"; Frontier: "<<ff<<"; Attempt: "<<n_w<<endl;
 
@@ -852,9 +877,11 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                         }
 
                         vis_map_temp = cv::Mat::zeros(regions.rows, regions.cols, CV_8UC1)*255;
+                        vis_map_temp_list.clear();
 
-                        vector<cv::Point> occ=expVisibility_obs(crit_point, defl, regions, k, extremes, obt, vis_map_temp);
-
+                        tt=ros::Time::now();
+                        vector<cv::Point> occ=expVisibility_obs(crit_point, defl, regions, k, extremes, obt, vis_map_temp, vis_map_temp_list);
+                        //cout<<" - time Expetected Visibility: "<<ros::Time::now()-tt<<endl;
 
 
                         if(optRay)
@@ -930,7 +957,11 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                         else
                         {
                             //cout<<"Here: "<<crit_point.x<<"; "<<crit_point.y<<endl;
-                            vis_map_temp=bf_pt(map_or, crit_point, defl, vis_map_temp, false, false);
+                            tt=ros::Time::now();
+                            //vis_map_temp=bf_pt(map_or, crit_point, defl, vis_map_temp, false, false);
+                            vis_map_temp=bf_pt_v2(map_or, crit_point, defl, vis_map_temp, false, false, vis_map_temp_list);
+                            //vis_map_temp=bf_pt_v2(map_or, crit_point, defl, vis_map_temp, false, false);
+                            //cout<<" - time True Visibility: "<<ros::Time::now()-tt<<endl;
 
                             if(k==1)
                             {
@@ -952,6 +983,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                                 cv::waitKey(3);
                             }
 
+                            tt=ros::Time::now();
                             for(int xx=0;xx<vis_map_temp.rows;xx++)
                             {
                                 for(int yy=0;yy<vis_map_temp.cols;yy++)
@@ -991,6 +1023,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                                     }
                                 }
                             }
+                            //cout<<" - time Post Processing: "<<ros::Time::now()-tt<<endl;
                         }
                     }
                 }

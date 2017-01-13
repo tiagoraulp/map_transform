@@ -10,6 +10,9 @@ cv::Mat brute_force(cv::Mat map, T reach, T2 defl, bool opt=true, cv::Mat act=cv
 template <typename T, typename T2>
 cv::Mat bf_pt(cv::Mat map, T pt, T2 defl, cv::Mat vis, bool opt_rep=false, bool opt_repM=false);
 
+template <typename T, typename T2>
+cv::Mat bf_pt_v2(cv::Mat map, T pt, T2 defl, cv::Mat vis, bool opt_rep=false, bool opt_repM=false, std::vector<cv::Point> map_list=std::vector<cv::Point>(0) );
+
 std::vector<cv::Point> bf_hlx(Elem sensor);
 
 float coverage(cv::Mat test, cv::Mat truth);
