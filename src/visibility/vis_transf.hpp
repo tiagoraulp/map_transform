@@ -32,9 +32,10 @@ protected:
     bool _debug, gt, gt_c, changed, changed2;
     double rxr,ryr, rtr;
     bool changed_p;
+    double map_scale;
     T _config;
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
-    cv::Mat cv_map, map_or, map_erosionOp, map_closeOp, map_label , map_act, map_vis, map_debug, map_truth, map_erosionOpPrintColor,
+    cv::Mat cv_map, cv_map_scaled, map_or, map_erosionOp, map_closeOp, map_label , map_act, map_vis, map_debug, map_truth, map_erosionOpPrintColor,
             map_comp;
 
     std::vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp, std::vector<cv::Point> &vis_map_temp_list);

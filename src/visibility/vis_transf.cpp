@@ -6,6 +6,8 @@
 #include "obs_extremes.hpp"
 #include "clustering.hpp"
 
+#include "opencv2/imgproc/imgproc.hpp"
+
 #include <map_transform/ParametersConfig.h>
 #include <map_transform/ParametersncConfig.h>
 
@@ -82,6 +84,8 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     changed=false;
     changed2=false;
     changed_p=false;
+
+    map_scale=1;
 }
 
 template <typename T>
@@ -94,6 +98,8 @@ Vis_transf<T>::~Vis_transf()
 template <typename T>
 nav_msgs::OccupancyGrid Vis_transf<T>::Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg)
 {
+    cv::resize(map, map, cv::Size(0,0), 1/map_scale, 1/map_scale, cv::INTER_NEAREST);
+
     nav_msgs::OccupancyGrid n_msg;
     n_msg.header.stamp = ros::Time::now();
     n_msg.header.frame_id = msg.header.frame_id;
@@ -174,6 +180,8 @@ void Vis_transf<T>::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     msg_rcv=*msg;
 
     treated2=treated;
+
+    cv::resize(cv_map, cv_map_scaled, cv::Size(0,0), map_scale, map_scale, cv::INTER_NEAREST);
 }
 
 template <typename T>

@@ -69,7 +69,8 @@ Elem multiRobot(cv::Mat elem, cv::Point2f& pt, double orient ,double scale, int 
         cv::Mat elem_t;
         cv::Mat r = cv::getRotationMatrix2D(cv::Point2f(pt.y,pt.x), orient+(360.0/res*i), scale);
 
-        cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
+        //cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
+        cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols),cv::INTER_NEAREST);
 
         result.elems.push_back(elem_t);
 
@@ -137,11 +138,13 @@ Elem multiSensor(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int 
     //result.pb=pb;
     //result.pu=pu;
 
-    cv::Mat r = cv::getRotationMatrix2D(cv::Point2f(pt.y,pt.x), orient, scale);
+    //cv::Mat r = cv::getRotationMatrix2D(cv::Point2f(pt.y,pt.x), orient, scale);
+    cv::Mat r = cv::getRotationMatrix2D(cv::Point2f(pt.y,pt.x), orient, 1.0);
 
     cv::Mat elem_t;
 
-    cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
+    //cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
+    cv::warpAffine(elem, elem_t, r, cv::Size(elem.rows, elem.cols),cv::INTER_NEAREST);
 
     double thr=128;
 
@@ -150,9 +153,11 @@ Elem multiSensor(cv::Mat elem, cv::Point2f pt, double orient ,double scale, int 
     for(int i=0;i<res;i++) //rotating images
     {
         cv::Mat elem_f;
-        r = cv::getRotationMatrix2D(cv::Point2f(pt2.y,pt2.x), (360.0/res*i), 1.0);
+        //r = cv::getRotationMatrix2D(cv::Point2f(pt2.y,pt2.x), (360.0/res*i), 1.0);
+        r = cv::getRotationMatrix2D(cv::Point2f(pt2.y,pt2.x), (360.0/res*i), scale);
 
-        cv::warpAffine(elem_t, elem_f, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
+        //cv::warpAffine(elem_t, elem_f, r, cv::Size(elem.rows, elem.cols),cv::INTER_LINEAR);
+        cv::warpAffine(elem_t, elem_f, r, cv::Size(elem.rows, elem.cols),cv::INTER_NEAREST);
 
         threshold(elem_f, elem_f, thr, 255, cv::THRESH_BINARY);
 

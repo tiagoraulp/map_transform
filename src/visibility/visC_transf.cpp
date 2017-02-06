@@ -234,7 +234,7 @@ bool VisC_transf::conf_space(void)
 
     cv::Mat or_map, er_map, cr_map;
 
-    or_map=cv_map.clone();
+    or_map=cv_map_scaled.clone();
     msg_rcv_pub=msg_rcv;
 
     cv::erode( or_map, er_map, element);//,cv::Point(-1,-1),1,cv::BORDER_CONSTANT,0);//cv::morphologyDefaultBorderValue());
@@ -399,6 +399,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
     ros::Duration diff_tt = ros::Time::now() - tt;
 
+    //defl=infl;
 
     if( (new_v) || (prev.x<0) || (prev.y<0) || proc )  //if visibility is changed
     {

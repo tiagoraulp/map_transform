@@ -218,7 +218,8 @@ bool VisNC_transf::conf_space(void)
 {
     cv::Mat or_map, er_map, cl_map, or_mapN;
 
-    or_map=this->cv_map.clone();
+    //or_map=this->cv_map.clone();
+    or_map=this->cv_map_scaled.clone();
     this->msg_rcv_pub=this->msg_rcv;
 
 
@@ -232,6 +233,8 @@ bool VisNC_transf::conf_space(void)
 
     cv::Point2f pt3=cv::Point2f(sensor.rows*scx,sensor.cols*scy);
     pt2=pt-pt2+pt3; //center of robot in sensor image referential
+
+    //sdefl=rinfl;
 
     sensor_or=multiSensor(this->sensor.clone(), pt3,this->sct, this->sdefl, this->angle_res, pt2);// creating multi layer sensor image
 
