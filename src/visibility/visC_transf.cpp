@@ -399,6 +399,8 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
     ros::Duration diff_tt = ros::Time::now() - tt;
 
+    small_frontiers.clear();
+
     //defl=infl;
 
     if( (new_v) || (prev.x<0) || (prev.y<0) || proc )  //if visibility is changed
@@ -579,9 +581,15 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
                 }
             }
 
-            vector<cv::Point> labels_gt=label_seed(map_or.clone()/255,4,cv::Point(pos.x,pos.y));
+            cv::Mat map_gt=map_or.clone();
 
-            cv::Mat eff_gt=cv::Mat::zeros(map_or.rows,map_or.cols, CV_8UC1);
+            for(unsigned int j=0;j<small_frontiers.size();j++){
+                   map_gt.at<uchar>(small_frontiers[j].x,small_frontiers[j].y)=0;
+            }
+
+            vector<cv::Point> labels_gt=label_seed(map_gt.clone()/255,4,cv::Point(pos.x,pos.y));
+
+            cv::Mat eff_gt=cv::Mat::zeros(map_gt.rows,map_gt.cols, CV_8UC1);
 
             for(unsigned int j=0;j<labels_gt.size();j++){
                    eff_gt.at<uchar>(labels_gt[j].x,labels_gt[j].y)=255;
@@ -592,7 +600,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             t3=ros::Time::now();
 
             map_truth=brute_force(eff_gt, map_label,defl, true, map_act,false, false);
-            //map_truth=brute_force(map_or, map_label,defl, true, map_act);
+            //map_truth=brute_force(map_gt, map_label,defl, true, map_act);
 
             diff = ros::Time::now() - t3;
 
@@ -605,7 +613,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
 //            t3=ros::Time::now();
 
-//            map_truth=brute_force(map_or, map_label,defl, true);
+//            map_truth=brute_force(map_gt, map_label,defl, true);
 
 //            diff = ros::Time::now() - t3;
 
@@ -618,7 +626,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
 //            t3=ros::Time::now();
 
-//            map_truth=brute_force(map_or, map_label,defl, false, map_act);
+//            map_truth=brute_force(map_gt, map_label,defl, false, map_act);
 
 //            diff = ros::Time::now() - t3;
 
@@ -631,7 +639,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
 //            t3=ros::Time::now();
 
-//            map_truth=brute_force(map_or, map_label,defl, false);
+//            map_truth=brute_force(map_gt, map_label,defl, false);
 
 //            diff = ros::Time::now() - t3;
 
@@ -645,7 +653,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             //t3=ros::Time::now();
 
             //map_truth=brute_force(eff_gt, reach_list,defl, false, map_act,false, false);
-            //map_truth=brute_force(map_or, reach_list,defl, false, map_act,false, false);
+            //map_truth=brute_force(map_gt, reach_list,defl, false, map_act,false, false);
 
             cout<<"VM: "<<(unsigned int)map_vis.at<uchar>(182,11)<<"; GT: "<<(unsigned int)map_truth.at<uchar>(182,11)<<endl;
 
@@ -693,7 +701,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
 //            t3=ros::Time::now();
 
-//            map_truth=brute_force(map_or, reach_list,defl, false);
+//            map_truth=brute_force(map_gt, reach_list,defl, false);
 
 //            diff = ros::Time::now() - t3;
 
@@ -734,7 +742,9 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
         {
             vector<cv::Point> frontier=unreach.frontiers[k][ff];
 
-            if(frontier.size()>0)
+            int frontier_size_threshold=2;
+
+            if(unreach.checkFrontierSize(k,ff)>frontier_size_threshold)
             {
                 tt=ros::Time::now();
                 cv::Point2i crit=critP.find_crit_point(frontier);
@@ -1027,6 +1037,11 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                             //cout<<" - time Post Processing: "<<ros::Time::now()-tt<<endl;
                         }
                     }
+                }
+            }
+            else{
+                for(unsigned int pt=0;pt<frontier.size();pt++){
+                    small_frontiers.push_back(frontier[pt]);
                 }
             }
         }

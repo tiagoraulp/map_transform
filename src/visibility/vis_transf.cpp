@@ -13,16 +13,16 @@
 
 using namespace std;
 
-mutex mtx;
+//mutex mtx;
 
 static const double PI = 3.141592653589793;
 
 template <typename T>
 void Vis_transf<T>::callbackParameters(T &config, uint32_t level) {
-    mtx.lock();
+    //mtx.lock();
     changed_p=true;
     _config=config;
-    mtx.unlock();
+    //mtx.unlock();
 }
 
 template <typename T>
@@ -32,7 +32,7 @@ void Vis_transf<T>::update(bool _opt)
 
     T config;
 
-    mtx.lock();
+    //mtx.lock();
 
     bool prev_changed_p=false;
 
@@ -45,7 +45,7 @@ void Vis_transf<T>::update(bool _opt)
         proc=true;
     }
 
-    mtx.unlock();
+    //mtx.unlock();
 
     if(proc)
     {
@@ -86,6 +86,7 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     changed_p=false;
 
     map_scale=1;
+    small_frontiers.clear();
 }
 
 template <typename T>

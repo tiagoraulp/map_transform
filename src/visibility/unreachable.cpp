@@ -2,6 +2,7 @@
 
 #include "labelling.hpp"
 #include "clustering.hpp"
+#include "vector_utils.hpp"
 
 using namespace std;
 
@@ -101,4 +102,40 @@ void Unreachable::getRegions(cv::Mat map_or, cv::Mat act_map)
 
     act=act_map.clone();
     map=map_or.clone();
+}
+
+int Unreachable::checkFrontierSize(unsigned int k, unsigned int ff){
+    if(k>=frontiers.size())
+        return -1;
+    if(ff>=frontiers[k].size())
+        return -1;
+    int result=0;
+    cv::Mat temp=unreach_map.clone();
+    vector<cv::Point>frontier=frontiers[k][ff];
+    for(unsigned int i=0; i<frontier.size();i++){
+        temp.at<uchar>(frontier[i].x,frontier[i].y)=255;
+    }
+    for(unsigned int fr=0; fr<frontier.size();fr++){
+        int lx=boundPos(frontier[fr].x-1,temp.rows);
+        int ux=boundPos(frontier[fr].x+1,temp.rows);
+        int ly=boundPos(frontier[fr].y-1,temp.cols);
+        int uy=boundPos(frontier[fr].y+1,temp.cols);
+        bool stop=false;
+        for(int i=lx; i<=ux; i++){
+            for(int j=ly; j<=uy; j++){
+                if( temp.at<uchar>(i,j)==0 ){
+                    if( max( abs(frontier[fr].x-i),abs(frontier[fr].y-j) )==1 ){
+                        stop=true;
+                        break;
+                    }
+                }
+            }
+            if(stop)
+                break;
+        }
+        if(stop){
+            result++;
+        }
+    }
+    return result;
 }

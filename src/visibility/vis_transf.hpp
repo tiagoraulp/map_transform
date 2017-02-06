@@ -5,7 +5,7 @@
 #include <tf/transform_listener.h>
 #include <dynamic_reconfigure/server.h>
 #include <opencv2/core/core.hpp>
-#include <mutex>
+//#include <mutex>
 
 template <typename T>
 class Vis_transf{
@@ -37,6 +37,7 @@ protected:
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
     cv::Mat cv_map, cv_map_scaled, map_or, map_erosionOp, map_closeOp, map_label , map_act, map_vis, map_debug, map_truth, map_erosionOpPrintColor,
             map_comp;
+    std::vector<cv::Point> small_frontiers;
 
     std::vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp, std::vector<cv::Point> &vis_map_temp_list);
     std::vector<cv::Point> getExtremeFromObstacles(std::vector<cv::Point> occ, cv::Point2i crit);
@@ -66,7 +67,7 @@ public:
     virtual void run(bool _opt=true);
 };
 
-extern std::mutex mtx;
+//extern std::mutex mtx;
 
 
 

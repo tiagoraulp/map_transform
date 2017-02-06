@@ -304,6 +304,8 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map, cv::Mat ac
         int ly=boundPos(result.cluster[k].y-1,result.img.cols);
         int uy=boundPos(result.cluster[k].y+1,result.img.cols);
 
+
+        //// WHY NOT USE METHOD TRUE ALWAYS? 2-connectivity test should be enough...
         if(method)
         {
             int sum=0;
@@ -366,6 +368,7 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map, cv::Mat ac
 
             //// Possibly more than 2 points if just searching for obstacle
             /// solved with search for actuation point as neighbor. Needs Proof!!!!!!!
+            /// Looks very unreliable.....
         }
     }
 

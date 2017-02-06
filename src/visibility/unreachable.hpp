@@ -19,6 +19,7 @@ public:
     Unreachable(cv::Mat map_or, cv::Mat act_map);
     void getFrontiers(void);
     void getFrontiers2(void);
+    int checkFrontierSize(unsigned int k, unsigned int ff);
 };
 
 #endif // UNREACHABLE_HPP
