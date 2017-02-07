@@ -222,6 +222,234 @@ void VisC_transf::show(void)
     }
 }
 
+void thinningIteration(cv::Mat& im, int iter)
+{
+    cv::Mat marker = cv::Mat::zeros(im.size(), CV_8UC1);
+
+    for (int i = 1; i < im.rows-1; i++)
+    {
+        for (int j = 1; j < im.cols-1; j++)
+        {
+            uchar p2 = im.at<uchar>(i-1, j);
+            uchar p3 = im.at<uchar>(i-1, j+1);
+            uchar p4 = im.at<uchar>(i, j+1);
+            uchar p5 = im.at<uchar>(i+1, j+1);
+            uchar p6 = im.at<uchar>(i+1, j);
+            uchar p7 = im.at<uchar>(i+1, j-1);
+            uchar p8 = im.at<uchar>(i, j-1);
+            uchar p9 = im.at<uchar>(i-1, j-1);
+
+            int A  = (p2 == 0 && p3 == 1) + (p3 == 0 && p4 == 1) +
+                     (p4 == 0 && p5 == 1) + (p5 == 0 && p6 == 1) +
+                     (p6 == 0 && p7 == 1) + (p7 == 0 && p8 == 1) +
+                     (p8 == 0 && p9 == 1) + (p9 == 0 && p2 == 1);
+            int B  = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+            int m1 = iter == 0 ? (p2 * p4 * p6) : (p2 * p4 * p8);
+            int m2 = iter == 0 ? (p4 * p6 * p8) : (p2 * p6 * p8);
+
+            if (A == 1 && (B >= 2 && B <= 6) && m1 == 0 && m2 == 0)
+                marker.at<uchar>(i,j) = 1;
+        }
+    }
+
+    im &= ~marker;
+}
+
+
+cv::Mat skel3(cv::Mat img) // zhang suen thinning
+{
+    bitwise_not(img,img);
+    img /= 255;
+
+    cv::Mat prev = cv::Mat::zeros(img.size(), CV_8UC1);
+    cv::Mat diff;
+
+    do {
+        thinningIteration(img, 0);
+        thinningIteration(img, 1);
+        cv::absdiff(img, prev, diff);
+        img.copyTo(prev);
+    }
+    while (cv::countNonZero(diff) > 0);
+
+    img *= 255;
+    bitwise_not(img,img);
+
+    return img;
+}
+
+void ThinSubiteration1(cv::Mat & pSrc, cv::Mat & pDst) {
+    int rows = pSrc.rows;
+    int cols = pSrc.cols;
+    pSrc.copyTo(pDst);
+    for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < cols; j++) {
+                    if(pSrc.at<float>(i, j) == 1.0f) {
+                            /// get 8 neighbors
+                            /// calculate C(p)
+                            int neighbor0 = (int) pSrc.at<float>( i-1, j-1);
+                            int neighbor1 = (int) pSrc.at<float>( i-1, j);
+                            int neighbor2 = (int) pSrc.at<float>( i-1, j+1);
+                            int neighbor3 = (int) pSrc.at<float>( i, j+1);
+                            int neighbor4 = (int) pSrc.at<float>( i+1, j+1);
+                            int neighbor5 = (int) pSrc.at<float>( i+1, j);
+                            int neighbor6 = (int) pSrc.at<float>( i+1, j-1);
+                            int neighbor7 = (int) pSrc.at<float>( i, j-1);
+                            int C = int(~neighbor1 & ( neighbor2 | neighbor3)) +
+                                             int(~neighbor3 & ( neighbor4 | neighbor5)) +
+                                             int(~neighbor5 & ( neighbor6 | neighbor7)) +
+                                             int(~neighbor7 & ( neighbor0 | neighbor1));
+                            if(C == 1) {
+                                    /// calculate N
+                                    int N1 = int(neighbor0 | neighbor1) +
+                                                     int(neighbor2 | neighbor3) +
+                                                     int(neighbor4 | neighbor5) +
+                                                     int(neighbor6 | neighbor7);
+                                    int N2 = int(neighbor1 | neighbor2) +
+                                                     int(neighbor3 | neighbor4) +
+                                                     int(neighbor5 | neighbor6) +
+                                                     int(neighbor7 | neighbor0);
+                                    int N = cv::min(N1,N2);
+                                    if ((N == 2) || (N == 3)) {
+                                            /// calculate criteria 3
+                                            int c3 = ( neighbor1 | neighbor2 | ~neighbor4) & neighbor3;
+                                            if(c3 == 0) {
+                                                    pDst.at<float>( i, j) = 0.0f;
+                                            }
+                                    }
+                            }
+                    }
+            }
+    }
+}
+
+
+void ThinSubiteration2(cv::Mat & pSrc, cv::Mat & pDst) {
+    int rows = pSrc.rows;
+    int cols = pSrc.cols;
+    pSrc.copyTo( pDst);
+    for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < cols; j++) {
+                    if (pSrc.at<float>( i, j) == 1.0f) {
+                            /// get 8 neighbors
+                            /// calculate C(p)
+                        int neighbor0 = (int) pSrc.at<float>( i-1, j-1);
+                        int neighbor1 = (int) pSrc.at<float>( i-1, j);
+                        int neighbor2 = (int) pSrc.at<float>( i-1, j+1);
+                        int neighbor3 = (int) pSrc.at<float>( i, j+1);
+                        int neighbor4 = (int) pSrc.at<float>( i+1, j+1);
+                        int neighbor5 = (int) pSrc.at<float>( i+1, j);
+                        int neighbor6 = (int) pSrc.at<float>( i+1, j-1);
+                        int neighbor7 = (int) pSrc.at<float>( i, j-1);
+                            int C = int(~neighbor1 & ( neighbor2 | neighbor3)) +
+                                    int(~neighbor3 & ( neighbor4 | neighbor5)) +
+                                    int(~neighbor5 & ( neighbor6 | neighbor7)) +
+                                    int(~neighbor7 & ( neighbor0 | neighbor1));
+                            if(C == 1) {
+                                    /// calculate N
+                                    int N1 = int(neighbor0 | neighbor1) +
+                                            int(neighbor2 | neighbor3) +
+                                            int(neighbor4 | neighbor5) +
+                                            int(neighbor6 | neighbor7);
+                                    int N2 = int(neighbor1 | neighbor2) +
+                                            int(neighbor3 | neighbor4) +
+                                            int(neighbor5 | neighbor6) +
+                                            int(neighbor7 | neighbor0);
+                                    int N = cv::min(N1,N2);
+                                    if((N == 2) || (N == 3)) {
+                                            int E = (neighbor5 | neighbor6 | ~neighbor0) & neighbor7;
+                                            if(E == 0) {
+                                                    pDst.at<float>(i, j) = 0.0f;
+                                            }
+                                    }
+                            }
+                    }
+            }
+    }
+}
+
+
+cv::Mat skel2(cv::Mat img){ // another zhang suen algorithm for thinning
+    bool bDone = false;
+
+    bitwise_not(img,img);
+
+    int rows = img.rows;
+    int cols = img.cols;
+
+    /// start to thin
+    cv::Mat p_thinMat1 = cv::Mat::zeros(rows + 2, cols + 2, CV_32FC1);
+    cv::Mat p_thinMat2 = cv::Mat::zeros(rows + 2, cols + 2, CV_32FC1);
+    cv::Mat p_cmp = cv::Mat::zeros(rows + 2, cols + 2, CV_8UC1);
+
+    while (bDone != true) {
+            /// sub-iteration 1
+            ThinSubiteration1(img, p_thinMat1);
+            /// sub-iteration 2
+            ThinSubiteration2(p_thinMat1, p_thinMat2);
+            /// compare
+            cv::compare(img, p_thinMat2, p_cmp, CV_CMP_EQ);
+            /// check
+            int num_non_zero = countNonZero(p_cmp);
+            if(num_non_zero == (rows + 2) * (cols + 2)) {
+                    bDone = true;
+            }
+            /// copy
+            p_thinMat2.copyTo(img);
+    }
+
+    bitwise_not(img,img);
+
+    return img;
+}
+
+cv::Mat skel(cv::Mat img)
+{
+    bitwise_not(img,img);
+
+    cv::threshold(img, img, 127, 255, cv::THRESH_BINARY);
+    cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
+    cv::Mat temp;
+    cv::Mat eroded;
+
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+
+    bool done;
+    do
+    {
+      cv::erode(img, eroded, element);
+      cv::dilate(eroded, temp, element); // temp = open(img)
+      cv::subtract(img, temp, temp);
+      cv::bitwise_or(skel, temp, skel);
+      eroded.copyTo(img);
+
+      done = (cv::countNonZero(img) == 0);
+    } while (!done);
+
+    bitwise_not(skel,skel);
+
+    return skel;
+}
+
+
+cv::Mat closeWithSkel(cv::Mat img, int gap){
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(gap, gap));
+    cv::Mat cskel;
+    cv::erode(img.clone(), cskel, element);
+
+    cskel=skel3(cskel);
+    cv::bitwise_not(cskel,cskel);
+    cv::Mat img_rev;
+    cv::bitwise_not(img.clone(),img_rev);
+    cv::bitwise_or(cskel, img_rev, cskel);
+    cv::bitwise_not(cskel, cskel);
+
+    // Test - subtract closed
+
+
+    return cskel;
+}
+
 bool VisC_transf::conf_space(void)
 {
     cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
@@ -235,6 +463,13 @@ bool VisC_transf::conf_space(void)
     cv::Mat or_map, er_map, cr_map;
 
     or_map=cv_map_scaled.clone();
+    or_map=closeWithSkel(or_map, 8);
+
+    cv::imshow("Map_Original",cv_map_scaled.clone());
+    cv::waitKey(3);
+    cv::imshow("Map_skeleton",or_map);
+    cv::waitKey(3);
+
     msg_rcv_pub=msg_rcv;
 
     cv::erode( or_map, er_map, element);//,cv::Point(-1,-1),1,cv::BORDER_CONSTANT,0);//cv::morphologyDefaultBorderValue());
@@ -383,234 +618,7 @@ cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size){
     return ret;
 }
 
-void thinningIteration(cv::Mat& im, int iter)
-{
-    cv::Mat marker = cv::Mat::zeros(im.size(), CV_8UC1);
 
-    for (int i = 1; i < im.rows-1; i++)
-    {
-        for (int j = 1; j < im.cols-1; j++)
-        {
-            uchar p2 = im.at<uchar>(i-1, j);
-            uchar p3 = im.at<uchar>(i-1, j+1);
-            uchar p4 = im.at<uchar>(i, j+1);
-            uchar p5 = im.at<uchar>(i+1, j+1);
-            uchar p6 = im.at<uchar>(i+1, j);
-            uchar p7 = im.at<uchar>(i+1, j-1);
-            uchar p8 = im.at<uchar>(i, j-1);
-            uchar p9 = im.at<uchar>(i-1, j-1);
-
-            int A  = (p2 == 0 && p3 == 1) + (p3 == 0 && p4 == 1) +
-                     (p4 == 0 && p5 == 1) + (p5 == 0 && p6 == 1) +
-                     (p6 == 0 && p7 == 1) + (p7 == 0 && p8 == 1) +
-                     (p8 == 0 && p9 == 1) + (p9 == 0 && p2 == 1);
-            int B  = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
-            int m1 = iter == 0 ? (p2 * p4 * p6) : (p2 * p4 * p8);
-            int m2 = iter == 0 ? (p4 * p6 * p8) : (p2 * p6 * p8);
-
-            if (A == 1 && (B >= 2 && B <= 6) && m1 == 0 && m2 == 0)
-                marker.at<uchar>(i,j) = 1;
-        }
-    }
-
-    im &= ~marker;
-}
-
-
-cv::Mat skel3(cv::Mat img)
-{
-    bitwise_not(img,img);
-    img /= 255;
-
-    cv::Mat prev = cv::Mat::zeros(img.size(), CV_8UC1);
-    cv::Mat diff;
-
-    do {
-        thinningIteration(img, 0);
-        thinningIteration(img, 1);
-        cv::absdiff(img, prev, diff);
-        img.copyTo(prev);
-    }
-    while (cv::countNonZero(diff) > 0);
-
-    img *= 255;
-    bitwise_not(img,img);
-
-    return img;
-}
-
-void ThinSubiteration1(cv::Mat & pSrc, cv::Mat & pDst) {
-    int rows = pSrc.rows;
-    int cols = pSrc.cols;
-    pSrc.copyTo(pDst);
-    for(int i = 0; i < rows; i++) {
-            for(int j = 0; j < cols; j++) {
-                    if(pSrc.at<float>(i, j) == 1.0f) {
-                            /// get 8 neighbors
-                            /// calculate C(p)
-                            int neighbor0 = (int) pSrc.at<float>( i-1, j-1);
-                            int neighbor1 = (int) pSrc.at<float>( i-1, j);
-                            int neighbor2 = (int) pSrc.at<float>( i-1, j+1);
-                            int neighbor3 = (int) pSrc.at<float>( i, j+1);
-                            int neighbor4 = (int) pSrc.at<float>( i+1, j+1);
-                            int neighbor5 = (int) pSrc.at<float>( i+1, j);
-                            int neighbor6 = (int) pSrc.at<float>( i+1, j-1);
-                            int neighbor7 = (int) pSrc.at<float>( i, j-1);
-                            int C = int(~neighbor1 & ( neighbor2 | neighbor3)) +
-                                             int(~neighbor3 & ( neighbor4 | neighbor5)) +
-                                             int(~neighbor5 & ( neighbor6 | neighbor7)) +
-                                             int(~neighbor7 & ( neighbor0 | neighbor1));
-                            if(C == 1) {
-                                    /// calculate N
-                                    int N1 = int(neighbor0 | neighbor1) +
-                                                     int(neighbor2 | neighbor3) +
-                                                     int(neighbor4 | neighbor5) +
-                                                     int(neighbor6 | neighbor7);
-                                    int N2 = int(neighbor1 | neighbor2) +
-                                                     int(neighbor3 | neighbor4) +
-                                                     int(neighbor5 | neighbor6) +
-                                                     int(neighbor7 | neighbor0);
-                                    int N = cv::min(N1,N2);
-                                    if ((N == 2) || (N == 3)) {
-                                            /// calculate criteria 3
-                                            int c3 = ( neighbor1 | neighbor2 | ~neighbor4) & neighbor3;
-                                            if(c3 == 0) {
-                                                    pDst.at<float>( i, j) = 0.0f;
-                                            }
-                                    }
-                            }
-                    }
-            }
-    }
-}
-
-
-void ThinSubiteration2(cv::Mat & pSrc, cv::Mat & pDst) {
-    int rows = pSrc.rows;
-    int cols = pSrc.cols;
-    pSrc.copyTo( pDst);
-    for(int i = 0; i < rows; i++) {
-            for(int j = 0; j < cols; j++) {
-                    if (pSrc.at<float>( i, j) == 1.0f) {
-                            /// get 8 neighbors
-                            /// calculate C(p)
-                        int neighbor0 = (int) pSrc.at<float>( i-1, j-1);
-                        int neighbor1 = (int) pSrc.at<float>( i-1, j);
-                        int neighbor2 = (int) pSrc.at<float>( i-1, j+1);
-                        int neighbor3 = (int) pSrc.at<float>( i, j+1);
-                        int neighbor4 = (int) pSrc.at<float>( i+1, j+1);
-                        int neighbor5 = (int) pSrc.at<float>( i+1, j);
-                        int neighbor6 = (int) pSrc.at<float>( i+1, j-1);
-                        int neighbor7 = (int) pSrc.at<float>( i, j-1);
-                            int C = int(~neighbor1 & ( neighbor2 | neighbor3)) +
-                                    int(~neighbor3 & ( neighbor4 | neighbor5)) +
-                                    int(~neighbor5 & ( neighbor6 | neighbor7)) +
-                                    int(~neighbor7 & ( neighbor0 | neighbor1));
-                            if(C == 1) {
-                                    /// calculate N
-                                    int N1 = int(neighbor0 | neighbor1) +
-                                            int(neighbor2 | neighbor3) +
-                                            int(neighbor4 | neighbor5) +
-                                            int(neighbor6 | neighbor7);
-                                    int N2 = int(neighbor1 | neighbor2) +
-                                            int(neighbor3 | neighbor4) +
-                                            int(neighbor5 | neighbor6) +
-                                            int(neighbor7 | neighbor0);
-                                    int N = cv::min(N1,N2);
-                                    if((N == 2) || (N == 3)) {
-                                            int E = (neighbor5 | neighbor6 | ~neighbor0) & neighbor7;
-                                            if(E == 0) {
-                                                    pDst.at<float>(i, j) = 0.0f;
-                                            }
-                                    }
-                            }
-                    }
-            }
-    }
-}
-
-
-cv::Mat skel2(cv::Mat img){
-    bool bDone = false;
-
-    bitwise_not(img,img);
-
-    int rows = img.rows;
-    int cols = img.cols;
-
-    /// start to thin
-    cv::Mat p_thinMat1 = cv::Mat::zeros(rows + 2, cols + 2, CV_32FC1);
-    cv::Mat p_thinMat2 = cv::Mat::zeros(rows + 2, cols + 2, CV_32FC1);
-    cv::Mat p_cmp = cv::Mat::zeros(rows + 2, cols + 2, CV_8UC1);
-
-    while (bDone != true) {
-            /// sub-iteration 1
-            ThinSubiteration1(img, p_thinMat1);
-            /// sub-iteration 2
-            ThinSubiteration2(p_thinMat1, p_thinMat2);
-            /// compare
-            cv::compare(img, p_thinMat2, p_cmp, CV_CMP_EQ);
-            /// check
-            int num_non_zero = countNonZero(p_cmp);
-            if(num_non_zero == (rows + 2) * (cols + 2)) {
-                    bDone = true;
-            }
-            /// copy
-            p_thinMat2.copyTo(img);
-    }
-
-    bitwise_not(img,img);
-
-    return img;
-}
-
-cv::Mat skel(cv::Mat img)
-{
-    bitwise_not(img,img);
-
-    cv::threshold(img, img, 127, 255, cv::THRESH_BINARY);
-    cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
-    cv::Mat temp;
-    cv::Mat eroded;
-
-    cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
-
-    bool done;
-    do
-    {
-      cv::erode(img, eroded, element);
-      cv::dilate(eroded, temp, element); // temp = open(img)
-      cv::subtract(img, temp, temp);
-      cv::bitwise_or(skel, temp, skel);
-      eroded.copyTo(img);
-
-      done = (cv::countNonZero(img) == 0);
-    } while (!done);
-
-    bitwise_not(skel,skel);
-
-    return skel;
-}
-
-
-cv::Mat closeWithSkel(cv::Mat img, int gap){
-    cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(gap, gap));
-    cv::Mat cskel;
-    cv::erode(img, cskel, element);
-
-    cskel=skel(cskel);
-    bitwise_not(cskel,cskel);
-
-    cv::threshold(img, img, 127, 255, cv::THRESH_BINARY);
-    cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
-    cv::Mat temp;
-    cv::Mat eroded;
-
-    cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
-
-    bool done;
-
-}
 
 
 void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
@@ -826,6 +834,13 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             }
 
             map_debug=eff_gt.clone();
+
+            //cv::imshow("Debug_test", map_debug);
+            //cv::waitKey(3);
+            //gt_c=true;
+            //map_truth=map_debug.clone();
+            //map_comp=map_truth;
+            //return;
 
             t3=ros::Time::now();
 
