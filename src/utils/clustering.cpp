@@ -197,7 +197,10 @@ vector<cv::Mat> cluster_points(vector<cv::Mat> points, cv::Point3i pos)
     result[pos.z].at<uchar>(pos.x,pos.y)=255;
     points[pos.z].at<uchar>(pos.x,pos.y)=0;
 
-    while(vc.size()!=0)
+    long int ind=0;
+
+    //while(vc.size()!=0)
+    while(ind<vc.size())
     {
         int lx=boundPos(vc[0].x-1,points[vc[0].z].rows);
         int ux=boundPos(vc[0].x+1,points[vc[0].z].rows);
@@ -234,7 +237,8 @@ vector<cv::Mat> cluster_points(vector<cv::Mat> points, cv::Point3i pos)
             }
         }
 
-        vc.erase(vc.begin());
+        //vc.erase(vc.begin());
+        ind++;
     }
 
     return result;
@@ -271,7 +275,10 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map, cv::Mat ac
     mem.at<uchar>(pos.x,pos.y)=255;
     points.at<uchar>(pos.x,pos.y)=0;
 
-    while(vc.size()!=0)
+    long int ind=0;
+
+    //while(vc.size()!=0)
+    while(ind<vc.size())
     {
         int lx=boundPos(vc[0].x-1,points.rows);
         int ux=boundPos(vc[0].x+1,points.rows);
@@ -292,7 +299,8 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map, cv::Mat ac
             }
         }
 
-        vc.erase(vc.begin());
+        //vc.erase(vc.begin());
+        ind++;
     }
 
     result.img=mem.clone();
