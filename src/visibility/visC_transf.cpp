@@ -463,7 +463,7 @@ bool VisC_transf::conf_space(void)
     cv::Mat or_map, er_map, cr_map;
 
     or_map=cv_map_scaled.clone();
-    or_map=closeWithSkel(or_map, 8);
+    //or_map=closeWithSkel(or_map, 8);
 
     cv::imshow("Map_Original",cv_map_scaled.clone());
     cv::waitKey(3);

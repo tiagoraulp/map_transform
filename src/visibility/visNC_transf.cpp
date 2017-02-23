@@ -390,6 +390,8 @@ bool VisNC_transf::valid_pos(cv::Point3i pos)
 
 void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 {
+    ROS_INFO("I'm Here 1111111!!!");
+
     multi_labl_map.resize(multi_er_map.size());
     for(int i=0; i<(int)multi_er_map.size(); i++){
         multi_labl_map[i]=multi_er_map[i].clone();
@@ -409,6 +411,9 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             }
         }
     }
+
+    ROS_INFO("I'm Here 22222222!!!");
+
 
     if( labels || (prev.x<0) || (prev.y<0) || proc)
     {
@@ -430,6 +435,9 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             }
         }
 
+        ROS_INFO("I'm Here 33333333!!!");
+
+
         int m_a=angleD2I(angle_debug, angle_res);
 
         temp=multi_act_map[m_a].clone();
@@ -439,6 +447,9 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         this->map_projAct=act_map(rec);
 
         vis_map=map_projAct.clone();
+
+        ROS_INFO("I'm Here  444444444!!!");
+
 
         Unreachable unreach(map_or, act_map(rec));
 
@@ -489,13 +500,14 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             /////////////////
 
-//            t3=ros::Time::now();
+            t3=ros::Time::now();
 
-//            this->map_truth=brute_force(map_or, multi_labl_map , sensor_or, true, map_projAct);
+            //this->map_truth=brute_force(map_or, multi_labl_map , sensor_or, true, map_projAct);
+            this->map_truth=brute_force(eff_gt, multi_labl_map , sensor_or, true, map_projAct);
 
-//            diff = ros::Time::now() - t3;
+            diff = ros::Time::now() - t3;
 
-//            ROS_INFO("%s - Time for Optimized brute force sq with act: %f", this->tf_pref.c_str(), diff.toSec());
+            ROS_INFO("%s - Time for Optimized brute force sq with act: %f", this->tf_pref.c_str(), diff.toSec());
 
 //            cv::imshow("TestSQwA",this->map_truth);
 //            cv::waitKey(3);
@@ -544,14 +556,14 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             //t3=ros::Time::now();
 
-            cout<<reach_list.size()<<endl;
+            //cout<<reach_list.size()<<endl;
 
             //this->map_truth=brute_force(map_or, reach_list , sensor_or, false, map_projAct, true, true);
-            this->map_truth=brute_force(eff_gt, reach_list , sensor_or, false, map_projAct, true, true);
+            //this->map_truth=brute_force(eff_gt, reach_list , sensor_or, false, map_projAct, true, true);
 
-            diff = ros::Time::now() - t3;
+            //diff = ros::Time::now() - t3;
 
-            ROS_INFO("%s - Time for Optimized brute force list with act: %f", this->tf_pref.c_str(), diff.toSec());
+            //ROS_INFO("%s - Time for Optimized brute force list with act: %f", this->tf_pref.c_str(), diff.toSec());
 
 
             unsigned char c1[3]={255,255,255};
@@ -660,11 +672,15 @@ vector<cv::Point> VisNC_transf::expVisibility_obs(cv::Point3i crit3P, Elem senso
 
 cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<cv::Mat> r_map, bool optRay)
 {
+    ROS_INFO("I'm Here 000000000000!!!");
+
     unreach.getFrontiers2();
 
     cv::Mat regions=unreach.regions;
 
     cv::Mat vis_map_temp;
+
+    ROS_INFO("I'm Here!!!");
 
     CritPointsAS critP(map_or, map_projAct, r_map, sensor_ev, sens_area);
 

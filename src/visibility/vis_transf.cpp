@@ -85,7 +85,7 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     changed2=false;
     changed_p=false;
 
-    map_scale=1;
+    map_scale=3;
     small_frontiers.clear();
 }
 
