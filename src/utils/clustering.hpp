@@ -36,7 +36,7 @@ public:
 
 ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map=cv::Mat(0,0,CV_8UC1), cv::Mat act=cv::Mat(0,0,CV_8UC1));
 
-std::vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map=cv::Mat(0,0,CV_8UC1), cv::Mat act=cv::Mat(0,0,CV_8UC1));
+std::vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map=cv::Mat(0,0,CV_8UC1), cv::Mat act=cv::Mat(0,0,CV_8UC1), bool opt=true);
 
 ClusterLists cluster_points(std::vector<cv::Point> points, cv::Point size, cv::Point pos, cv::Mat map=cv::Mat(0,0,CV_8UC1), cv::Mat act=cv::Mat(0,0,CV_8UC1));
 

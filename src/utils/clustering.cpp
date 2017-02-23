@@ -385,7 +385,7 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map, cv::Mat ac
     return result;
 }
 
-vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map, cv::Mat act)
+vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map, cv::Mat act, bool opt)
 {
     vector<ClusterLists> result;
     ClusterLists temp;
@@ -398,6 +398,10 @@ vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map, cv::Mat act)
             {
                 temp=cluster_points(orig, cv::Point(i,j), map, act);
                 orig=temp.rest;
+                if(opt){
+                    temp.rest.release();
+                    temp.img.release();
+                }
                 result.push_back(temp);
             }
         }
