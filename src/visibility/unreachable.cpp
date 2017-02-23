@@ -4,6 +4,8 @@
 #include "clustering.hpp"
 #include "vector_utils.hpp"
 
+#include "ros/console.h"
+
 using namespace std;
 
 
@@ -46,8 +48,12 @@ void Unreachable::getFrontiers(void)
 void Unreachable::getFrontiers2(void)
 {
     clusters.clear();
+    cv::Mat frontiers_t;
+    vector<ClusterLists> clusters_c;
+    vector<vector<cv::Point> > frontiers_c;
+    ROS_INFO("%ld", labels_unreach.size());
     for (unsigned int k=0;k<labels_unreach.size();k++){
-        cv::Mat frontiers_t=cv::Mat::zeros(unreach_map.rows, unreach_map.cols, CV_8UC1);
+        frontiers_t=cv::Mat::zeros(unreach_map.rows, unreach_map.cols, CV_8UC1);
         for(unsigned int j=0;j<labels_unreach[k].size();j++){
             bool stop=false;
             for(int a=labels_unreach[k][j].x-1;a<=(labels_unreach[k][j].x+1);a++){
@@ -70,9 +76,12 @@ void Unreachable::getFrontiers2(void)
             }
         }
 
-        vector<ClusterLists> clusters_c=cluster_points(frontiers_t, map, act);
+        ROS_INFO("I'm Here 111111111: %ud!!!", k);
+
+
+
+        clusters_c=cluster_points(frontiers_t, map, act);
         clusters.push_back(clusters_c);
-        vector<vector<cv::Point> > frontiers_c;
         frontiers_c.clear();
         for(unsigned int i=0; i<clusters_c.size();i++)
         {

@@ -202,17 +202,17 @@ vector<cv::Mat> cluster_points(vector<cv::Mat> points, cv::Point3i pos)
     //while(vc.size()!=0)
     while(ind<vc.size())
     {
-        int lx=boundPos(vc[0].x-1,points[vc[0].z].rows);
-        int ux=boundPos(vc[0].x+1,points[vc[0].z].rows);
-        int ly=boundPos(vc[0].y-1,points[vc[0].z].cols);
-        int uy=boundPos(vc[0].y+1,points[vc[0].z].cols);
+        int lx=boundPos(vc[ind].x-1,points[vc[ind].z].rows);
+        int ux=boundPos(vc[ind].x+1,points[vc[ind].z].rows);
+        int ly=boundPos(vc[ind].y-1,points[vc[ind].z].cols);
+        int uy=boundPos(vc[ind].y+1,points[vc[ind].z].cols);
 
         for(int i=lx; i<=ux; i++)
         {
             for(int j=ly; j<=uy; j++)
             {
-                int la=decAngle(vc[0].z,points.size());
-                int ua=incAngle(vc[0].z,points.size());
+                int la=decAngle(vc[ind].z,points.size());
+                int ua=incAngle(vc[ind].z,points.size());
 
                 if( points[la].at<uchar>(i,j)==255)
                 {
@@ -221,11 +221,11 @@ vector<cv::Mat> cluster_points(vector<cv::Mat> points, cv::Point3i pos)
                     result[la].at<uchar>(i,j)=255;
                 }
 
-                if( points[vc[0].z].at<uchar>(i,j)==255 && (vc[0].x!=i || vc[0].y!=j) )
+                if( points[vc[ind].z].at<uchar>(i,j)==255 && (vc[ind].x!=i || vc[ind].y!=j) )
                 {
-                    vc.push_back(cv::Point3i(i,j,vc[0].z));
-                    points[vc[0].z].at<uchar>(i,j)=0;
-                    result[vc[0].z].at<uchar>(i,j)=255;
+                    vc.push_back(cv::Point3i(i,j,vc[ind].z));
+                    points[vc[ind].z].at<uchar>(i,j)=0;
+                    result[vc[ind].z].at<uchar>(i,j)=255;
                 }
 
                 if( points[ua].at<uchar>(i,j)==255)
@@ -280,16 +280,16 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map, cv::Mat ac
     //while(vc.size()!=0)
     while(ind<vc.size())
     {
-        int lx=boundPos(vc[0].x-1,points.rows);
-        int ux=boundPos(vc[0].x+1,points.rows);
-        int ly=boundPos(vc[0].y-1,points.cols);
-        int uy=boundPos(vc[0].y+1,points.cols);
+        int lx=boundPos(vc[ind].x-1,points.rows);
+        int ux=boundPos(vc[ind].x+1,points.rows);
+        int ly=boundPos(vc[ind].y-1,points.cols);
+        int uy=boundPos(vc[ind].y+1,points.cols);
 
         for(int i=lx; i<=ux; i++)
         {
             for(int j=ly; j<=uy; j++)
             {
-                if( points.at<uchar>(i,j)==255 && (vc[0].x!=i || vc[0].y!=j) )
+                if( points.at<uchar>(i,j)==255 && (vc[ind].x!=i || vc[ind].y!=j) )
                 {
                     vc.push_back(cv::Point(i,j));
                     result.cluster.push_back(cv::Point(i,j));
@@ -388,6 +388,7 @@ ClusterLists cluster_points(cv::Mat orig, cv::Point pos, cv::Mat map, cv::Mat ac
 vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map, cv::Mat act)
 {
     vector<ClusterLists> result;
+    ClusterLists temp;
 
     for(int i=0;i<orig.rows;i++)
     {
@@ -395,7 +396,7 @@ vector<ClusterLists> cluster_points(cv::Mat orig, cv::Mat map, cv::Mat act)
         {
             if(orig.at<uchar>(i,j)!=0)
             {
-                ClusterLists temp=cluster_points(orig, cv::Point(i,j), map, act);
+                temp=cluster_points(orig, cv::Point(i,j), map, act);
                 orig=temp.rest;
                 result.push_back(temp);
             }
