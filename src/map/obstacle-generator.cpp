@@ -86,10 +86,10 @@ bool ObsGen::generate(std_srvs::Empty::Request  &req, std_srvs::Empty::Response 
 nav_msgs::OccupancyGrid ObsGen::processObs(vector<unsigned char> obs){
     cv::Point2i p0i, p1i;
     cv::Mat temp=or_map.clone();
-    for(int i=0; i<obs.size();i++){
+    for(unsigned int i=0; i<obs.size();i++){
         if(!obs[i] || i>=obstacles.size())
             continue;
-        for(int j=0; j<obstacles[i].size();j++){
+        for(unsigned int j=0; j<obstacles[i].size();j++){
             p0i=convertW2I(obstacles[i][j]);
             //cout<<p0i.x<<" "<<p0i.y<<endl;
             if( (j+1)>=obstacles[i].size() ){
@@ -133,7 +133,7 @@ bool ObsGen::getObsNumber(map_transform::ObsNumber::Request  &req, map_transform
     }
     //res.number.data=obstacles.size();
     res.probs.resize(probs.size());
-    for(int i=0;i<probs.size();i++)
+    for(unsigned int i=0;i<probs.size();i++)
         res.probs[i].data=probs[i];
     return true;
 }
