@@ -25,7 +25,7 @@ INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/map)
 #uncomment if you have defined messages
 rosbuild_genmsg()
 #uncomment if you have defined services
-#rosbuild_gensrv()
+rosbuild_gensrv()
 
 #common commands for building c++ executables and libraries
 #rosbuild_add_library(${PROJECT_NAME} src/example.cpp)
@@ -121,6 +121,14 @@ TARGET_LINK_LIBRARIES(${target} utils_libraries)
 SET(target room-gen)
 rosbuild_add_executable(${target} src/map/room-generator.cpp)
 
+SET(target obs-gen)
+rosbuild_add_executable(${target} src/map/obstacle-generator.cpp)
+ADD_DEPENDENCIES(${target} utils_libraries)
+TARGET_LINK_LIBRARIES(${target} utils_libraries)
+
+
+SET(target map-planner)
+rosbuild_add_executable(${target} src/map/map-planner.cpp)
 #target_link_libraries(visibility ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 
 #target_link_libraries(visNC ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})

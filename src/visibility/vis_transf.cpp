@@ -85,7 +85,7 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     changed2=false;
     changed_p=false;
 
-    map_scale=3;
+    map_scale=1;
     small_frontiers.clear();
 }
 
@@ -131,7 +131,7 @@ nav_msgs::OccupancyGrid Vis_transf<T>::Mat2RosMsg(cv::Mat map ,const nav_msgs::O
 template <typename T>
 void Vis_transf<T>::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 {
-    ROS_INFO("I heard map: [%d]", msg->header.seq);
+    //ROS_INFO("I heard map: [%d]", msg->header.seq);
 
     cv::Mat prev_map=cv_map.clone();
 
@@ -175,6 +175,8 @@ void Vis_transf<T>::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
             mapDataIterC++;
         }
     }
+
+    treated=false;
 
     ++count;
 
@@ -544,7 +546,7 @@ void Vis_transf<T>::run(bool _opt)
 
     show();
 
-    publish();
+    //publish();
 }
 
 template class Vis_transf<map_transform::ParametersConfig>;
