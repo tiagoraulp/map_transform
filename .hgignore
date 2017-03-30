@@ -71,3 +71,5 @@ maps/map_obs_.txt
 maps/map_obs.txt
 maps/map_obs (copy).txt
 srv_gen/*
+cfg/ImportanceMapPlanner.cfgc
+docs/*
