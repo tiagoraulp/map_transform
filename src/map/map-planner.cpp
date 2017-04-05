@@ -15,12 +15,25 @@
 
 using namespace std;
 
+int myPow(int x, int p)
+{
+  if (p == 0) return 1;
+  if (p == 1) return x;
+
+  int tmp = myPow(x, p/2);
+  if (p%2 == 0) return tmp * tmp;
+  else return x * tmp * tmp;
+}
+
 class MapPlanner{
 private:
+    bool complete_analysis;
     vector<float > probs;
-    vector<vector<float> > attemps;
-    vector<cv::Mat> maps, maps_obs;
+    vector<float > probs_attempts;
+    vector<vector<float> > attempts;
+    vector<cv::Mat> maps, maps_obs, maps_obs_prob;
     vector<unsigned short> number_obs;
+    vector<float> number_obs_prob;
     int obs_debug;
     vector<vector<vector<float> > > importance;
     ros::NodeHandle nh_;
@@ -63,13 +76,27 @@ public:
         for(int i=0;i<n_obs;i++)
             probs[i]=srv.response.probs[i].data;
 
+        nh_.param("complete_analysis", complete_analysis, false);
+
+        cout<<"complete_analysis: "<<complete_analysis<<endl;
+
         cout<<"Got ObsNumber: "<<n_obs<<endl;
-        n_iter=4*n_obs*2;
-        attemps.resize(n_iter);
+
+        if(!complete_analysis){
+            n_iter=4*n_obs*2;
+        }
+        else{
+            n_iter=myPow(2, n_obs);
+        }
+        attempts.resize(n_iter);
+        probs_attempts.resize(n_iter);
         maps.resize(n_iter);
         maps_obs.resize(n_obs*2);
+        maps_obs_prob.resize(n_obs*2);
         number_obs.resize(n_obs*2);
+        number_obs_prob.resize(n_obs*2);
         curr_iter=0;
+
         srand (time(NULL));
         obs_debug=0;
 
@@ -149,13 +176,19 @@ void MapPlanner::convertVM2Map(unsigned int obs){
 void MapPlanner::run(void){
 
     if(suc && rcv){
-        //cout<<"Part 1: Current: "<<curr_iter<<endl;
+        cout<<"Part 1: Current: "<<curr_iter<<"; Total: "<<n_iter<<endl;
         rcv=false;
         if(curr_iter==1){
-            final_map=or_map.clone();
+            if(!complete_analysis)
+                final_map=or_map.clone();
+            else
+                final_map=or_map.clone()*probs_attempts[curr_iter-1];
         }
         else{
-            final_map=((float)curr_iter)/((float)curr_iter+1.0)*final_map+(1)/((float)curr_iter+1.0)*or_map;
+            if(!complete_analysis)
+                final_map=((float)curr_iter)/((float)curr_iter+1.0)*final_map+(1)/((float)curr_iter+1.0)*or_map;
+            else
+                final_map+=or_map.clone()*probs_attempts[curr_iter-1];
         }
         maps[curr_iter-1]=map_temp.clone();
         if(curr_iter>=n_iter){
@@ -171,10 +204,22 @@ void MapPlanner::run(void){
             //cout<<"Part 2: Current: "<<curr_iter<<endl;
             map_transform::ObsList srv;
             srv.request.obs.resize(n_obs);
-            attemps[curr_iter].resize(n_obs);
-            for(int i=0; i<n_obs;i++){
-                srv.request.obs[i]=(((float)rand())/((float)RAND_MAX))<probs[i]?1:0;
-                attemps[curr_iter][i]=srv.request.obs[i];
+            attempts[curr_iter].resize(n_obs);
+            if(!complete_analysis){
+                for(int i=0; i<n_obs;i++){
+                    srv.request.obs[i]=(((float)rand())/((float)RAND_MAX))<probs[i]?1:0;
+                    attempts[curr_iter][i]=srv.request.obs[i];
+                }
+            }
+            else{
+                int temp=curr_iter;
+                probs_attempts[curr_iter]=1;
+                for(int i=0; i<n_obs;i++){
+                    attempts[curr_iter][i]=temp/myPow(2,n_obs-1-i);
+                    srv.request.obs[i]=attempts[curr_iter][i];
+                    probs_attempts[curr_iter]*=probs[i]*attempts[curr_iter][i]+(1-probs[i])*(1-attempts[curr_iter][i]);
+                    temp=temp%myPow(2,n_obs-1-i);
+                }
             }
             client.call(srv);
             if(srv.response.result){
@@ -198,24 +243,40 @@ void MapPlanner::run(void){
 void MapPlanner::processImportances(void){
     importance.assign(width, vector<vector<float> >(height, vector<float>(n_obs, 0)));
     for(unsigned int i=0;i<maps_obs.size();i++){
-        maps_obs[i] = cv::Mat::zeros(width, height, CV_16UC1);
+        if(!complete_analysis)
+            maps_obs[i] = cv::Mat::zeros(width, height, CV_16UC1);
+        else
+            maps_obs_prob[i] = cv::Mat::zeros(width, height, CV_32FC1);
     }
     number_obs.assign(maps_obs.size(), 0);
+    number_obs_prob.assign(maps_obs_prob.size(), 0);
     for(unsigned int i=0; i<maps.size(); i++){
-        for(unsigned int oo=0; oo<attemps[i].size(); oo++){
-            if(attemps[i][oo]==0){
-                number_obs[oo*2]++;
+        for(unsigned int oo=0; oo<attempts[i].size(); oo++){
+            if(attempts[i][oo]==0){
+                if(!complete_analysis)
+                    number_obs[oo*2]++;
+                else
+                    number_obs_prob[oo*2]+=probs_attempts[i];
             }
             else{
-                number_obs[oo*2+1]++;
+                if(!complete_analysis)
+                    number_obs[oo*2+1]++;
+                else
+                    number_obs_prob[oo*2+1]+=probs_attempts[i];
             }
             for(int rr=0; rr<maps[i].rows;rr++){
                 for(int cc=0; cc<maps[i].cols;cc++){
-                    if(attemps[i][oo]==0){
-                        maps_obs[oo*2].at<unsigned short>(rr,cc)+=(unsigned short)maps[i].at<uchar>(rr,cc);
+                    if(attempts[i][oo]==0){
+                        if(!complete_analysis)
+                            maps_obs[oo*2].at<unsigned short>(rr,cc)+=(unsigned short)maps[i].at<uchar>(rr,cc);
+                        else
+                            maps_obs_prob[oo*2].at<float>(rr,cc)+=(float)maps[i].at<uchar>(rr,cc)*probs_attempts[i];
                     }
                     else{
-                        maps_obs[oo*2+1].at<unsigned short>(rr,cc)+=(unsigned short)maps[i].at<uchar>(rr,cc);
+                        if(!complete_analysis)
+                            maps_obs[oo*2+1].at<unsigned short>(rr,cc)+=(unsigned short)maps[i].at<uchar>(rr,cc);
+                        else
+                            maps_obs_prob[oo*2+1].at<float>(rr,cc)+=(float)maps[i].at<uchar>(rr,cc)*probs_attempts[i];
                     }
                 }
             }
@@ -228,15 +289,24 @@ void MapPlanner::processImportances(void){
             diffTotal=0;
             for(unsigned int oo=0; oo<(maps_obs.size()-1);oo=oo+2){
                 ///TODO: what if number_obs is zero?
-                value_noObs=1.0-((float)maps_obs[oo].at<unsigned short>(rr,cc))/((float)number_obs[oo]);
-                value_withObs=1.0-((float)maps_obs[oo+1].at<unsigned short>(rr,cc))/((float)number_obs[oo+1]);
+                if(!complete_analysis){
+                    value_noObs=1.0-((float)maps_obs[oo].at<unsigned short>(rr,cc))/((float)number_obs[oo]);
+                    value_withObs=1.0-((float)maps_obs[oo+1].at<unsigned short>(rr,cc))/((float)number_obs[oo+1]);
+                }
+                else{
+                    value_noObs=1.0-maps_obs_prob[oo].at<float>(rr,cc)/(number_obs_prob[oo]);
+                    value_withObs=1.0-maps_obs_prob[oo+1].at<float>(rr,cc)/(number_obs_prob[oo+1]);
+                }
                 diff=value_withObs-value_noObs;
                 if(diff<0)
                     diff=0;
                 diffs[oo/2]=diff;
                 diffTotal+=diff;
                 if(rr==20 && cc==100 ){
-                    cout<<"Current "<<oo/2<<" out of "<<maps_obs.size()/2<<": "<<value_noObs<<" "<<value_withObs<<" "<<diffs[oo/2]<<"; "<<number_obs[oo]<<" "<<number_obs[oo+1]<<endl;
+                    if(!complete_analysis)
+                        cout<<"Current "<<oo/2<<" out of "<<maps_obs.size()/2<<": "<<value_noObs<<" "<<value_withObs<<" "<<diffs[oo/2]<<"; "<<number_obs[oo]<<" "<<number_obs[oo+1]<<endl;
+                    else
+                        cout<<"Current "<<oo/2<<" out of "<<maps_obs_prob.size()/2<<": "<<value_noObs<<" "<<value_withObs<<" "<<diffs[oo/2]<<"; "<<number_obs_prob[oo]<<" "<<number_obs_prob[oo+1]<<endl;
                 }
             }
             //////// TODO:

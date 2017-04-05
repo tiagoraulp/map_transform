@@ -19,8 +19,9 @@
  <node pkg="map_transform" type="obs-gen" name="obstacle_generator" output="screen">    
  </node>
 
+<param name="complete_analysis" value="True" />
  <node pkg="map_transform" type="map-planner" name="planner" output="screen">    
-
+    
     <remap from="/map" to="/visibility/v_map" />
  </node>
 
