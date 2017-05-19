@@ -7,6 +7,8 @@ from interactive_markers.interactive_marker_server import *
 from visualization_msgs.msg import *
 from interactive_markers.menu_handler import *
 
+from geometry_msgs.msg import PointStamped
+
 class IdReg:
     def __init__(self):
         self._unused_ids=[]
@@ -70,7 +72,8 @@ class RegionsEditor:
         self.menu_handler=MenuHandler()
         self.menu_handler.insert("Add Region", callback=self.processFeedback)
         self.menu_handler.insert("Delete Region", callback=self.processFeedback)
-        self.addRegion()
+        rospy.Subscriber("clicked_point", PointStamped, self.clickedPointCallback)
+        #self.addRegion()
 
     def timerCallback(self, event):
         for region in self.regions:
@@ -79,6 +82,9 @@ class RegionsEditor:
                     rospy.Time.now(),
                     region.getName(),
                     "map")
+
+    def clickedPointCallback(self, data):
+        self.addRegion(data.point.x, data.point.y)
 
     def addRegion(self, x=0, y=0):
         region=Region(self.ids.getNewId(), x, y)
@@ -225,6 +231,6 @@ class RegionsEditor:
         self.server.applyChanges()
 
 if __name__=="__main__":    
-    rospy.init_node("test_marker")
+    rospy.init_node("regions_editor")
     regionsEdit=RegionsEditor()
     regionsEdit.spin()
