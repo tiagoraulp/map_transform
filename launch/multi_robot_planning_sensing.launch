@@ -1,6 +1,8 @@
 <launch>
   <arg name="x_0" default="10"/>
   <arg name="y_0" default="10"/>
+  <arg name="x_1" default="10"/>
+  <arg name="y_1" default="15"/>
 
   <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze6.png 0.1" respawn="false" > 
     <param name="frame_id" value="/map" />
@@ -26,7 +28,8 @@
       <remap from="/robot_0/planner/e_map" to="/robot_0/visibility/e_map"/>
       <remap from="/robot_0/planner/graph" to="/robot_0/visibility/graph"/>
     </node>
-  </group>
+ </group>
 
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/planning.rviz" />
+ <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/planning.rviz" />
+
 </launch>
