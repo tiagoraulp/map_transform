@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import roslib; roslib.load_manifest('map_transform')
 import rospy
 import tf
 
@@ -7,7 +8,8 @@ from interactive_markers.interactive_marker_server import *
 from visualization_msgs.msg import *
 from interactive_markers.menu_handler import *
 
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import * 
+from map_transform.srv import *
 
 class IdReg:
     def __init__(self):
@@ -64,7 +66,7 @@ class Region:
 
 class RegionsEditor:
     def __init__(self):
-        self.server=InteractiveMarkerServer("circular_regions")
+        self.server=InteractiveMarkerServer("~circular_regions")
         rospy.Timer(rospy.Duration(0.01), self.timerCallback)
         self.br = tf.TransformBroadcaster()
         self.regions=[]
@@ -73,7 +75,20 @@ class RegionsEditor:
         self.menu_handler.insert("Add Region", callback=self.processFeedback)
         self.menu_handler.insert("Delete Region", callback=self.processFeedback)
         rospy.Subscriber("clicked_point", PointStamped, self.clickedPointCallback)
+        rospy.Service('~getRegions', Regions, self.sendRegions)
         #self.addRegion()
+
+    def sendRegions(self, req):
+        response=PoseArray()
+        response.header.stamp=rospy.Time.now()
+        response.header.frame_id="map"
+        for region in self.regions:
+            pose=Pose()
+            pose.position.x=region.getX()
+            pose.position.y=region.getY()
+            pose.position.z=region.getRad()
+            response.poses.append(pose)
+        return RegionsResponse(response)
 
     def timerCallback(self, event):
         for region in self.regions:
