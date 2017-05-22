@@ -1899,14 +1899,6 @@ int main(int argc, char **argv)
   myfile[12].open ("/home/viki/rosbuild_ws/map_transform/resultsQ6.txt", ios::out);
   myfile[13].open ("/home/viki/rosbuild_ws/map_transform/resultsQ7.txt", ios::out);
 
-  if(argc==2)
-    ;
-    else
-  {
-    cout<<"Error on arguments"<<endl;
-    return -1;
-  }
-
   Planner planner(nh);
 
   ros::Rate loop_rate(10);
