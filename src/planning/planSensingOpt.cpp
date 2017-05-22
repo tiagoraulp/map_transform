@@ -7,6 +7,7 @@
 #include "tf/transform_listener.h"
 #include <map_transform/VisCom.h>
 #include <map_transform/VisNode.h>
+#include <map_transform/PAstar.h>
 
 #include <queue>
 #include "std_msgs/String.h"
@@ -500,6 +501,8 @@ private:
 
     tf::TransformListener pos_listener;
 
+    std::string tf_pref;
+
     //std::vector<map_transform::VisNode> vis_;
 
     std::vector<float> vis_;
@@ -514,7 +517,7 @@ private:
 
     void rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg);
 
-    ros::ServiceServer service;
+    ros::ServiceServer service, service3;
 
     ros::ServiceServer service2;
 
@@ -540,6 +543,8 @@ private:
 
     geometry_msgs::Point convertI2W(PointI p);
 
+    float convertCostI2W(float cost);
+
     template <typename T=float>
     Apath Astar(PointI p0, PointI p1, int r,   float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
 
@@ -556,6 +561,9 @@ private:
 
     bool clear(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res);
 
+    bool request_single_plan(map_transform::PAstar::Request  &req, map_transform::PAstar::Response &res);
+
+    bool planFromRequest(geometry_msgs::Point goal, float & cost, geometry_msgs::Point & perc_pt);
 public:
 
     Planner(ros::NodeHandle nh): nh_(nh)
@@ -565,9 +573,9 @@ public:
 
         pub_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1,true);
 
-        sub1 = nh_.subscribe("/robot_0/v_map", 1, &Planner::rcv_map1, this);
+        sub1 = nh_.subscribe("v_map", 1, &Planner::rcv_map1, this);
 
-        sub2 = nh_.subscribe("/robot_0/e_map", 1, &Planner::rcv_map2, this);
+        sub2 = nh_.subscribe("e_map", 1, &Planner::rcv_map2, this);
 
         sub3 = nh_.subscribe("/map", 1, &Planner::rcv_map3, this);
 
@@ -577,7 +585,11 @@ public:
 
         service = nh_.advertiseService("plan", &Planner::ask_plan, this);
 
+        service3 = nh_.advertiseService("plan_point", &Planner::request_single_plan, this);
+
         service2 = nh_.advertiseService("clear", &Planner::clear, this);
+
+        nh_.param("tf_prefix", tf_pref, std::string("/robot_0"));
 
         nh_.param("infl", infl, 5);
         nh_.param("defl", defl, infl);
@@ -735,6 +747,15 @@ bool Planner::ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response
 }
 
 
+bool Planner::request_single_plan(map_transform::PAstar::Request  &req, map_transform::PAstar::Response &res){
+    geometry_msgs::Point perc_pt;
+    float cost;
+    planFromRequest(req.goal, cost, perc_pt);
+    res.cost=cost;
+    res.perc_pt=perc_pt;
+    return true;
+}
+
 bool Planner::clear(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res)
 {
 
@@ -756,6 +777,11 @@ geometry_msgs::Point Planner::convertI2W(PointI p)
     pf.y=p.j*res;
 
     return pf;
+}
+
+float Planner::convertCostI2W(float cost)
+{
+    return cost/10.0*res;
 }
 
 bool Planner::isGoal(PointI p0, PointI p1)
@@ -1010,7 +1036,7 @@ int index_file=0;
 ofstream myfile[14];
 
 template <typename T>
-Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs, map_transform::VisNode crit)
+Apath Planner::Astar(PointI p0, PointI p1, int map_index, float opt, bool bfs, map_transform::VisNode crit)
 {
 
     //myfile << "Writing this to a file.\n";
@@ -1275,7 +1301,7 @@ Apath Planner::Astar(PointI p0, PointI p1, int r, float opt, bool bfs, map_trans
 
             if(!(xdx<0 || xdx>n-1 || ydy<0 || ydy>m-1 ))
             {
-                if(!(!msg_rcv[r][xdx][ydy]
+                if(!(!msg_rcv[map_index][xdx][ydy]
                     || closed_nodes_map[xdx][ydy]==1 //|| ( (dir==1 || dir==3 || dir==5 || dir==7)
                                                      //     && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
                                                      //     && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]])
@@ -1377,7 +1403,7 @@ void Planner::plan(void)
 
         tf::StampedTransform transform;
         try{
-            pos_listener.lookupTransform("/map", "/robot_0/base_link", ros::Time(0), transform);
+            pos_listener.lookupTransform("/map", tf_pref+"/base_link", ros::Time(0), transform);
         }
         catch (tf::TransformException ex){
           ROS_INFO("%s",ex.what());
@@ -1592,7 +1618,7 @@ void Planner::plan(void)
                 else
                 {
                     pw.pose.position=p;
-                    path_1.poses.push_back(pw);
+                    path_0.poses.push_back(pw);
                 }
             }
     //        else if(path.cost!=-3)
@@ -1780,6 +1806,75 @@ void Planner::publish(void)
     pub_markers.publish(points);
 }
 
+bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_msgs::Point & perc_pt){
+    if(map_rcv[0] && map_rcv[1] && map_rcv[2] && graph_rcv){
+        path_0.poses.clear();
+        path_0.header.frame_id = "/map";
+        path_0.header.stamp =  ros::Time::now();
+        geometry_msgs::PoseStamped pw;
+        pw.header.frame_id   = "/map";
+        pw.header.stamp =  ros::Time::now();
+        pw.pose.orientation.w=1;
+
+        PointI gi=convertW2I(goal);
+
+        if(gi.i<0 || gi.i>=(int)msg_rcv[0].size()){
+            cost=-3;
+            return false;
+        }
+        if(gi.j<0 || gi.j>=(int)msg_rcv[0][gi.i].size()){
+            cost=-3;
+            return false;
+        }
+        if(!msg_rcv[2][gi.i][gi.j]){
+            cost=-4;
+            return false;
+        }
+
+        tf::StampedTransform transform;
+        try{
+            pos_listener.lookupTransform("/map", tf_pref+"/base_link", ros::Time(0), transform);
+        }
+        catch (tf::TransformException ex){
+          ROS_INFO("%s",ex.what());
+          cost=-5;
+          return false;
+        }
+        geometry_msgs::Point pt;
+        pt.x=transform.getOrigin().x();
+        pt.y=transform.getOrigin().y();
+        PointI pi=convertW2I(pt);
+
+        //Astar(pi, gi,1,-5);
+        Apath path=Astar(pi, gi,1);
+        if(path.cost>=0){
+            path_0.poses.clear();
+            if(path.points.size()!=0){
+                for(unsigned int p_i=0;p_i<path.points.size();p_i++){
+                    pw.pose.position=convertI2W(path.points[p_i]);
+                    path_0.poses.push_back(pw);
+                }
+                perc_pt=pw.pose.position;
+            }
+            else{
+                pw.pose.position=pt;
+                path_0.poses.push_back(pw);
+                perc_pt=pw.pose.position;
+            }
+            cost=convertCostI2W(path.cost);
+            pub1.publish(path_0);
+        }
+        else{
+            cost=-1;
+            return false;
+        }
+        return true;
+    }
+    else{
+        cost=-2;
+        return false;
+    }
+}
 
 int main(int argc, char **argv)
 {
