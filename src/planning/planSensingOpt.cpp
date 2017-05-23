@@ -303,18 +303,20 @@ private:
     bool request_single_plan(map_transform::PAstar::Request  &req, map_transform::PAstar::Response &res);
     bool planFromRequest(geometry_msgs::Point goal, float & cost, geometry_msgs::Point & perc_pt);
 public:
-    Planner(ros::NodeHandle nh): nh_(nh){
+    Planner(ros::NodeHandle nh, bool server_mode=false): nh_(nh){
         pub1 = nh_.advertise<nav_msgs::Path>("path0", 1,true);
-        pub2 = nh_.advertise<nav_msgs::Path>("path1", 1,true);
         pub_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1,true);
         sub1 = nh_.subscribe("v_map", 1, &Planner::rcv_map1, this);
         sub2 = nh_.subscribe("e_map", 1, &Planner::rcv_map2, this);
         sub3 = nh_.subscribe("/map", 1, &Planner::rcv_map3, this);
-        sub_goals = nh_.subscribe("/move_base_simple/goal", 1, &Planner::rcv_goal, this);
         graph_subscriber = nh.subscribe("graph", 10 , &Planner::graphCallback, this);
-        service = nh_.advertiseService("plan", &Planner::ask_plan, this);
         service3 = nh_.advertiseService("plan_point", &Planner::request_single_plan, this);
         service2 = nh_.advertiseService("clear", &Planner::clear, this);
+        if(!server_mode){
+            pub2 = nh_.advertise<nav_msgs::Path>("path1", 1,true);
+            sub_goals = nh_.subscribe("/move_base_simple/goal", 1, &Planner::rcv_goal, this);
+            service = nh_.advertiseService("plan", &Planner::ask_plan, this);
+        }
         nh_.param("tf_prefix", tf_pref, std::string("/robot_0"));
         nh_.param("infl", infl, 5);
         nh_.param("defl", defl, infl);
@@ -984,7 +986,14 @@ int main(int argc, char **argv)
 //    myfile[12].open ("/home/viki/rosbuild_ws/map_transform/resultsQ6.txt", ios::out);
 //    myfile[13].open ("/home/viki/rosbuild_ws/map_transform/resultsQ7.txt", ios::out);
 
-    Planner planner(nh);
+    bool server_mode=false;
+
+    if(argc>=2){
+        if(string(argv[1])=="--server")
+            server_mode=true;
+    }
+
+    Planner planner(nh, server_mode);
     ros::Rate loop_rate(10);
     while (ros::ok()){
         ros::spinOnce();
