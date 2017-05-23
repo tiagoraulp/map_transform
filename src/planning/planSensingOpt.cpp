@@ -308,11 +308,11 @@ public:
         pub_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1,true);
         sub1 = nh_.subscribe("v_map", 1, &Planner::rcv_map1, this);
         sub2 = nh_.subscribe("e_map", 1, &Planner::rcv_map2, this);
-        sub3 = nh_.subscribe("/map", 1, &Planner::rcv_map3, this);
-        graph_subscriber = nh.subscribe("graph", 10 , &Planner::graphCallback, this);
+        sub3 = nh_.subscribe("map", 1, &Planner::rcv_map3, this);
         service3 = nh_.advertiseService("plan_point", &Planner::request_single_plan, this);
         service2 = nh_.advertiseService("clear", &Planner::clear, this);
         if(!server_mode){
+            graph_subscriber = nh.subscribe("graph", 10 , &Planner::graphCallback, this);
             pub2 = nh_.advertise<nav_msgs::Path>("path1", 1,true);
             sub_goals = nh_.subscribe("/move_base_simple/goal", 1, &Planner::rcv_goal, this);
             service = nh_.advertiseService("plan", &Planner::ask_plan, this);
@@ -902,7 +902,7 @@ void Planner::publish(void){
 }
 
 bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_msgs::Point & perc_pt){
-    if(map_rcv[0] && map_rcv[1] && map_rcv[2] && graph_rcv){
+    if(map_rcv[0] && map_rcv[1] && map_rcv[2]){
         path_0.poses.clear();
         path_0.header.frame_id = "/map";
         path_0.header.stamp =  ros::Time::now();

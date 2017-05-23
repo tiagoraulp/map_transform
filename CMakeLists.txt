@@ -87,6 +87,8 @@ TARGET_LINK_LIBRARIES(${target} utils_libraries  vis_library)
 
 rosbuild_add_executable(planner src/planning/planner.cpp)
 
+rosbuild_add_executable(multiPlannerSens src/planning/multi_planner_sensing.cpp src/planning/Astar.cpp)
+
 SET(target planSensOpt)
 rosbuild_add_executable(${target} src/planning/planSensingOpt.cpp)
 ADD_DEPENDENCIES(${target} utils_libraries)
