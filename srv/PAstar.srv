@@ -1,0 +1,4 @@
+geometry_msgs/Point goal
+---
+float32 cost
+geometry_msgs/Point perc_pt

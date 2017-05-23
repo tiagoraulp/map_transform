@@ -87,8 +87,6 @@ TARGET_LINK_LIBRARIES(${target} utils_libraries  vis_library)
 
 rosbuild_add_executable(planner src/planning/planner.cpp)
 
-rosbuild_add_executable(planSens src/planning/planSensing.cpp src/utils/ray.cpp)
-
 SET(target planSensOpt)
 rosbuild_add_executable(${target} src/planning/planSensingOpt.cpp)
 ADD_DEPENDENCIES(${target} utils_libraries)
@@ -111,7 +109,6 @@ SET(target obs-gen)
 rosbuild_add_executable(${target} src/map/obstacle-generator.cpp)
 ADD_DEPENDENCIES(${target} utils_libraries)
 TARGET_LINK_LIBRARIES(${target} utils_libraries)
-
 
 SET(target map-planner)
 rosbuild_add_executable(${target} src/map/map-planner.cpp)
