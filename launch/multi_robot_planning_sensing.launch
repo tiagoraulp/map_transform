@@ -1,7 +1,7 @@
 <launch>
   <arg name="x_0" default="10"/>
   <arg name="y_0" default="10"/>
-  <arg name="x_1" default="10"/>
+  <arg name="x_1" default="13"/>
   <arg name="y_1" default="15"/>
 
   <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/maze6.png 0.1" respawn="false" > 
@@ -27,6 +27,28 @@
       <remap from="/robot_0/planner/v_map" to="/robot_0/visibility/v_map"/>
       <remap from="/robot_0/planner/e_map" to="/robot_0/visibility/e_map"/>
       <remap from="/robot_0/planner/graph" to="/robot_0/visibility/graph"/>
+    </node>
+ </group>
+
+  <group ns="robot_1">
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">   
+      <param name="defl" value="80" />
+      <param name="infl" value="9" />
+      <param name="debug" value="false" />
+      <param name="ground_truth" value="false" />
+      <param name="tf_prefix" value ="/robot_1" /> 
+      <remap from="/robot_1/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_1" args="$(arg x_1) $(arg y_1) 0 0 0 0 /map /robot_1/base_link 10"/>
+
+    <node name="planner" pkg="map_transform" type="planSensOpt" output="screen">
+      <param name="tf_prefix" value ="/robot_1" /> 
+      <param name="defl" value="80" />
+      <param name="infl" value="9" />
+      <remap from="/robot_1/planner/v_map" to="/robot_1/visibility/v_map"/>
+      <remap from="/robot_1/planner/e_map" to="/robot_1/visibility/e_map"/>
+      <remap from="/robot_1/planner/graph" to="/robot_1/visibility/graph"/>
     </node>
  </group>
 
