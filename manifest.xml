@@ -1,0 +1,23 @@
+<package>
+  <description brief="map_transform">
+
+     map_transform
+
+  </description>
+  <author>Tiago Pereira</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/map_transform</url>
+  <depend package="nav_msgs"/>
+  <depend package="std_msgs"/>
+  <depend package="std_srvs"/>
+  <depend package="map_server"/>
+  <depend package="visualization_msgs"/>
+  <depend package="cv_bridge"/>
+  <depend package="roscpp"/>
+  <depend package="roslib"/>
+  <depend package="tf"/>
+  <depend package="dynamic_reconfigure"/>
+</package>
+
+

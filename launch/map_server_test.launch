@@ -1,0 +1,8 @@
+<launch>
+  <env name="ROSCONSOLE_CONFIG_FILE" 
+       value="$(find map_transform)/conf/custom_rosconsole.conf"/>
+  <node pkg="map_server" type="map_server" name="map_serv" args="$(find map_transform)/maps/test.yaml" respawn="false" output="screen" > 
+    <param name="frame_id" value="/map" />
+    <remap from="map" to="/visibility/map" />
+  </node>
+</launch>
