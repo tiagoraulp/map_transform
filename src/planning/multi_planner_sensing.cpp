@@ -42,6 +42,7 @@ private:
     std::vector<bool> graph_rcv;
     string regionsEditorServiceName;
     string PAstarServiceSubName;
+    vector<vector<map_transform::PAstarResponse> > bf_responses;
     void graphCallback(const map_transform::VisCom::ConstPtr& graph, int index);
     void graphCallback1(const map_transform::VisCom::ConstPtr& graph);
     void graphCallback2(const map_transform::VisCom::ConstPtr& graph);
@@ -75,6 +76,7 @@ public:
         vis_.resize(2);
         crit_points.resize(2);
         graph_rcv.assign(2, false);
+        bf_responses.resize(2);
         pl=false;
         goals.clear();
         regions.clear();
@@ -159,7 +161,7 @@ bool Multirobotplannersensing::ask_plan(std_srvs::Empty::Request  &req, std_srvs
     if(!allAvailable())
         return false;
     map_transform::Regions srv;
-    if (!regionsEditorService.call(srv)){
+    if(!regionsEditorService.call(srv)){
         pl=false;
         return false;
     }
@@ -402,8 +404,32 @@ void Multirobotplannersensing::plan(void){
 
     /////////////////////////// METHOD 1 ///////////////////////////////////////
 
-    ros::Time t01=ros::Time::now();
-    cout<<"----> Method 1:"<<endl;
+    ros::Time t0=ros::Time::now();
+    cout<<"----> Method 1 (BF):"<<endl;
+
+    bf_responses[0].assign(goals.size(), map_transform::PAstarResponse());
+    bf_responses[1].assign(goals.size(), map_transform::PAstarResponse());
+
+    map_transform::PAstar srv;
+    vector<int> count(4, 0);
+    for(int i=0; i<2; i++){
+        for(unsigned int g=0; g<goals.size(); g++){
+            ROS_INFO("%d %d !!!!! %d %d", i, i, g, g);
+            srv.request.goal=convertI2W(goals[g]);
+            if(PAstarService[i].call(srv)){
+                bf_responses[i][g]=srv.response;
+                count[i]++;
+            }
+            else{
+                bf_responses[i][g].cost=-10;
+                count[i+2]++;
+            }
+        }
+    }
+
+    ros::Duration diff = ros::Time::now() - t0;
+    ROS_INFO("Time for brute force of PAstar: %f", diff.toSec());
+    ROS_INFO("%d %d %d %d", count[0], count[1], count[2], count[3]);
 
     pl=false;
 }

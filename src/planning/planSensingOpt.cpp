@@ -444,13 +444,13 @@ bool Planner::request_single_plan(map_transform::PAstar::Request  &req, map_tran
 }
 
 PointI Planner::convertW2I(geometry_msgs::Point p){
-    return PointI(round(p.x/res),round(p.y/res));
+    return PointI(round(p.x/res-0.5),round(p.y/res-0.5));
 }
 
 geometry_msgs::Point Planner::convertI2W(PointI p){
     geometry_msgs::Point pf;
-    pf.x=p.i*res;
-    pf.y=p.j*res;
+    pf.x=(p.i+0.5)*res;
+    pf.y=(p.j+0.5)*res;
     return pf;
 }
 
