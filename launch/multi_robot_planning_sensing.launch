@@ -28,7 +28,7 @@
       <remap from="~e_map" to="/robot_0/visibility/e_map"/>
       <remap from="~map" to="/map"/>
     </node>
- </group>
+  </group>
 
   <group ns="robot_1">
     <node pkg="map_transform" type="visibility" name="visibility" output="screen">   
