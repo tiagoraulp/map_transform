@@ -29,43 +29,28 @@ Apath::Apath(){
 }
 
 template<typename T>
-class node{
-    // current position
-    int xPos;
-    int yPos;
-    // total distance already travelled to reach the node
-    T level;
-    // priority=level+remaining distance estimate
-    T priority;  // smaller: higher priority
-
-    inline float costEstimateDist(const float d, const int ss) const;
-    inline float costEstimateDist(const float d, const float ss) const;
-    float costEstimate(const int x,const int y) const;
-    const T & staticCast(const float d) const;
-public:
-    node(int xp, int yp, T d, T p){
-        xPos=xp; yPos=yp; level=d; priority=p;
-    }
-    int getxPos() const {return xPos;}
-    int getyPos() const {return yPos;}
-    T getLevel() const {return level;}
-    T getPriority() const {return priority;}
-
-    void updatePriority(const int & xDest, const int & yDest);
-    // give better priority to going strait instead of diagonally
-    void nextLevel(const int & i);// i: direction
-    // Estimation function for the remaining distance to the goal.
-    const T & estimate(const int & xDest, const int & yDest) const;
-};
-
-template<typename T>
-inline float node<T>::costEstimateDist(const float d, const int ss) const {
-    return d/14.14213562*14;
+node<T>::node(int xp, int yp, T d, T p){
+    xPos=xp; yPos=yp; level=d; priority=p;
 }
 
 template<typename T>
-inline float node<T>::costEstimateDist(const float d, const float ss) const {
-    return d;
+int node<T>::getxPos() const {
+    return xPos;
+}
+
+template<typename T>
+int node<T>::getyPos() const {
+    return yPos;
+}
+
+template<typename T>
+T node<T>::getLevel() const {
+    return level;
+}
+
+template<typename T>
+T node<T>::getPriority() const {
+    return priority;
 }
 
 template<typename T>
@@ -183,6 +168,9 @@ Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv)
     path.cost=-2;
     return path;
 }
+
+template class node<int>;
+template class node<float>;
 
 template Apath Astar<float>(PointI p0, PointI p1, vector<vector<bool> > msg);
 template Apath Astar<int>(PointI p0, PointI p1, vector<vector<bool> > msg);
