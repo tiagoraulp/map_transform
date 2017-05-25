@@ -62,11 +62,19 @@ SET(VISIBILITY_SRCS
     src/visibility/brute_force.cpp
 )
 
+SET(PLANNING_SRCS
+    src/planning/Astar.cpp
+    src/planning/PAstar.cpp
+)
+
 ADD_LIBRARY(utils_libraries SHARED ${UTILS_SRCS})
 target_link_libraries(utils_libraries ${OpenCV_LIBRARIES})
 
 ADD_LIBRARY(vis_library SHARED ${VISIBILITY_SRCS})
 target_link_libraries(vis_library utils_libraries)
+
+ADD_LIBRARY(planning_library SHARED ${PLANNING_SRCS})
+target_link_libraries(planning_library utils_libraries)
 
 SET(target visibility)
 ROSBUILD_ADD_EXECUTABLE(${target}
@@ -85,14 +93,18 @@ ROSBUILD_ADD_EXECUTABLE(${target}
 ADD_DEPENDENCIES(${target} utils_libraries vis_library)
 TARGET_LINK_LIBRARIES(${target} utils_libraries  vis_library)
 
-rosbuild_add_executable(planner src/planning/planner.cpp)
+SET(target planner)
+rosbuild_add_executable(${target} src/planning/planner.cpp)
 
-rosbuild_add_executable(multiPlannerSens src/planning/multi_planner_sensing.cpp src/planning/Astar.cpp)
+SET(target multiPlannerSens)
+rosbuild_add_executable(${target} src/planning/multi_planner_sensing.cpp)
+ADD_DEPENDENCIES(${target} utils_libraries planning_library)
+TARGET_LINK_LIBRARIES(${target} utils_libraries planning_library)
 
 SET(target planSensOpt)
-rosbuild_add_executable(${target} src/planning/planSensingOpt.cpp src/planning/PAstar.cpp src/planning/Astar.cpp)
-ADD_DEPENDENCIES(${target} utils_libraries)
-TARGET_LINK_LIBRARIES(${target} utils_libraries)
+rosbuild_add_executable(${target} src/planning/planSensingOpt.cpp)
+ADD_DEPENDENCIES(${target} utils_libraries planning_library)
+TARGET_LINK_LIBRARIES(${target} utils_libraries planning_library)
 
 SET(target pddl-gen)
 rosbuild_add_executable(${target} src/planning/pddl-generator.cpp src/planning/Astar.cpp)
