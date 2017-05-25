@@ -60,6 +60,10 @@
     <remap from="~/robot_0/graph" to="/robot_0/visibility/graph"/>
     <remap from="~/robot_1/graph" to="/robot_1/visibility/graph"/>
     <remap from="~map" to="/map"/>
+    <param name="robot_0/infl" value="9" />
+    <param name="robot_1/infl" value="9" />
+    <param name="robot_0/defl" value="80" />
+    <param name="robot_1/defl" value="80" />
     <param name="goalRegionsService" value="/regionsEditor/getRegions" />
     <param name="PAstarService" value="/planner/plan_point" />
   </node>

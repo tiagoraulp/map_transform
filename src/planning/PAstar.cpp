@@ -368,9 +368,9 @@ Apath PAstar::run(PointI p0, PointI p1, float opt, bool bfs, map_transform::VisN
                 exp_nodes=0; exp_nodes_r=0, tested_goal=0;
             }
             //myfile[index_file]<<exp_nodes<<"; "<<exp_nodes_r<<"; "<<tested_goal<<"; ";
-            cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
-            cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
-            cout<<"Goal Tested nodes: "<<tested_goal<<endl;
+            //cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
+            //cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
+            //cout<<"Goal Tested nodes: "<<tested_goal<<endl;
             return path;
         }
         if(list2)
@@ -416,9 +416,9 @@ Apath PAstar::run(PointI p0, PointI p1, float opt, bool bfs, map_transform::VisN
     {
         exp_nodes=0; exp_nodes_r=0, tested_goal=0;
     }
-    cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
-    cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
-    cout<<"Goal Tested nodes: "<<tested_goal<<endl;
+    //cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
+    //cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
+    //cout<<"Goal Tested nodes: "<<tested_goal<<endl;
     //myfile[index_file]<<exp_nodes<<"; "<<exp_nodes_r<<"; "<<tested_goal<<"; ";
     return path;
 }

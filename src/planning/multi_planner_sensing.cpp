@@ -6,17 +6,27 @@
 #include "visualization_msgs/MarkerArray.h"
 #include "tf/transform_listener.h"
 #include "std_srvs/Empty.h"
-#include "Astar.hpp"
 #include <map_transform/VisCom.h>
 #include <map_transform/VisNode.h>
 #include <map_transform/Regions.h>
-#include <map_transform/PAstar.h>
+#include <map_transform/PAstarSrv.h>
+#include "PAstar.hpp"
 
 #define V_MAP 0
 #define E_MAP 2
 #define O_MAP 4
 
 using namespace std;
+
+class PAresult{
+public:
+    float cost;
+    PointI perc_pt;
+    PAresult(){
+        cost=0;
+        perc_pt=PointI();
+    }
+};
 
 class Multirobotplannersensing{
 private:
@@ -34,6 +44,7 @@ private:
     int width,height;
     float res;
     bool pl;
+    cv::Mat or_map;
     vector<geometry_msgs::Point> regions;
     vector<PointI> goals;
     vector<vector<bool> > goals_map;
@@ -42,7 +53,8 @@ private:
     std::vector<bool> graph_rcv;
     string regionsEditorServiceName;
     string PAstarServiceSubName;
-    vector<vector<map_transform::PAstarResponse> > bf_responses;
+    vector<int> infl, defl;
+    vector<vector<PAresult> > bf_responses;
     void graphCallback(const map_transform::VisCom::ConstPtr& graph, int index);
     void graphCallback1(const map_transform::VisCom::ConstPtr& graph);
     void graphCallback2(const map_transform::VisCom::ConstPtr& graph);
@@ -85,10 +97,16 @@ public:
         regionsEditorService = nh_.serviceClient<map_transform::Regions>(regionsEditorServiceName);
         regionsEditorService.waitForExistence();
         PAstarService.resize(2);
-        PAstarService[0]=nh_.serviceClient<map_transform::PAstar>("/robot_0"+PAstarServiceSubName);
+        PAstarService[0]=nh_.serviceClient<map_transform::PAstarSrv>("/robot_0"+PAstarServiceSubName);
         PAstarService[0].waitForExistence();
-        PAstarService[1]=nh_.serviceClient<map_transform::PAstar>("/robot_1"+PAstarServiceSubName);
+        PAstarService[1]=nh_.serviceClient<map_transform::PAstarSrv>("/robot_1"+PAstarServiceSubName);
         PAstarService[1].waitForExistence();
+        infl.resize(2);
+        defl.resize(2);
+        nh_.param("robot_0/infl", infl[0], 8);
+        nh_.param("robot_1/infl", infl[1], 8);
+        nh_.param("robot_0/defl", defl[0], 80);
+        nh_.param("robot_1/defl", defl[1], 80);
     }
     ~Multirobotplannersensing(){
     }
@@ -112,14 +130,20 @@ void Multirobotplannersensing::graphCallback2(const map_transform::VisCom::Const
 
 void Multirobotplannersensing::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index){
     msg_rcv[index].assign(msg->info.width, vector<bool>(msg->info.height,false));
+    if(index==O_MAP)
+        or_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
     for(unsigned int i=0;i<msg->info.height;i++){
         for(unsigned int j=0;j<msg->info.width;j++){
             if(*mapDataIterC == 0){
                 msg_rcv[index][j][i]=true;
+                if(index==O_MAP)
+                    or_map.at<uchar>(j,i) = 255;
             }
             else{
                 msg_rcv[index][j][i]=false;
+                if(index==O_MAP)
+                    or_map.at<uchar>(j,i) = 0;
             }
             mapDataIterC++;
         }
@@ -407,17 +431,35 @@ void Multirobotplannersensing::plan(void){
     ros::Time t0=ros::Time::now();
     cout<<"----> Method 1 (BF):"<<endl;
 
-    bf_responses[0].assign(goals.size(), map_transform::PAstarResponse());
-    bf_responses[1].assign(goals.size(), map_transform::PAstarResponse());
+    bf_responses[0].assign(goals.size(), PAresult());
+    bf_responses[1].assign(goals.size(), PAresult());
 
-    map_transform::PAstar srv;
+    //map_transform::PAstarSrv srv;
     vector<int> count(4, 0);
     for(int i=0; i<2; i++){
+        PAstar pastar(infl[i], defl[i]);
+        pastar.updateNavMap(msg_rcv[E_MAP+i]);
+        pastar.updateOrMap(or_map);
         for(unsigned int g=0; g<goals.size(); g++){
-            ROS_INFO("%d %d !!!!! %d %d", i, i, g, g);
-            srv.request.goal=convertI2W(goals[g]);
-            if(PAstarService[i].call(srv)){
-                bf_responses[i][g]=srv.response;
+            //ROS_INFO("%d %d !!!!! %d %d", i, i, g, g);
+            //srv.request.goal=convertI2W(goals[g]);
+            Apath path=pastar.run(pr[i].front(), goals[g]);
+//            if(PAstarService[i].call(srv)){
+//                bf_responses[i][g]=srv.response;
+//                count[i]++;
+//            }
+//            else{
+//                bf_responses[i][g].cost=-10;
+//                count[i+2]++;
+//            }
+            if(path.cost>=0){
+                bf_responses[i][g].cost=path.cost/10.0*res;
+                if(path.points.size()!=0){
+                    bf_responses[i][g].perc_pt=path.points.back();
+                }
+                else{
+                    bf_responses[i][g].perc_pt=pr[i].front();
+                }
                 count[i]++;
             }
             else{
