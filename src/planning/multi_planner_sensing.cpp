@@ -445,7 +445,8 @@ void Multirobotplannersensing::plan(void){
             //srv.request.goal=convertI2W(goals[g]);
             Apath path=pastar.run(pr[i].front(), goals[g]);
 //            if(PAstarService[i].call(srv)){
-//                bf_responses[i][g]=srv.response;
+//                bf_responses[i][g].cost=srv.response.cost;
+//                bf_responses[i][g].perc_pt=convertW2I(srv.response.perc_pt);
 //                count[i]++;
 //            }
 //            else{
