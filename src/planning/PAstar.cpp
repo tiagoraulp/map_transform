@@ -219,17 +219,17 @@ PAstar::PAstar(){
 
 template <typename T>
 Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode crit){
-    Apath path; path.points.clear();path.cost=0;
+    Apath path; path.points.clear();path.cost=-1;
     const int n=map_.size();
     if(n<=0){
-        path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
-        path.cost=-2;
+        //path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
+        //path.cost=-2;
         return path;
     }
     const int m=map_[0].size();
     if(m<=0){
-        path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
-        path.cost=-2;
+        //path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
+        //path.cost=-2;
         return path;
     }
     vector<vector<int> > closed_nodes_map;closed_nodes_map.assign(n,vector<int>(m,0));
@@ -276,8 +276,7 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
         bool list2=false;
         bool tested=false;
         if(pq[2].size()==0){
-            n0=nodePA<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), k1, k2, opt, quad, bfs, crit);
+            n0=pq[pqi].top();
             x=n0.getxPos(); y=n0.getyPos();
             pq[pqi].pop();
             if(closed_nodes_map[x][y]==1)
@@ -292,8 +291,7 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
         }
         else{
             if(pq[pqi].size()==0){
-                n0=nodePA<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), k1, k2, opt, quad, bfs, crit);
+                n0=pq[2].top();
                 x=n0.getxPos(); y=n0.getyPos();
                 pq[2].pop();
                 //if(closed_nodes_map[x][y]==1)
@@ -311,8 +309,7 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
                         cond=true;
                     }
                 if(!cond){
-                    n0=nodePA<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), k1, k2, opt, quad, bfs, crit);
+                    n0=pq[pqi].top();
                     x=n0.getxPos(); y=n0.getyPos();
                     pq[pqi].pop();
                     if(closed_nodes_map[x][y]==1)
@@ -327,8 +324,7 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
                         }
                 }
                 else{
-                    n0=nodePA<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), k1, k2, opt, quad, bfs, crit);
+                    n0=pq[2].top();
                     x=n0.getxPos(); y=n0.getyPos();
                     pq[2].pop();
                     //if(closed_nodes_map[x][y]==1)
