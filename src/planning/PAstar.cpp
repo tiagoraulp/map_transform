@@ -8,10 +8,6 @@
 
 using namespace std;
 
-float k1=1;
-float k2=0.04;
-bool quad=true;
-
 const int dir=8; // number of possible directions to go at any position
 //if dir==4
 //static int dx[dir]={1, 0, -1, 0};
@@ -21,15 +17,12 @@ static int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
 static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
 
 template<typename T>
-node<T>::node(int xp, int yp, T d, T p){
-    xPos=xp; yPos=yp; level=d; priority=p;
-}
-
-template<typename T>
-nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float dist, bool q, bool bfs_, map_transform::VisNode cr_): node<T>(xp, yp, d, p){
+nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost1, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode cr_): node<T>(xp, yp, d, p){
     infl=inf;defl=def;sens=ss;opt=dist;crit=cr_;
     power=q;
     bfs=bfs_;
+    k1=cost1;
+    k2=cost2;
     if(power){
         costEst=&nodePA::costEstimate2;
         costSens=&nodePA::costSensing2;
@@ -225,7 +218,7 @@ PAstar::PAstar(){
 }
 
 template <typename T>
-Apath PAstar::run(PointI p0, PointI p1, float opt, bool bfs, map_transform::VisNode crit){
+Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode crit){
     Apath path; path.points.clear();path.cost=0;
     const int n=map_.size();
     if(n<=0){
@@ -267,7 +260,7 @@ Apath PAstar::run(PointI p0, PointI p1, float opt, bool bfs, map_transform::VisN
 //    }
     priority_queue<nodePA<T> > pq[3];
     int pqi;
-    nodePA<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, opt, quad, bfs, crit);
+    nodePA<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, k1, k2, opt, quad, bfs, crit);
     int i, j, x, y, xdx, ydy;
     pqi=0;
 
@@ -284,7 +277,7 @@ Apath PAstar::run(PointI p0, PointI p1, float opt, bool bfs, map_transform::VisN
         bool tested=false;
         if(pq[2].size()==0){
             n0=nodePA<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad, bfs, crit);
+                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), k1, k2, opt, quad, bfs, crit);
             x=n0.getxPos(); y=n0.getyPos();
             pq[pqi].pop();
             if(closed_nodes_map[x][y]==1)
@@ -300,7 +293,7 @@ Apath PAstar::run(PointI p0, PointI p1, float opt, bool bfs, map_transform::VisN
         else{
             if(pq[pqi].size()==0){
                 n0=nodePA<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad, bfs, crit);
+                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), k1, k2, opt, quad, bfs, crit);
                 x=n0.getxPos(); y=n0.getyPos();
                 pq[2].pop();
                 //if(closed_nodes_map[x][y]==1)
@@ -319,7 +312,7 @@ Apath PAstar::run(PointI p0, PointI p1, float opt, bool bfs, map_transform::VisN
                     }
                 if(!cond){
                     n0=nodePA<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), opt, quad, bfs, crit);
+                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), k1, k2, opt, quad, bfs, crit);
                     x=n0.getxPos(); y=n0.getyPos();
                     pq[pqi].pop();
                     if(closed_nodes_map[x][y]==1)
@@ -335,7 +328,7 @@ Apath PAstar::run(PointI p0, PointI p1, float opt, bool bfs, map_transform::VisN
                 }
                 else{
                     n0=nodePA<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), opt, quad, bfs, crit);
+                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), k1, k2, opt, quad, bfs, crit);
                     x=n0.getxPos(); y=n0.getyPos();
                     pq[2].pop();
                     //if(closed_nodes_map[x][y]==1)
@@ -388,7 +381,7 @@ Apath PAstar::run(PointI p0, PointI p1, float opt, bool bfs, map_transform::VisN
                      ))
                 {
                     nodePA<T> m0=nodePA<T>( xdx, ydy, n0.getLevel(),
-                                 n0.getPriority(), infl, defl, n0.getSensing(), opt, quad, bfs, crit);
+                                 n0.getPriority(), infl, defl, n0.getSensing(), k1, k2, opt, quad, bfs, crit);
                     m0.nextLevel(i);
                     m0.updatePriority(p1.i, p1.j);
                     m0.updateSensing(p1.i, p1.j);
@@ -434,5 +427,5 @@ bool PAstar::isGoal(PointI p0, PointI p1){
     }
 }
 
-template Apath PAstar::run<float>(PointI p0, PointI p1, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
-template Apath PAstar::run<int>(PointI p0, PointI p1, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
+template Apath PAstar::run<float>(PointI p0, PointI p1, float k1=1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
+template Apath PAstar::run<int>(PointI p0, PointI p1, float k1=1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
