@@ -563,7 +563,7 @@ int main(int argc, char **argv)
     }
 
     Planner planner(nh, server_mode);
-    ros::Rate loop_rate(10);
+    ros::Rate loop_rate(1000);
     while (ros::ok()){
         ros::spinOnce();
         planner.plan();
