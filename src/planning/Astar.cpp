@@ -118,7 +118,6 @@ Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv)
     pq.push(n0);
 
     while(!pq.empty()){
-        //n0=node<T>( pq.top().getxPos(), pq.top().getyPos(), pq.top().getLevel(), pq.top().getPriority());
         n0=pq.top();
         x=n0.getxPos(); y=n0.getyPos();
         pq.pop();

@@ -210,127 +210,6 @@ geometry_msgs::Point Multirobotplannersensing::convertI2W(PointI p){
     return pf;
 }
 
-
-//double Multirobotplannersensing::distance2Path(vector<PointI> path, PointI goal, int r)
-//{
-//    vector<double> heuristic(0);
-//    vector<int> pos(0);
-
-//    for(unsigned int p=0;p<path.size();p++)
-//    {
-//        if (!msg_rcv[r][path[p].i][path[p].j])
-//            continue;
-
-//        double heur=(double) (path[p].i-goal.i)*(path[p].i-goal.i)+(path[p].j-goal.j)*(path[p].j-goal.j);
-
-//        vector<double>::iterator heurIt = heuristic.begin();
-//        vector<int>::iterator posIt = pos.begin();
-
-//        while(heurIt!=heuristic.end())
-//        {
-//            if(heur<*heurIt)
-//                break;
-//            heurIt++;
-//            posIt++;
-//        }
-
-//        heuristic.insert(heurIt,heur);
-//        pos.insert(posIt,p);
-//    }
-
-//    double min_real=0;
-//    Apath pathT;
-
-//    for(unsigned int h=0;h<(heuristic.size());h++)
-//    {
-//        pathT=Astar(path[pos[h]], goal,r);
-//        if(h==0)
-//            min_real=pathT.cost;
-//        else
-//        {
-//            if(pathT.cost<min_real)
-//                min_real=pathT.cost;
-
-//            if(h<(heuristic.size()-1))
-//            {
-//                if( (min_real*min_real)<heuristic[h+1])
-//                    return min_real;
-//                else
-//                    continue;
-//            }
-//        }
-//    }
-
-//    return pathT.cost;
-//}
-
-//int Multirobotplannersensing::minDistanceGoal2Path(vector<PointI> path, vector<PointI> goal, int r)
-//{
-//    vector<double> heuristic(0);
-//    vector<int> pos(0);
-//    vector<int> gp(0);
-
-//    for(unsigned int g=0;g<goal.size();g++)
-//    {
-//        for( unsigned int p=0;p<path.size();p++)
-//        {
-//            if (!msg_rcv[r][path[p].i][path[p].j])
-//                continue;
-
-//            double heur=(double) (path[p].i-goal[g].i)*(path[p].i-goal[g].i)+(path[p].j-goal[g].j)*(path[p].j-goal[g].j);
-
-//            vector<double>::iterator heurIt = heuristic.begin();
-//            vector<int>::iterator posIt = pos.begin();
-//            vector<int>::iterator gpIt = gp.begin();
-
-//            while(heurIt!=heuristic.end())
-//            {
-//                if(heur<*heurIt)
-//                    break;
-//                heurIt++;
-//                posIt++;
-//                gpIt++;
-//            }
-
-//            heuristic.insert(heurIt,heur);
-//            pos.insert(posIt,p);
-//            gp.insert(gpIt,g);
-//        }
-//    }
-
-//    double min_real=0;
-//    int g_real=0;
-//    Apath pathT;
-
-//    for(unsigned int h=0;h<(heuristic.size());h++)
-//    {
-//        pathT=Astar(path[pos[h]], goal[gp[h]],r);
-//        if(h==0)
-//        {
-//            min_real=pathT.cost;
-//            g_real=gp[h];
-//        }
-//        else
-//        {
-//            if(pathT.cost<min_real)
-//            {
-//                min_real=pathT.cost;
-//                g_real=gp[h];
-//            }
-
-//            if(h<(heuristic.size()-1))
-//            {
-//                if( (min_real*min_real)<heuristic[h+1])
-//                    return g_real;
-//                else
-//                    continue;
-//            }
-//        }
-//    }
-
-//    return g_real;
-//}
-
 bool Multirobotplannersensing::allAvailable(void){
     return map_rcv[0] && map_rcv[0] && map_rcv[0] && map_rcv[0] && map_rcv[0];
 }
@@ -428,8 +307,8 @@ void Multirobotplannersensing::plan(void){
 
     /////////////////////////// METHOD 1 ///////////////////////////////////////
 
-    ros::Time t0=ros::Time::now();
     cout<<"----> Method 1 (BF):"<<endl;
+    ros::Time t0=ros::Time::now();
 
     bf_responses[0].assign(goals.size(), PAresult());
     bf_responses[1].assign(goals.size(), PAresult());
@@ -443,9 +322,9 @@ void Multirobotplannersensing::plan(void){
         for(unsigned int g=0; g<goals.size(); g++){
             //ROS_INFO("%d %d !!!!! %d %d", i, i, g, g);
             //srv.request.goal=convertI2W(goals[g]);
-            Apath path=pastar.run(pr[i].front(), goals[g]);
+            Apath path=pastar.run(pr[i].front(), goals[g], 1, 0.04, true);
 //            if(PAstarService[i].call(srv)){
-//                bf_responses[i][g].cost=srv.response.cost;
+//                bf_responses[i][g].cost=srv.response.cost/res;
 //                bf_responses[i][g].perc_pt=convertW2I(srv.response.perc_pt);
 //                count[i]++;
 //            }
@@ -454,7 +333,7 @@ void Multirobotplannersensing::plan(void){
 //                count[i+2]++;
 //            }
             if(path.cost>=0){
-                bf_responses[i][g].cost=path.cost/10.0*res;
+                bf_responses[i][g].cost=path.cost;
                 if(path.points.size()!=0){
                     bf_responses[i][g].perc_pt=path.points.back();
                 }
@@ -470,9 +349,18 @@ void Multirobotplannersensing::plan(void){
         }
     }
 
+    ROS_INFO("%d %d %d %d", count[0], count[1], count[2], count[3]);
+
     ros::Duration diff = ros::Time::now() - t0;
     ROS_INFO("Time for brute force of PAstar: %f", diff.toSec());
-    ROS_INFO("%d %d %d %d", count[0], count[1], count[2], count[3]);
+
+    /////////////////////////// METHOD 2 ///////////////////////////////////////
+
+    cout<<"----> Method 2 (Vis):"<<endl;
+    t0=ros::Time::now();
+
+    diff = ros::Time::now() - t0;
+    ROS_INFO("Time for planning with Visibity Maps: %f", diff.toSec());
 
     pl=false;
 }

@@ -213,6 +213,8 @@ bool Planner::request_single_plan(map_transform::PAstarSrv::Request  &req, map_t
 }
 
 PointI Planner::convertW2I(geometry_msgs::Point p){
+    cout<< std::setprecision(std::numeric_limits<long double>::digits10 + 1)<<p.x<<" "<<p.y<<" "<<(p.x/res-0.5)<<" "<<(p.y/res-0.5)<<" "<<round(p.x/res-0.5)<<" "<<round(p.y/res-0.5)<<endl;
+
     return PointI(round(p.x/res-0.5),round(p.y/res-0.5));
 }
 
@@ -224,7 +226,7 @@ geometry_msgs::Point Planner::convertI2W(PointI p){
 }
 
 float Planner::convertCostI2W(float cost){
-    return cost/10.0*res;
+    return cost*res;
 }
 
 //int index_file=0;
@@ -295,6 +297,7 @@ void Planner::plan(void){
 //                    myfile[index_file]<<xsx<<"\n";
 
         pi=convertW2I(p);
+
         for(unsigned int ii=0; ii<goals.size();ii++){
             ROS_INFO("Goal %u",ii);
             ros::Time t01=ros::Time::now();
