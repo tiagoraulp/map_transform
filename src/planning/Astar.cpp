@@ -13,16 +13,6 @@ const int dir=8; // number of possible directions to go at any position
 static int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
 static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
 
-PointI::PointI(int a, int b){
-    i=a;
-    j=b;
-}
-
-PointI::PointI(){
-    i=0;
-    j=0;
-}
-
 Apath::Apath(){
     cost=-1;
     points.clear();
@@ -98,7 +88,7 @@ bool operator<(const node<T> & a, const node<T> & b)
 }
 
 template <typename T>
-Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv)
+Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_thin_diagonals)
 {
     Apath path; path.points.clear();path.cost=-1;
     const int n=msg_rcv.size();
@@ -144,9 +134,9 @@ Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv)
         for(i=0;i<dir;i++){
             xdx=x+dx[i]; ydy=y+dy[i];
             if(!(xdx<0 || xdx>n-1 || ydy<0 || ydy>m-1 || !msg_rcv[xdx][ydy]
-                || closed_nodes_map[xdx][ydy]==1 ))//|| ( (dir==1 || dir==3 || dir==5 || dir==7)
-                                                   //   && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
-                                                   //   && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]]) ))
+                || closed_nodes_map[xdx][ydy]==1 || ( disable_thin_diagonals && (dir==1 || dir==3 || dir==5 || dir==7)
+                                                      && !msg_rcv[x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
+                                                      && !msg_rcv[x+dx[(i+1)%dir]][y+dy[(i+1)%dir]]) ))
             {
                 node<T> m0( xdx, ydy, n0.getLevel(),n0.getPriority());
                 m0.nextLevel(i);
@@ -171,5 +161,5 @@ Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv)
 template class node<int>;
 template class node<float>;
 
-template Apath Astar<float>(PointI p0, PointI p1, vector<vector<bool> > msg);
-template Apath Astar<int>(PointI p0, PointI p1, vector<vector<bool> > msg);
+template Apath Astar<float>(PointI p0, PointI p1, vector<vector<bool> > msg, bool disable_thin_diagonals=false);
+template Apath Astar<int>(PointI p0, PointI p1, vector<vector<bool> > msg, bool disable_thin_diagonals=false);
