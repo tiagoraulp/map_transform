@@ -250,7 +250,7 @@ void Planner::plan(void){
 
         ROS_INFO("Planning!!");
 
-        //path=pastar.run(pi, convertW2I(goals[0]),1, 0.04, true, -5,true);
+        //path=pastar.run(pi, convertW2I(goals[0]), 0.04, true, -5,true);
 
 //        for(unsigned int tt=0;tt<2;tt++){
 //            for(unsigned ll=0;ll<7;ll++){
@@ -311,13 +311,13 @@ void Planner::plan(void){
                     path.cost=-3;
                     continue;
                 }
-                path=pastar.run(pi, g, 1, 0.04, true, -3, true);
+                path=pastar.run(pi, g, 0.04, true, -3, true);
             }
             diff = ros::Time::now() - t01;
             //if(path.cost!=-2)
             //    myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
             ROS_INFO("Time BFS: %f; Cost: %f",diff.toSec(),path.cost);
-            //path=pastar.run(pi, convertW2I(goals[0]),1, 0.04, true, -5);
+            //path=pastar.run(pi, convertW2I(goals[0]), 0.04, true, -5);
             t01=ros::Time::now();
             for(unsigned int i=ii; i<ii+1;i++){
                 PointI g=convertW2I(goals[i]);
@@ -336,7 +336,7 @@ void Planner::plan(void){
                     path.cost=-3;
                     continue;
                 }
-                path=pastar.run(pi, g, 1, 0.04, true);
+                path=pastar.run(pi, g, 0.04, true);
             }
             diff = ros::Time::now() - t01;
             //if(path.cost>=0)
@@ -356,7 +356,7 @@ void Planner::plan(void){
                 }
             }
             pub1.publish(path_0);
-            //path=pastar.run(pi, convertW2I(goals[0]),1, 0.04, true, -5);
+            //path=pastar.run(pi, convertW2I(goals[0]),0.04, true, -5);
             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
                 t01=ros::Time::now();
                 for(unsigned int i=ii; i<ii+1;i++){
@@ -376,7 +376,7 @@ void Planner::plan(void){
                         path.cost=-3;
                         continue;
                     }
-                    path=pastar.run(pi, g,1, 0.04, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, crit_points[g.i*msg_rcv[0][0].size()+g.j]);
+                    path=pastar.run(pi, g, 0.04, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, crit_points[g.i*msg_rcv[0][0].size()+g.j]);
                 }
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM: %f; Cost: %f",diff.toSec(),path.cost);
@@ -504,8 +504,8 @@ bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_
         pt.x=transform.getOrigin().x();
         pt.y=transform.getOrigin().y();
         PointI pi=convertW2I(pt);
-        //pastar.run(pi, gi,1, 0.04, true, -5);
-        Apath path=pastar.run(pi, gi,1, 0.04, true);
+        //pastar.run(pi, gi, 0.04, true, -5);
+        Apath path=pastar.run(pi, gi, 0.04, true);
         if(path.cost>=0){
             path_0.poses.clear();
             if(path.points.size()!=0){
