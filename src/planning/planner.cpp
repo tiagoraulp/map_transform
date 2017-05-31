@@ -466,6 +466,8 @@ void Planner::plan(void){
                 double max_c=0;
                 for(unsigned int i=0;i<gr[2].size();i++)
                 {
+                    if(gt[gr[2][i]])
+                        continue;
                     double cost=0;
                     if (pg[r_o].size()==1){
                         path=Astar<float>(g[pg[r_o][0]], g[gr[2][i]], msg_rcv[r_o], true);
