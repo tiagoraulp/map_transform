@@ -8,16 +8,10 @@
 #include <map_transform/VisCom.h>
 #include <map_transform/VisNode.h>
 #include <map_transform/PAstarSrv.h>
-
+#include <fstream>
 #include <queue>
 #include "std_msgs/String.h"
-
 #include "std_srvs/Empty.h"
-
-#include "vector_utils.hpp"
-
-#include <fstream>
-
 #include "PAstar.hpp"
 
 using namespace std;
@@ -213,8 +207,6 @@ bool Planner::request_single_plan(map_transform::PAstarSrv::Request  &req, map_t
 }
 
 PointI Planner::convertW2I(geometry_msgs::Point p){
-    cout<< std::setprecision(std::numeric_limits<long double>::digits10 + 1)<<p.x<<" "<<p.y<<" "<<(p.x/res-0.5)<<" "<<(p.y/res-0.5)<<" "<<round(p.x/res-0.5)<<" "<<round(p.y/res-0.5)<<endl;
-
     return PointI(round(p.x/res-0.5),round(p.y/res-0.5));
 }
 
