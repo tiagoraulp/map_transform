@@ -322,7 +322,7 @@ void Multirobotplannersensing::plan(void){
         for(unsigned int g=0; g<goals.size(); g++){
             //ROS_INFO("%d %d !!!!! %d %d", i, i, g, g);
             //srv.request.goal=convertI2W(goals[g]);
-            Apath path=pastar.run(pr[i].front(), goals[g], 1, 0.04, true);
+            Apath path=pastar.run(pr[i].front(), goals[g], 0.04, true);
 //            if(PAstarService[i].call(srv)){
 //                bf_responses[i][g].cost=srv.response.cost/res;
 //                bf_responses[i][g].perc_pt=convertW2I(srv.response.perc_pt);
