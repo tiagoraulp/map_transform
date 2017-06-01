@@ -17,16 +17,15 @@ static int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
 static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
 
 template<typename T>
-nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost1, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode cr_): node<T>(xp, yp, d, p){
+nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode cr_): node<T>(xp, yp, d, p){
     infl=inf;defl=def;sens=ss;opt=dist;crit=cr_;
     power=q;
     bfs=bfs_;
-    k1=cost1;
     k2=cost2;
     if(power){
         costEst=&nodePA::costEstimate2;
         costSens=&nodePA::costSensing2;
-        K=k1/(2*k2);
+        K=1.0/(2*k2);
     }
     else{
         costEst=&nodePA::costEstimate;
@@ -53,19 +52,19 @@ float nodePA<T>::costSensing2(const int x,const int y) const{
 template<typename T>
 float nodePA<T>::costEstimate(const int x,const int y) const
 {
-    if(k1>k2){
+    if(1.0>k2){
         if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
-            return k1*this->costEstimateDist((sqrt(x*x+y*y)-defl), sens)+k2*defl;
+            return 1.0*this->costEstimateDist((sqrt(x*x+y*y)-defl), sens)+k2*defl;
         else
             return k2*sqrt(x*x+y*y);
     }
     else{
         if(opt<0)
-            return k1*this->costEstimateDist(sqrt(x*x+y*y),sens);
+            return 1.0*this->costEstimateDist(sqrt(x*x+y*y),sens);
         else{
             float est1;
             if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
-                est1=k1*this->costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt;
+                est1=1.0*this->costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt;
             else
                 est1=k2*opt;
 
@@ -76,7 +75,7 @@ float nodePA<T>::costEstimate(const int x,const int y) const
                 float yy=crit.points[i].position.y-this->yPos;
                 float xG=crit.points[i].position.x-Gx;
                 float yG=crit.points[i].position.y-Gy;
-                min_est.iter(k1*(sqrt(xx*xx+yy*yy)-2*infl)+k2*sqrt(xG*xG+yG*yG));
+                min_est.iter(1.0*(sqrt(xx*xx+yy*yy)-2*infl)+k2*sqrt(xG*xG+yG*yG));
             }
             est2=min_est.getVal();
             return max(est1,est2);
@@ -89,12 +88,12 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
     if(opt<0){
         if(K<defl)
             if( ( (x)*(x)+(y)*(y) )>=(K*K) )
-                return k1*this->costEstimateDist((sqrt(x*x+y*y)-K),sens)+k2*K*K;
+                return 1.0*this->costEstimateDist((sqrt(x*x+y*y)-K),sens)+k2*K*K;
             else
                 return k2*(x*x+y*y);
         else
             if( ( (x)*(x)+(y)*(y) )>=(defl*defl) )
-                return k1*this->costEstimateDist((sqrt(x*x+y*y)-defl),sens)+k2*defl*defl;
+                return 1.0*this->costEstimateDist((sqrt(x*x+y*y)-defl),sens)+k2*defl*defl;
             else
                 return k2*(x*x+y*y);
     }
@@ -103,7 +102,7 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
         if(K<defl)
             if( K>opt )
                 if( ( (x)*(x)+(y)*(y) )>=(K*K) )
-                    est1= k1*this->costEstimateDist((sqrt(x*x+y*y)-K),sens)+k2*K*K;
+                    est1= 1.0*this->costEstimateDist((sqrt(x*x+y*y)-K),sens)+k2*K*K;
                 else
                     if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
                         est1= k2*(x*x+y*y);
@@ -111,12 +110,12 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                         est1= k2*opt*opt;
             else
                 if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
-                    est1= k1*this->costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt*opt;
+                    est1= 1.0*this->costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt*opt;
                 else
                     est1= k2*opt*opt;
         else
             if( ( (x)*(x)+(y)*(y) )>=(defl*defl) )
-                est1= k1*this->costEstimateDist((sqrt(x*x+y*y)-defl),sens)+k2*defl*defl;
+                est1= 1.0*this->costEstimateDist((sqrt(x*x+y*y)-defl),sens)+k2*defl*defl;
             else
                 if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
                     est1= k2*(x*x+y*y);
@@ -131,7 +130,7 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
             float yG=crit.points[i].position.y-Gy;
             float T2C_dist=sqrt(xG*xG+yG*yG);
             float ext_dist=max(K-T2C_dist,(float)0.0);
-            min_est.iter(k1*(sqrt(xx*xx+yy*yy)-2*infl-ext_dist)+k2*(T2C_dist+ext_dist)*(T2C_dist+ext_dist));
+            min_est.iter(1.0*(sqrt(xx*xx+yy*yy)-2*infl-ext_dist)+k2*(T2C_dist+ext_dist)*(T2C_dist+ext_dist));
         }
         est2=min_est.getVal();
         return max(est1,est2);
@@ -141,6 +140,21 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
 template<typename T>
 T nodePA<T>::getSensing() const {
     return sens;
+}
+
+template<typename T>
+double nodePA<T>::getCost() const {
+    return ((double)getSensing())/10.0;
+}
+
+template<typename T>
+double nodePA<T>::getMotionCost() const {
+    return ((double)(this->level))/10.0;
+}
+
+template<typename T>
+double nodePA<T>::getSensingCost() const {
+    return ((double)sensing(Gx, Gy))/10.0;
 }
 
 template<typename T>
@@ -218,18 +232,18 @@ PAstar::PAstar(){
 }
 
 template <typename T>
-Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode crit){
-    Apath path; path.points.clear();path.cost=0;
+Apath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode crit){
+    Apath path; path.points.clear();path.cost=-1;
     const int n=map_.size();
     if(n<=0){
-        path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
-        path.cost=-2;
+        //path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
+        //path.cost=-2;
         return path;
     }
     const int m=map_[0].size();
     if(m<=0){
-        path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
-        path.cost=-2;
+        //path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
+        //path.cost=-2;
         return path;
     }
     vector<vector<int> > closed_nodes_map;closed_nodes_map.assign(n,vector<int>(m,0));
@@ -260,7 +274,7 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
 //    }
     priority_queue<nodePA<T> > pq[3];
     int pqi;
-    nodePA<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, k1, k2, opt, quad, bfs, crit);
+    nodePA<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, k2, opt, quad, bfs, crit);
     int i, j, x, y, xdx, ydy;
     pqi=0;
 
@@ -276,8 +290,7 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
         bool list2=false;
         bool tested=false;
         if(pq[2].size()==0){
-            n0=nodePA<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                         pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), k1, k2, opt, quad, bfs, crit);
+            n0=pq[pqi].top();
             x=n0.getxPos(); y=n0.getyPos();
             pq[pqi].pop();
             if(closed_nodes_map[x][y]==1)
@@ -292,8 +305,7 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
         }
         else{
             if(pq[pqi].size()==0){
-                n0=nodePA<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                             pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), k1, k2, opt, quad, bfs, crit);
+                n0=pq[2].top();
                 x=n0.getxPos(); y=n0.getyPos();
                 pq[2].pop();
                 //if(closed_nodes_map[x][y]==1)
@@ -311,8 +323,7 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
                         cond=true;
                     }
                 if(!cond){
-                    n0=nodePA<T>( pq[pqi].top().getxPos(), pq[pqi].top().getyPos(),
-                                 pq[pqi].top().getLevel(), pq[pqi].top().getPriority(), infl, defl, pq[pqi].top().getSensing(), k1, k2, opt, quad, bfs, crit);
+                    n0=pq[pqi].top();
                     x=n0.getxPos(); y=n0.getyPos();
                     pq[pqi].pop();
                     if(closed_nodes_map[x][y]==1)
@@ -327,8 +338,7 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
                         }
                 }
                 else{
-                    n0=nodePA<T>( pq[2].top().getxPos(), pq[2].top().getyPos(),
-                                 pq[2].top().getLevel(), pq[2].top().getPriority(), infl, defl, pq[2].top().getSensing(), k1, k2, opt, quad, bfs, crit);
+                    n0=pq[2].top();
                     x=n0.getxPos(); y=n0.getyPos();
                     pq[2].pop();
                     //if(closed_nodes_map[x][y]==1)
@@ -355,15 +365,15 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
                 y+=dy[j];
             }
             path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
-            path.cost=(float)n0.getSensing();
+            path.cost=n0.getCost();
             if(opt==-5)
             {
                 exp_nodes=0; exp_nodes_r=0, tested_goal=0;
             }
             //myfile[index_file]<<exp_nodes<<"; "<<exp_nodes_r<<"; "<<tested_goal<<"; ";
-            cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
-            cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
-            cout<<"Goal Tested nodes: "<<tested_goal<<endl;
+            //cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
+            //cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
+            //cout<<"Goal Tested nodes: "<<tested_goal<<endl;
             return path;
         }
         if(list2)
@@ -381,7 +391,7 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
                      ))
                 {
                     nodePA<T> m0=nodePA<T>( xdx, ydy, n0.getLevel(),
-                                 n0.getPriority(), infl, defl, n0.getSensing(), k1, k2, opt, quad, bfs, crit);
+                                 n0.getPriority(), infl, defl, n0.getSensing(), k2, opt, quad, bfs, crit);
                     m0.nextLevel(i);
                     m0.updatePriority(p1.i, p1.j);
                     m0.updateSensing(p1.i, p1.j);
@@ -409,9 +419,9 @@ Apath PAstar::run(PointI p0, PointI p1, float k1, float k2, bool quad, float opt
     {
         exp_nodes=0; exp_nodes_r=0, tested_goal=0;
     }
-    cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
-    cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
-    cout<<"Goal Tested nodes: "<<tested_goal<<endl;
+    //cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
+    //cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
+    //cout<<"Goal Tested nodes: "<<tested_goal<<endl;
     //myfile[index_file]<<exp_nodes<<"; "<<exp_nodes_r<<"; "<<tested_goal<<"; ";
     return path;
 }
@@ -427,5 +437,5 @@ bool PAstar::isGoal(PointI p0, PointI p1){
     }
 }
 
-template Apath PAstar::run<float>(PointI p0, PointI p1, float k1=1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
-template Apath PAstar::run<int>(PointI p0, PointI p1, float k1=1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
+template Apath PAstar::run<float>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
+template Apath PAstar::run<int>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());

@@ -17,9 +17,11 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src)
-INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/planning)
-INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/visibility)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/utils)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/visibility)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/types)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/planning)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/conversions)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/map)
 
 #uncomment if you have defined messages
@@ -45,13 +47,14 @@ include(${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake)
 gencfg()
 
 SET(UTILS_SRCS
-  src/utils/bugfollowing.cpp
-  src/utils/chain.cpp
-  src/utils/clustering.cpp
-  src/utils/color.cpp
-  src/utils/labelling.cpp
-  src/utils/ray.cpp
-  src/utils/vector_utils.cpp
+    src/utils/bugfollowing.cpp
+    src/utils/chain.cpp
+    src/utils/clustering.cpp
+    src/utils/color.cpp
+    src/utils/labelling.cpp
+    src/utils/ray.cpp
+    src/utils/vector_utils.cpp
+    src/utils/combinatorics.cpp
 )
 
 SET(VISIBILITY_SRCS
@@ -62,19 +65,39 @@ SET(VISIBILITY_SRCS
     src/visibility/brute_force.cpp
 )
 
-ADD_LIBRARY(utils_libraries SHARED ${UTILS_SRCS})
-target_link_libraries(utils_libraries ${OpenCV_LIBRARIES})
+SET(TYPES_SRCS
+    src/types/pointi.cpp
+)
+
+SET(CONVERSIONS_SRCS
+    src/conversions/points_conversions.cpp
+)
+
+SET(PLANNING_SRCS
+    src/planning/Astar.cpp
+    src/planning/PAstar.cpp
+)
+
+ADD_LIBRARY(utils_library SHARED ${UTILS_SRCS})
+target_link_libraries(utils_library ${OpenCV_LIBRARIES})
 
 ADD_LIBRARY(vis_library SHARED ${VISIBILITY_SRCS})
-target_link_libraries(vis_library utils_libraries)
+target_link_libraries(vis_library utils_library)
+
+ADD_LIBRARY(types_library SHARED ${TYPES_SRCS})
+
+ADD_LIBRARY(conversions_library SHARED ${CONVERSIONS_SRCS})
+target_link_libraries(conversions_library types_library ${OpenCV_LIBRARIES})
+
+ADD_LIBRARY(planning_library SHARED ${PLANNING_SRCS})
+target_link_libraries(planning_library types_library utils_library)
 
 SET(target visibility)
 ROSBUILD_ADD_EXECUTABLE(${target}
     src/visibility/vis.cpp
     src/visibility/vis_transf.cpp
     src/visibility/visC_transf.cpp)
-ADD_DEPENDENCIES(${target} utils_libraries vis_library)
-TARGET_LINK_LIBRARIES(${target} utils_libraries  vis_library)
+TARGET_LINK_LIBRARIES(${target} vis_library)
 
 SET(target visNC)
 ROSBUILD_ADD_EXECUTABLE(${target}
@@ -82,33 +105,34 @@ ROSBUILD_ADD_EXECUTABLE(${target}
     src/visibility/vis_transf.cpp
     src/visibility/visNC_transf.cpp
     src/visibility/morph.cpp)
-ADD_DEPENDENCIES(${target} utils_libraries vis_library)
-TARGET_LINK_LIBRARIES(${target} utils_libraries  vis_library)
+TARGET_LINK_LIBRARIES(${target} vis_library)
 
-rosbuild_add_executable(planner src/planning/planner.cpp)
+SET(target planner)
+rosbuild_add_executable(${target} src/planning/planner.cpp)
+TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
+
+SET(target multiPlannerSens)
+rosbuild_add_executable(${target} src/planning/multi_planner_sensing.cpp)
+TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
 
 SET(target planSensOpt)
-rosbuild_add_executable(${target} src/planning/planSensingOpt.cpp src/planning/PAstar.cpp src/planning/Astar.cpp)
-ADD_DEPENDENCIES(${target} utils_libraries)
-TARGET_LINK_LIBRARIES(${target} utils_libraries)
+rosbuild_add_executable(${target} src/planning/planSensingOpt.cpp)
+TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
 
 SET(target pddl-gen)
-rosbuild_add_executable(${target} src/planning/pddl-generator.cpp src/planning/Astar.cpp)
-ADD_DEPENDENCIES(${target} utils_libraries)
-TARGET_LINK_LIBRARIES(${target} utils_libraries)
+rosbuild_add_executable(${target} src/planning/pddl-generator.cpp)
+TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
 
 SET(target map-gen)
 rosbuild_add_executable(${target} src/map/map-generator.cpp)
-ADD_DEPENDENCIES(${target} utils_libraries)
-TARGET_LINK_LIBRARIES(${target} utils_libraries)
+TARGET_LINK_LIBRARIES(${target} utils_library conversions_library)
 
 SET(target room-gen)
 rosbuild_add_executable(${target} src/map/room-generator.cpp)
 
 SET(target obs-gen)
 rosbuild_add_executable(${target} src/map/obstacle-generator.cpp)
-ADD_DEPENDENCIES(${target} utils_libraries)
-TARGET_LINK_LIBRARIES(${target} utils_libraries)
+TARGET_LINK_LIBRARIES(${target} utils_library conversions_library)
 
 SET(target map-planner)
 rosbuild_add_executable(${target} src/map/map-planner.cpp)

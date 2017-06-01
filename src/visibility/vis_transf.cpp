@@ -546,7 +546,7 @@ void Vis_transf<T>::run(bool _opt)
 
     show();
 
-    //publish();
+    publish();
 }
 
 template class Vis_transf<map_transform::ParametersConfig>;
