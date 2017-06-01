@@ -9,6 +9,7 @@
 #include <opencv2/core/core.hpp>
 #include "ray.hpp"
 #include "std_srvs/Empty.h"
+#include "points_conversions.hpp"
 
 using namespace std;
 
@@ -22,8 +23,6 @@ private:
     float res;
     int width,height;
     cv::Mat or_map;
-    cv::Point2i convertW2I(geometry_msgs::Point p);
-    geometry_msgs::Point convertI2W(cv::Point2i p);
     bool process(stringstream& iss);
     bool convert(void);
     bool generate(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res);
@@ -40,20 +39,6 @@ public:
 bool MapGen::generate(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res){
     gen=true;
     return true;
-}
-
-
-
-cv::Point2i MapGen::convertW2I(geometry_msgs::Point p){
-    cv::Point2i pf(round(p.x/res),round(p.y/res));
-    return pf;
-}
-
-geometry_msgs::Point MapGen::convertI2W(cv::Point2i p){
-    geometry_msgs::Point pf;
-    pf.x=p.x*res+0.5*res;
-    pf.y=p.y*res+0.5*res;
-    return pf;
 }
 
 bool MapGen::convert(void){
@@ -92,8 +77,8 @@ bool MapGen::process(stringstream& iss){
                 cv::Point2i p0i, p1i;
                 or_map=cv::Mat::ones(height, width, CV_8UC1)*255;
                 while(iss>>p0.x>>p0.y>>p1.x>>p1.y){
-                    p0i=convertW2I(p0);
-                    p1i=convertW2I(p1);
+                    convertWtf2I(p0, res, p0i);
+                    convertWtf2I(p1, res, p1i);
                     float dist_t=sqrt( (p0i.x-p1i.x)*(p0i.x-p1i.x)+(p0i.y-p1i.y)*(p0i.y-p1i.y) );
                     //cout<<p0.x<<" "<<p0.y<<" "<<p1.x<<" "<<p1.y<<" "<<dist_t<<endl;
                     raytracing(&or_map, p0i, p0i, p1i, dist_t);

@@ -2,14 +2,7 @@
 #define ASTAR_HPP
 
 #include <vector>
-
-class PointI{
-public:
-    int i;
-    int j;
-    PointI(int a, int b);
-    PointI();
-};
+#include "pointi.hpp"
 
 class Apath{
 public:
@@ -52,6 +45,6 @@ public:
 };
 
 template <typename T>
-Apath Astar(PointI p0, PointI p1, std::vector<std::vector<bool> > msg_rcv);
+Apath Astar(PointI p0, PointI p1, std::vector<std::vector<bool> > msg_rcv, bool disable_thin_diagonals=false);
 
 #endif // ASTAR_HPP

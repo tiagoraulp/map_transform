@@ -8,17 +8,12 @@
 #include <map_transform/VisCom.h>
 #include <map_transform/VisNode.h>
 #include <map_transform/PAstarSrv.h>
-
+#include <fstream>
 #include <queue>
 #include "std_msgs/String.h"
-
 #include "std_srvs/Empty.h"
-
-#include "vector_utils.hpp"
-
-#include <fstream>
-
 #include "PAstar.hpp"
+#include "points_conversions.hpp"
 
 using namespace std;
 
@@ -56,8 +51,6 @@ private:
     void rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg);
     bool getMapValue(int n, int i, int j);
-    PointI convertW2I(geometry_msgs::Point p);
-    geometry_msgs::Point convertI2W(PointI p);
     float convertCostI2W(float cost);
     void graphCallback(const map_transform::VisCom::ConstPtr& graph);
     bool isGoal(PointI p0, PointI p1);
@@ -72,11 +65,11 @@ public:
         pub_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1,true);
         sub1 = nh_.subscribe("v_map", 1, &Planner::rcv_map1, this);
         sub2 = nh_.subscribe("e_map", 1, &Planner::rcv_map2, this);
-        sub3 = nh_.subscribe("/map", 1, &Planner::rcv_map3, this);
-        graph_subscriber = nh.subscribe("graph", 10 , &Planner::graphCallback, this);
+        sub3 = nh_.subscribe("map", 1, &Planner::rcv_map3, this);
         service3 = nh_.advertiseService("plan_point", &Planner::request_single_plan, this);
         service2 = nh_.advertiseService("clear", &Planner::clear, this);
         if(!server_mode){
+            graph_subscriber = nh.subscribe("graph", 10 , &Planner::graphCallback, this);
             pub2 = nh_.advertise<nav_msgs::Path>("path1", 1,true);
             sub_goals = nh_.subscribe("/move_base_simple/goal", 1, &Planner::rcv_goal, this);
             service = nh_.advertiseService("plan", &Planner::ask_plan, this);
@@ -212,19 +205,8 @@ bool Planner::request_single_plan(map_transform::PAstarSrv::Request  &req, map_t
     return true;
 }
 
-PointI Planner::convertW2I(geometry_msgs::Point p){
-    return PointI(round(p.x/res),round(p.y/res));
-}
-
-geometry_msgs::Point Planner::convertI2W(PointI p){
-    geometry_msgs::Point pf;
-    pf.x=p.i*res;
-    pf.y=p.j*res;
-    return pf;
-}
-
 float Planner::convertCostI2W(float cost){
-    return cost/10.0*res;
+    return cost*res;
 }
 
 //int index_file=0;
@@ -256,7 +238,7 @@ void Planner::plan(void){
 
         ROS_INFO("Planning!!");
 
-        //path=pastar.run(pi, convertW2I(goals[0]),1, 0.04, true, -5,true);
+        //path=pastar.run(pi, convertW2I(goals[0], res), 0.04, true, -5,true);
 
 //        for(unsigned int tt=0;tt<2;tt++){
 //            for(unsigned ll=0;ll<7;ll++){
@@ -294,13 +276,14 @@ void Planner::plan(void){
 //                        {p.x=18.3; p.y=11.7; xsx="sim_8";//continue;}
 //                    myfile[index_file]<<xsx<<"\n";
 
-        pi=convertW2I(p);
+        pi=convertWtf2I(p, res);
+
         for(unsigned int ii=0; ii<goals.size();ii++){
             ROS_INFO("Goal %u",ii);
             ros::Time t01=ros::Time::now();
             ros::Duration diff;
             for(unsigned int i=ii; i<ii+1;i++){
-                PointI g=convertW2I(goals[i]);
+                PointI g=convertW2I(goals[i], res);
                 if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                     //clearG();
                     path.cost=-3;
@@ -316,16 +299,16 @@ void Planner::plan(void){
                     path.cost=-3;
                     continue;
                 }
-                path=pastar.run(pi, g, 1, 0.04, true, -3, true);
+                path=pastar.run(pi, g, 0.04, true, -3, true);
             }
             diff = ros::Time::now() - t01;
             //if(path.cost!=-2)
             //    myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
             ROS_INFO("Time BFS: %f; Cost: %f",diff.toSec(),path.cost);
-            //path=pastar.run(pi, convertW2I(goals[0]),1, 0.04, true, -5);
+            //path=pastar.run(pi, convertW2I(goals[0], res), 0.04, true, -5);
             t01=ros::Time::now();
             for(unsigned int i=ii; i<ii+1;i++){
-                PointI g=convertW2I(goals[i]);
+                PointI g=convertW2I(goals[i], res);
                 if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                     //clearG();
                     path.cost=-3;
@@ -341,7 +324,7 @@ void Planner::plan(void){
                     path.cost=-3;
                     continue;
                 }
-                path=pastar.run(pi, g, 1, 0.04, true);
+                path=pastar.run(pi, g, 0.04, true);
             }
             diff = ros::Time::now() - t01;
             //if(path.cost>=0)
@@ -352,7 +335,7 @@ void Planner::plan(void){
             if(path.cost>0){
                 if(path.points.size()!=0)
                     for(unsigned int p_i=0;p_i<path.points.size();p_i++){
-                        pw.pose.position=convertI2W(path.points[p_i]);
+                        pw.pose.position=convertI2W(path.points[p_i], res);
                         path_0.poses.push_back(pw);
                     }
                 else{
@@ -361,11 +344,11 @@ void Planner::plan(void){
                 }
             }
             pub1.publish(path_0);
-            //path=pastar.run(pi, convertW2I(goals[0]),1, 0.04, true, -5);
+            //path=pastar.run(pi, convertW2I(goals[0], res),0.04, true, -5);
             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
                 t01=ros::Time::now();
                 for(unsigned int i=ii; i<ii+1;i++){
-                    PointI g=convertW2I(goals[i]);
+                    PointI g=convertW2I(goals[i], res);
                     if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                         //clearG();
                         path.cost=-3;
@@ -381,7 +364,7 @@ void Planner::plan(void){
                         path.cost=-3;
                         continue;
                     }
-                    path=pastar.run(pi, g,1, 0.04, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, crit_points[g.i*msg_rcv[0][0].size()+g.j]);
+                    path=pastar.run(pi, g, 0.04, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, crit_points[g.i*msg_rcv[0][0].size()+g.j]);
                 }
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM: %f; Cost: %f",diff.toSec(),path.cost);
@@ -390,7 +373,7 @@ void Planner::plan(void){
                 if(path.cost>0){
                     if(path.points.size()!=0)
                         for(unsigned int p_i=0;p_i<path.points.size();p_i++){
-                            pw.pose.position=convertI2W(path.points[p_i]);
+                            pw.pose.position=convertI2W(path.points[p_i], res);
                             path_1.poses.push_back(pw);
                         }
                     else{
@@ -475,7 +458,7 @@ void Planner::publish(void){
 }
 
 bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_msgs::Point & perc_pt){
-    if(map_rcv[0] && map_rcv[1] && map_rcv[2] && graph_rcv){
+    if(map_rcv[0] && map_rcv[1] && map_rcv[2]){
         path_0.poses.clear();
         path_0.header.frame_id = "/map";
         path_0.header.stamp =  ros::Time::now();
@@ -483,7 +466,7 @@ bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_
         pw.header.frame_id   = "/map";
         pw.header.stamp =  ros::Time::now();
         pw.pose.orientation.w=1;
-        PointI gi=convertW2I(goal);
+        PointI gi=convertW2I(goal, res);
         if(gi.i<0 || gi.i>=(int)msg_rcv[0].size()){
             cost=-3;
             return false;
@@ -508,14 +491,14 @@ bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_
         geometry_msgs::Point pt;
         pt.x=transform.getOrigin().x();
         pt.y=transform.getOrigin().y();
-        PointI pi=convertW2I(pt);
-        //pastar.run(pi, gi,1, 0.04, true, -5);
-        Apath path=pastar.run(pi, gi,1, 0.04, true);
+        PointI pi=convertWtf2I(pt, res);
+        //pastar.run(pi, gi, 0.04, true, -5);
+        Apath path=pastar.run(pi, gi, 0.04, true);
         if(path.cost>=0){
             path_0.poses.clear();
             if(path.points.size()!=0){
                 for(unsigned int p_i=0;p_i<path.points.size();p_i++){
-                    pw.pose.position=convertI2W(path.points[p_i]);
+                    pw.pose.position=convertI2W(path.points[p_i], res);
                     path_0.poses.push_back(pw);
                 }
                 perc_pt=pw.pose.position;
@@ -567,7 +550,7 @@ int main(int argc, char **argv)
     }
 
     Planner planner(nh, server_mode);
-    ros::Rate loop_rate(10);
+    ros::Rate loop_rate(1000);
     while (ros::ok()){
         ros::spinOnce();
         planner.plan();
