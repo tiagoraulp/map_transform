@@ -10,6 +10,7 @@
 #include "std_srvs/Empty.h"
 #include "map_transform/ObsList.h"
 #include "map_transform/ObsNumber.h"
+#include "points_conversions.hpp"
 
 using namespace std;
 
@@ -26,7 +27,6 @@ private:
     float res;
     int width,height;
     cv::Mat or_map, obs_map;
-    cv::Point2i convertW2I(geometry_msgs::Point p);
     nav_msgs::OccupancyGrid processObs(vector<unsigned char> obs);
     bool save(stringstream& iss);
     bool convertCV2Map(cv::Mat map);
@@ -89,12 +89,12 @@ nav_msgs::OccupancyGrid ObsGen::processObs(vector<unsigned char> obs){
         if(!obs[i] || i>=obstacles.size())
             continue;
         for(unsigned int j=0; j<obstacles[i].size();j++){
-            p0i=convertW2I(obstacles[i][j]);
+            convertWRobotPos2I(obstacles[i][j], res, p0i);
             //cout<<p0i.x<<" "<<p0i.y<<endl;
             if( (j+1)>=obstacles[i].size() ){
                 continue;
             }
-            p1i=convertW2I(obstacles[i][j+1]);
+            convertWRobotPos2I(obstacles[i][j+1], res, p1i);
 
             float dist_t=sqrt( (p0i.x-p1i.x)*(p0i.x-p1i.x)+(p0i.y-p1i.y)*(p0i.y-p1i.y) );
             //cout<<p0i.x<<" "<<p0i.y<<" "<<p1i.x<<" "<<p1i.y<<" "<<dist_t<<endl;
@@ -135,11 +135,6 @@ bool ObsGen::getObsNumber(map_transform::ObsNumber::Request  &req, map_transform
     for(unsigned int i=0;i<probs.size();i++)
         res.probs[i].data=probs[i];
     return true;
-}
-
-cv::Point2i ObsGen::convertW2I(geometry_msgs::Point p){
-    cv::Point2i pf(round(p.x/res),round(p.y/res));
-    return pf;
 }
 
 bool ObsGen::convertCV2Map(cv::Mat map){

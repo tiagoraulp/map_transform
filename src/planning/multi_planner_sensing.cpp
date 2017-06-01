@@ -68,7 +68,6 @@ private:
     bool ask_plan(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res);
     bool getMapValue(int n, int i, int j);
     bool allAvailable();
-    PointI convertW2I(geometry_msgs::Point p);
     void regions2goals(void);
 public:
     Multirobotplannersensing(ros::NodeHandle nh): nh_(nh){
@@ -199,10 +198,6 @@ bool Multirobotplannersensing::ask_plan(std_srvs::Empty::Request  &req, std_srvs
     return true;
 }
 
-PointI Multirobotplannersensing::convertW2I(geometry_msgs::Point p){
-    return PointI(round((p.x-0.5*res)/res),round((p.y-0.5*res)/res));
-}
-
 bool Multirobotplannersensing::allAvailable(void){
     return map_rcv[0] && map_rcv[0] && map_rcv[0] && map_rcv[0] && map_rcv[0];
 }
@@ -212,7 +207,7 @@ void Multirobotplannersensing::regions2goals(void){
     goals.clear();
     for(unsigned int i=0; i<regions.size(); i++){
         geometry_msgs::Point pt=regions[i];
-        PointI pi=convertW2I(pt);
+        PointI pi=convertW2I(pt, res);
         int rad=(int)round(pt.z/res);
         for(int row=pi.i-rad; row<=pi.i+rad; row++){
             for(int col=pi.j-rad; col<=pi.j+rad; col++){
@@ -318,7 +313,7 @@ void Multirobotplannersensing::plan(void){
             Apath path=pastar.run(pr[i].front(), goals[g], 0.04, true);
 //            if(PAstarService[i].call(srv)){
 //                bf_responses[i][g].cost=srv.response.cost/res;
-//                bf_responses[i][g].perc_pt=convertW2I(srv.response.perc_pt);
+//                bf_responses[i][g].perc_pt=convertW2I(srv.response.perc_pt, res);
 //                count[i]++;
 //            }
 //            else{

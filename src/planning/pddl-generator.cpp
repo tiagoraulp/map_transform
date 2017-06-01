@@ -73,7 +73,6 @@ private:
     void rcv_map5_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
     bool getMapValue(int n, int i, int j);
     int getActMapValue(int n, int i, int j);
-    cv::Point2i convertW2I(geometry_msgs::Point p);
     bool valid(int i, int j, int r);
     bool connection(int i, int j, int in, int jn, int r);
     bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict=true);
@@ -332,11 +331,6 @@ bool PddlGen::getMapValue(int n, int i, int j){
 
 int PddlGen::getActMapValue(int n, int i, int j){
     return msg_rcv_act[n][i][j];
-}
-
-cv::Point2i PddlGen::convertW2I(geometry_msgs::Point p){
-    cv::Point2i pf(round(p.x/res),round(p.y/res));
-    return pf;
 }
 
 string convertG2S(cv::Point2i pt){
@@ -634,7 +628,7 @@ bool PddlGen::run(void){
             geometry_msgs::Point pt;
             pt.x=transform.getOrigin().x();
             pt.y=transform.getOrigin().y();
-            pos[i]=convertW2I( pt );
+            convertWRobotPos2I( pt, res, pos[i] );
         }
         for(int rr=0;rr<nrobots;rr++){
             if(!getMapValue(nrobots+rr,pos[rr].x,pos[rr].y))

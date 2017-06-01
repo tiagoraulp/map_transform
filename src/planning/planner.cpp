@@ -40,7 +40,6 @@ private:
     int prev_goals;
     float res;
     int width,height;
-    PointI convertW2I(geometry_msgs::Point p);
     double distance2Path(vector<PointI> path, PointI goal, int r);
     int minDistanceGoal2Path(vector<PointI> path, vector<PointI> goal, int r);
 public:
@@ -130,11 +129,6 @@ bool Planner::clear(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &r
 
 void Planner::rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg){
     goals.push_back(msg->pose.position);
-}
-
-PointI Planner::convertW2I(geometry_msgs::Point p){
-    PointI pf(p.x/res,p.y/res);
-    return pf;
 }
 
 double Planner::distance2Path(vector<PointI> path, PointI goal, int r){
@@ -270,7 +264,7 @@ void Planner::plan(void){
         g.push_back(pr[1].back());
         for(unsigned int i=0;i<goals.size();i++){
             p_temp.pose.position=goals[i];
-            pi_temp=convertW2I(p_temp.pose.position);
+            pi_temp=convertW2I(p_temp.pose.position, res);
             g.push_back(pi_temp);
             if( msg_rcv[0][pi_temp.i][pi_temp.j] && !msg_rcv[1][pi_temp.i][pi_temp.j] )
                 gr[0].push_back(2+i);

@@ -51,7 +51,6 @@ private:
     void rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg);
     bool getMapValue(int n, int i, int j);
-    PointI convertW2I(geometry_msgs::Point p);
     float convertCostI2W(float cost);
     void graphCallback(const map_transform::VisCom::ConstPtr& graph);
     bool isGoal(PointI p0, PointI p1);
@@ -206,10 +205,6 @@ bool Planner::request_single_plan(map_transform::PAstarSrv::Request  &req, map_t
     return true;
 }
 
-PointI Planner::convertW2I(geometry_msgs::Point p){
-    return PointI(round(p.x/res-0.5),round(p.y/res-0.5));
-}
-
 float Planner::convertCostI2W(float cost){
     return cost*res;
 }
@@ -243,7 +238,7 @@ void Planner::plan(void){
 
         ROS_INFO("Planning!!");
 
-        //path=pastar.run(pi, convertW2I(goals[0]), 0.04, true, -5,true);
+        //path=pastar.run(pi, convertW2I(goals[0], res), 0.04, true, -5,true);
 
 //        for(unsigned int tt=0;tt<2;tt++){
 //            for(unsigned ll=0;ll<7;ll++){
@@ -281,14 +276,14 @@ void Planner::plan(void){
 //                        {p.x=18.3; p.y=11.7; xsx="sim_8";//continue;}
 //                    myfile[index_file]<<xsx<<"\n";
 
-        pi=convertW2I(p);
+        pi=convertWRobotPos2I(p, res);
 
         for(unsigned int ii=0; ii<goals.size();ii++){
             ROS_INFO("Goal %u",ii);
             ros::Time t01=ros::Time::now();
             ros::Duration diff;
             for(unsigned int i=ii; i<ii+1;i++){
-                PointI g=convertW2I(goals[i]);
+                PointI g=convertW2I(goals[i], res);
                 if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                     //clearG();
                     path.cost=-3;
@@ -310,10 +305,10 @@ void Planner::plan(void){
             //if(path.cost!=-2)
             //    myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
             ROS_INFO("Time BFS: %f; Cost: %f",diff.toSec(),path.cost);
-            //path=pastar.run(pi, convertW2I(goals[0]), 0.04, true, -5);
+            //path=pastar.run(pi, convertW2I(goals[0], res), 0.04, true, -5);
             t01=ros::Time::now();
             for(unsigned int i=ii; i<ii+1;i++){
-                PointI g=convertW2I(goals[i]);
+                PointI g=convertW2I(goals[i], res);
                 if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                     //clearG();
                     path.cost=-3;
@@ -349,11 +344,11 @@ void Planner::plan(void){
                 }
             }
             pub1.publish(path_0);
-            //path=pastar.run(pi, convertW2I(goals[0]),0.04, true, -5);
+            //path=pastar.run(pi, convertW2I(goals[0], res),0.04, true, -5);
             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
                 t01=ros::Time::now();
                 for(unsigned int i=ii; i<ii+1;i++){
-                    PointI g=convertW2I(goals[i]);
+                    PointI g=convertW2I(goals[i], res);
                     if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                         //clearG();
                         path.cost=-3;
@@ -471,7 +466,7 @@ bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_
         pw.header.frame_id   = "/map";
         pw.header.stamp =  ros::Time::now();
         pw.pose.orientation.w=1;
-        PointI gi=convertW2I(goal);
+        PointI gi=convertW2I(goal, res);
         if(gi.i<0 || gi.i>=(int)msg_rcv[0].size()){
             cost=-3;
             return false;
@@ -496,7 +491,7 @@ bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_
         geometry_msgs::Point pt;
         pt.x=transform.getOrigin().x();
         pt.y=transform.getOrigin().y();
-        PointI pi=convertW2I(pt);
+        PointI pi=convertWRobotPos2I(pt, res);
         //pastar.run(pi, gi, 0.04, true, -5);
         Apath path=pastar.run(pi, gi, 0.04, true);
         if(path.cost>=0){
