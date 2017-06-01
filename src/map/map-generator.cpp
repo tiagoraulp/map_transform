@@ -77,8 +77,8 @@ bool MapGen::process(stringstream& iss){
                 cv::Point2i p0i, p1i;
                 or_map=cv::Mat::ones(height, width, CV_8UC1)*255;
                 while(iss>>p0.x>>p0.y>>p1.x>>p1.y){
-                    convertWRobotPos2I(p0, res, p0i);
-                    convertWRobotPos2I(p1, res, p1i);
+                    convertWtf2I(p0, res, p0i);
+                    convertWtf2I(p1, res, p1i);
                     float dist_t=sqrt( (p0i.x-p1i.x)*(p0i.x-p1i.x)+(p0i.y-p1i.y)*(p0i.y-p1i.y) );
                     //cout<<p0.x<<" "<<p0.y<<" "<<p1.x<<" "<<p1.y<<" "<<dist_t<<endl;
                     raytracing(&or_map, p0i, p0i, p1i, dist_t);

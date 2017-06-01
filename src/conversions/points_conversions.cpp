@@ -11,7 +11,7 @@ geometry_msgs::Point convertI2W(PointI p, double res){
     return pf;
 }
 
-PointI convertWRobotPos2I(geometry_msgs::Point p, double res){
+PointI convertWtf2I(geometry_msgs::Point p, double res){
     return PointI(round(p.x/res),round(p.y/res));
 }
 
@@ -24,7 +24,7 @@ geometry_msgs::Point convertI2W(cv::Point2i  p, double res){
     return convertI2W(PointI(p.x, p.y), res);
 }
 
-void convertWRobotPos2I(geometry_msgs::Point p, double res, cv::Point2i & pt){
-    PointI pi=convertWRobotPos2I(p,res);
+void convertWtf2I(geometry_msgs::Point p, double res, cv::Point2i & pt){
+    PointI pi=convertWtf2I(p,res);
     pt=cv::Point2i(pi.i, pi.j);
 }
