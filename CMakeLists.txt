@@ -125,14 +125,14 @@ TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
 
 SET(target map-gen)
 rosbuild_add_executable(${target} src/map/map-generator.cpp)
-TARGET_LINK_LIBRARIES(${target} utils_library)
+TARGET_LINK_LIBRARIES(${target} utils_library conversions_library)
 
 SET(target room-gen)
 rosbuild_add_executable(${target} src/map/room-generator.cpp)
 
 SET(target obs-gen)
 rosbuild_add_executable(${target} src/map/obstacle-generator.cpp)
-TARGET_LINK_LIBRARIES(${target} utils_library)
+TARGET_LINK_LIBRARIES(${target} utils_library conversions_library)
 
 SET(target map-planner)
 rosbuild_add_executable(${target} src/map/map-planner.cpp)
