@@ -9,3 +9,11 @@ PointI::PointI(){
     i=0;
     j=0;
 }
+
+bool PointI::operator==(const PointI &other) const {
+    return (i==other.i) && (j==other.j);
+}
+
+bool PointI::operator!=(const PointI &other) const {
+  return !(*this == other);
+}

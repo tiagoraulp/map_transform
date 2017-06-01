@@ -16,6 +16,11 @@ const int dir=8; // number of possible directions to go at any position
 static int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
 static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
 
+PApath::PApath(): Apath(){
+    costM=-1;
+    costP=-1;
+}
+
 template<typename T>
 nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode cr_): node<T>(xp, yp, d, p){
     infl=inf;defl=def;sens=ss;opt=dist;crit=cr_;
@@ -232,8 +237,8 @@ PAstar::PAstar(){
 }
 
 template <typename T>
-Apath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode crit){
-    Apath path; path.points.clear();path.cost=-1;
+PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode crit){
+    PApath path; path.points.clear();path.cost=-1;
     const int n=map_.size();
     if(n<=0){
         //path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
@@ -366,6 +371,8 @@ Apath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs
             }
             path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
             path.cost=n0.getCost();
+            path.costM=n0.getMotionCost();
+            path.costP=n0.getSensingCost();
             if(opt==-5)
             {
                 exp_nodes=0; exp_nodes_r=0, tested_goal=0;
@@ -415,6 +422,8 @@ Apath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs
     }
     path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
     path.cost=-2;
+    path.costM=-2;
+    path.costP=-2;
     if(opt==-5)
     {
         exp_nodes=0; exp_nodes_r=0, tested_goal=0;
@@ -437,5 +446,5 @@ bool PAstar::isGoal(PointI p0, PointI p1){
     }
 }
 
-template Apath PAstar::run<float>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
-template Apath PAstar::run<int>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
+template PApath PAstar::run<float>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
+template PApath PAstar::run<int>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());

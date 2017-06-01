@@ -233,7 +233,7 @@ void Planner::plan(void){
         p.x=transform.getOrigin().x();
         p.y=transform.getOrigin().y();
         PointI pi;
-        Apath path;
+        PApath path;
         pl=false;
 
         ROS_INFO("Planning!!");
@@ -493,7 +493,7 @@ bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_
         pt.y=transform.getOrigin().y();
         PointI pi=convertWtf2I(pt, res);
         //pastar.run(pi, gi, 0.04, true, -5);
-        Apath path=pastar.run(pi, gi, 0.04, true);
+        PApath path=pastar.run(pi, gi, 0.04, true);
         if(path.cost>=0){
             path_0.poses.clear();
             if(path.points.size()!=0){

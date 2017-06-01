@@ -5,6 +5,12 @@
 #include <map_transform/VisNode.h>
 #include <opencv2/core/core.hpp>
 
+class PApath: public Apath {
+public:
+    double costM, costP;
+    PApath();
+};
+
 template<typename T>
 class nodePA: public node<T>{
     int infl, defl;
@@ -50,7 +56,7 @@ public:
     void updateNavMap(std::vector<std::vector<bool> > map);
     void updateOrMap(cv::Mat map);
     template <typename T=float>
-    Apath run(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
+    PApath run(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode());
 };
 
 #endif // PASTAR_HPP
