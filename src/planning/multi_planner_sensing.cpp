@@ -11,6 +11,7 @@
 #include <map_transform/Regions.h>
 #include <map_transform/PAstarSrv.h>
 #include "PAstar.hpp"
+#include "points_conversions.hpp"
 
 #define V_MAP 0
 #define E_MAP 2
@@ -68,7 +69,6 @@ private:
     bool getMapValue(int n, int i, int j);
     bool allAvailable();
     PointI convertW2I(geometry_msgs::Point p);
-    geometry_msgs::Point convertI2W(PointI p);
     void regions2goals(void);
 public:
     Multirobotplannersensing(ros::NodeHandle nh): nh_(nh){
@@ -203,13 +203,6 @@ PointI Multirobotplannersensing::convertW2I(geometry_msgs::Point p){
     return PointI(round((p.x-0.5*res)/res),round((p.y-0.5*res)/res));
 }
 
-geometry_msgs::Point Multirobotplannersensing::convertI2W(PointI p){
-    geometry_msgs::Point pf;
-    pf.x=(p.i+0.5)*res;
-    pf.y=(p.j+0.5)*res;
-    return pf;
-}
-
 bool Multirobotplannersensing::allAvailable(void){
     return map_rcv[0] && map_rcv[0] && map_rcv[0] && map_rcv[0] && map_rcv[0];
 }
@@ -265,7 +258,7 @@ void Multirobotplannersensing::plan(void){
       return ;
     }
     PointI pi_temp( (int) round((transform.getOrigin().x()-0.5*res)/res), (int) round((transform.getOrigin().y()-0.5*res)/res) );
-    p_temp.pose.position=convertI2W(pi_temp);
+    p_temp.pose.position=convertI2W(pi_temp, res);
     path_0.poses.push_back(p_temp);
     pr[0].push_back(pi_temp);
     gi.push_back(pr[0].back());
@@ -277,7 +270,7 @@ void Multirobotplannersensing::plan(void){
       return ;
     }
     pi_temp=PointI( (int) round((transform.getOrigin().x()-0.5*res)/res), (int) round((transform.getOrigin().y()-0.5*res)/res) );
-    p_temp.pose.position=convertI2W(pi_temp);
+    p_temp.pose.position=convertI2W(pi_temp, res);
     path_1.poses.push_back(p_temp);
     pr[1].push_back(pi_temp);
     gi.push_back(pr[1].back());
@@ -321,7 +314,7 @@ void Multirobotplannersensing::plan(void){
         pastar.updateOrMap(or_map);
         for(unsigned int g=0; g<goals.size(); g++){
             //ROS_INFO("%d %d !!!!! %d %d", i, i, g, g);
-            //srv.request.goal=convertI2W(goals[g]);
+            //srv.request.goal=convertI2W(goals[g], res);
             Apath path=pastar.run(pr[i].front(), goals[g], 0.04, true);
 //            if(PAstarService[i].call(srv)){
 //                bf_responses[i][g].cost=srv.response.cost/res;
@@ -382,7 +375,7 @@ void Multirobotplannersensing::publish(void){
         point.color.a = 1.0;
         point.lifetime = ros::Duration(2);
         for (uint32_t i = 0; i < goals.size(); ++i){
-          point.pose.position=convertI2W(goals[i]);
+          point.pose.position=convertI2W(goals[i], res);
           point.id = i;
           points.markers.push_back(point);
         }

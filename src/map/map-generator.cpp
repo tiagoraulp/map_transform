@@ -23,7 +23,6 @@ private:
     int width,height;
     cv::Mat or_map;
     cv::Point2i convertW2I(geometry_msgs::Point p);
-    geometry_msgs::Point convertI2W(cv::Point2i p);
     bool process(stringstream& iss);
     bool convert(void);
     bool generate(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res);
@@ -46,13 +45,6 @@ bool MapGen::generate(std_srvs::Empty::Request  &req, std_srvs::Empty::Response 
 
 cv::Point2i MapGen::convertW2I(geometry_msgs::Point p){
     cv::Point2i pf(round(p.x/res),round(p.y/res));
-    return pf;
-}
-
-geometry_msgs::Point MapGen::convertI2W(cv::Point2i p){
-    geometry_msgs::Point pf;
-    pf.x=p.x*res+0.5*res;
-    pf.y=p.y*res+0.5*res;
     return pf;
 }
 

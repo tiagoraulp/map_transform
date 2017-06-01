@@ -15,6 +15,7 @@
 #include "Astar.hpp"
 #include "ray.hpp"
 #include "std_msgs/Int16MultiArray.h"
+#include "points_conversions.hpp"
 
 using namespace std;
 
@@ -73,7 +74,6 @@ private:
     bool getMapValue(int n, int i, int j);
     int getActMapValue(int n, int i, int j);
     cv::Point2i convertW2I(geometry_msgs::Point p);
-    geometry_msgs::Point convertI2W(cv::Point2i p);
     bool valid(int i, int j, int r);
     bool connection(int i, int j, int in, int jn, int r);
     bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict=true);
@@ -336,13 +336,6 @@ int PddlGen::getActMapValue(int n, int i, int j){
 
 cv::Point2i PddlGen::convertW2I(geometry_msgs::Point p){
     cv::Point2i pf(round(p.x/res),round(p.y/res));
-    return pf;
-}
-
-geometry_msgs::Point PddlGen::convertI2W(cv::Point2i p){
-    geometry_msgs::Point pf;
-    pf.x=p.x*res+0.5*res;
-    pf.y=p.y*res+0.5*res;
     return pf;
 }
 
@@ -1019,7 +1012,7 @@ bool PddlGen::procPaths(vector<string> input){
         if(paths_robots[rr].size()!=0)
             for(unsigned int p_i=0;p_i<paths_robots[rr].size();p_i++)
             {
-                pw.pose.position=convertI2W(wps[paths_robots[rr][p_i]]);
+                pw.pose.position=convertI2W(wps[paths_robots[rr][p_i]], res);
 
                 paths[rr].poses.push_back(pw);
             }
@@ -1075,7 +1068,7 @@ void PddlGen::publish(void){
         point.color.a = 1.0;
         point.lifetime = ros::Duration(10000000);
         for (uint32_t i = 0; i < wps.size(); ++i){
-            point.pose.position=convertI2W(wps[i]);
+            point.pose.position=convertI2W(wps[i], res);
             point.id = i;
             points.markers.push_back(point);
         }
@@ -1095,10 +1088,10 @@ void PddlGen::publish(void){
             for(unsigned int i=0;i<graph[rr].size();i++){
                 for(unsigned int j=0;j<graph[rr][i].size();j++){
                     if( graph[rr][i][j] ){
-                        p=convertI2W(wps[i]);
+                        p=convertI2W(wps[i], res);
                         point.points.clear();
                         point.points.push_back(p);
-                        p=convertI2W(wps[j]);
+                        p=convertI2W(wps[j], res);
                         point.points.push_back(p);
                         point.id = (i)*wps.size()+j;
                         points.markers.push_back(point);
@@ -1114,10 +1107,10 @@ void PddlGen::publish(void){
             for(unsigned int i=0;i<visible[rr].size();i++){
                 for(unsigned int j=0;j<visible[rr][i].size();j++){
                     if( visible[rr][i][j] ){
-                        p=convertI2W(wps[i]);
+                        p=convertI2W(wps[i], res);
                         point.points.clear();
                         point.points.push_back(p);
-                        p=convertI2W(wps[j]);
+                        p=convertI2W(wps[j], res);
                         point.points.push_back(p);
                         point.id = (i)*wps.size()+j;
                         points.markers.push_back(point);

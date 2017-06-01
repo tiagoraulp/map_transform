@@ -1,4 +1,4 @@
-#include "points.hpp"
+#include "pointi.hpp"
 
 PointI::PointI(int a, int b){
     i=a;
