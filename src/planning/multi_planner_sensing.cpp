@@ -12,6 +12,7 @@
 #include <map_transform/PAstarSrv.h>
 #include "PAstar.hpp"
 #include "points_conversions.hpp"
+#include "clustering.hpp"
 
 #define V_MAP 0
 #define E_MAP 2
@@ -21,11 +22,14 @@ using namespace std;
 
 class PAresult{
 public:
-    float cost;
-    PointI perc_pt;
+    float cost, costM, costP;
+    PointI perc_pt, p0;
     PAresult(){
-        cost=0;
+        cost=-1;
+        costM=-1;
+        costP=-1;
         perc_pt=PointI();
+        p0=PointI();
     }
 };
 
@@ -55,7 +59,7 @@ private:
     string regionsEditorServiceName;
     string PAstarServiceSubName;
     vector<int> infl, defl;
-    vector<vector<PAresult> > bf_responses;
+    vector<vector<vector<PAresult> > > bf_responses;
     void graphCallback(const map_transform::VisCom::ConstPtr& graph, int index);
     void graphCallback1(const map_transform::VisCom::ConstPtr& graph);
     void graphCallback2(const map_transform::VisCom::ConstPtr& graph);
@@ -298,41 +302,53 @@ void Multirobotplannersensing::plan(void){
     cout<<"----> Method 1 (BF):"<<endl;
     ros::Time t0=ros::Time::now();
 
-    bf_responses[0].assign(goals.size(), PAresult());
-    bf_responses[1].assign(goals.size(), PAresult());
+    bf_responses[0].assign(goals.size(), vector<PAresult>(0, PAresult()));
+    bf_responses[1].assign(goals.size(), vector<PAresult>(0, PAresult()));
 
-    //map_transform::PAstarSrv srv;
     vector<int> count(4, 0);
-    for(int i=0; i<2; i++){
+    //for(int i=0; i<2; i++){
+    for(int i=0; i<1; i++){
         PAstar pastar(infl[i], defl[i]);
         pastar.updateNavMap(msg_rcv[E_MAP+i]);
         pastar.updateOrMap(or_map);
-        for(unsigned int g=0; g<goals.size(); g++){
-            //ROS_INFO("%d %d !!!!! %d %d", i, i, g, g);
-            //srv.request.goal=convertI2W(goals[g], res);
-            Apath path=pastar.run(pr[i].front(), goals[g], 0.04, true);
-//            if(PAstarService[i].call(srv)){
-//                bf_responses[i][g].cost=srv.response.cost/res;
-//                bf_responses[i][g].perc_pt=convertW2I(srv.response.perc_pt, res);
-//                count[i]++;
-//            }
-//            else{
-//                bf_responses[i][g].cost=-10;
-//                count[i+2]++;
-//            }
-            if(path.cost>=0){
-                bf_responses[i][g].cost=path.cost;
-                if(path.points.size()!=0){
-                    bf_responses[i][g].perc_pt=path.points.back();
+        vector<PointI> cluster_centers(0);
+        cluster_centers.push_back(pr[i].front());
+        while(!cluster_centers.empty()){
+            PointI p0=cluster_centers.back();
+            cluster_centers.pop_back();
+            vector<cv::Point> points(0);
+            for(unsigned int g=0; g<goals.size(); g++){
+                PApath path=pastar.run(p0, goals[g], 0.04, true);
+                PAresult paresult;
+                paresult.p0=p0;
+                if(path.cost>=0){
+                    paresult.cost=path.cost;
+                    paresult.costM=path.costM;
+                    paresult.costP=path.costP;
+                    if(path.points.size()!=0){
+                        paresult.perc_pt=path.points.back();
+                    }
+                    else{
+                        paresult.perc_pt=p0;
+                    }
+                    count[i]++;
+                    points.push_back(cv::Point(paresult.perc_pt.i,paresult.perc_pt.j));
                 }
                 else{
-                    bf_responses[i][g].perc_pt=pr[i].front();
+                    count[i+2]++;
                 }
-                count[i]++;
+                bf_responses[i][g].push_back(paresult);
             }
-            else{
-                bf_responses[i][g].cost=-10;
-                count[i+2]++;
+            vector<vector<cv::Point> > clusters=cluster_points(points);
+            for(unsigned int cc=0; cc<clusters.size(); cc++){
+                float posi=0, posj=0;
+                for(unsigned int pp=0; pp<clusters[cc].size();pp++){
+                    posi+=clusters[cc][pp].x;
+                    posj+=clusters[cc][pp].y;
+                }
+                posi/=clusters[cc].size();
+                posj/=clusters[cc].size();
+                points.push_back(cv::Point(round(posi),round(posj)));
             }
         }
     }
