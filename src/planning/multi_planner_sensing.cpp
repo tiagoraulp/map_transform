@@ -252,7 +252,7 @@ void Multirobotplannersensing::plan(void){
       ROS_INFO("%s",ex.what());
       return ;
     }
-    PointI pi_temp( (int) round((transform.getOrigin().x()-0.5*res)/res), (int) round((transform.getOrigin().y()-0.5*res)/res) );
+    PointI pi_temp( (int) round((transform.getOrigin().x())/res), (int) round((transform.getOrigin().y())/res) );
     p_temp.pose.position=convertI2W(pi_temp, res);
     path_0.poses.push_back(p_temp);
     pr[0].push_back(pi_temp);
@@ -264,7 +264,7 @@ void Multirobotplannersensing::plan(void){
       ROS_INFO("%s",ex.what());
       return ;
     }
-    pi_temp=PointI( (int) round((transform.getOrigin().x()-0.5*res)/res), (int) round((transform.getOrigin().y()-0.5*res)/res) );
+    pi_temp=PointI( (int) round((transform.getOrigin().x())/res), (int) round((transform.getOrigin().y())/res) );
     p_temp.pose.position=convertI2W(pi_temp, res);
     path_1.poses.push_back(p_temp);
     pr[1].push_back(pi_temp);

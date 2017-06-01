@@ -628,7 +628,7 @@ bool PddlGen::run(void){
             geometry_msgs::Point pt;
             pt.x=transform.getOrigin().x();
             pt.y=transform.getOrigin().y();
-            convertWRobotPos2I( pt, res, pos[i] );
+            convertWtf2I( pt, res, pos[i] );
         }
         for(int rr=0;rr<nrobots;rr++){
             if(!getMapValue(nrobots+rr,pos[rr].x,pos[rr].y))

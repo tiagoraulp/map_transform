@@ -276,7 +276,7 @@ void Planner::plan(void){
 //                        {p.x=18.3; p.y=11.7; xsx="sim_8";//continue;}
 //                    myfile[index_file]<<xsx<<"\n";
 
-        pi=convertWRobotPos2I(p, res);
+        pi=convertWtf2I(p, res);
 
         for(unsigned int ii=0; ii<goals.size();ii++){
             ROS_INFO("Goal %u",ii);
@@ -491,7 +491,7 @@ bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_
         geometry_msgs::Point pt;
         pt.x=transform.getOrigin().x();
         pt.y=transform.getOrigin().y();
-        PointI pi=convertWRobotPos2I(pt, res);
+        PointI pi=convertWtf2I(pt, res);
         //pastar.run(pi, gi, 0.04, true, -5);
         Apath path=pastar.run(pi, gi, 0.04, true);
         if(path.cost>=0){

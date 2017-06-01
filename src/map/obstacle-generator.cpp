@@ -89,12 +89,12 @@ nav_msgs::OccupancyGrid ObsGen::processObs(vector<unsigned char> obs){
         if(!obs[i] || i>=obstacles.size())
             continue;
         for(unsigned int j=0; j<obstacles[i].size();j++){
-            convertWRobotPos2I(obstacles[i][j], res, p0i);
+            convertWtf2I(obstacles[i][j], res, p0i);
             //cout<<p0i.x<<" "<<p0i.y<<endl;
             if( (j+1)>=obstacles[i].size() ){
                 continue;
             }
-            convertWRobotPos2I(obstacles[i][j+1], res, p1i);
+            convertWtf2I(obstacles[i][j+1], res, p1i);
 
             float dist_t=sqrt( (p0i.x-p1i.x)*(p0i.x-p1i.x)+(p0i.y-p1i.y)*(p0i.y-p1i.y) );
             //cout<<p0i.x<<" "<<p0i.y<<" "<<p1i.x<<" "<<p1i.y<<" "<<dist_t<<endl;

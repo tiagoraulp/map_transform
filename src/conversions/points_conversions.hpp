@@ -7,10 +7,10 @@
 
 PointI convertW2I(geometry_msgs::Point p, double res);
 geometry_msgs::Point convertI2W(PointI p, double res);
-PointI convertWRobotPos2I(geometry_msgs::Point p, double res);
+PointI convertWtf2I(geometry_msgs::Point p, double res);
 
 void convertW2I(geometry_msgs::Point p, double res, cv::Point2i & pt);
 geometry_msgs::Point convertI2W(cv::Point2i p, double res);
-void convertWRobotPos2I(geometry_msgs::Point p, double res, cv::Point2i & pt);
+void convertWtf2I(geometry_msgs::Point p, double res, cv::Point2i & pt);
 
 #endif // POINTS_CONVERSIONS_HPP
