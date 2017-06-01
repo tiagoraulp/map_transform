@@ -2,7 +2,7 @@
 #define ASTAR_HPP
 
 #include <vector>
-#include "points.hpp"
+#include "pointi.hpp"
 
 class Apath{
 public:

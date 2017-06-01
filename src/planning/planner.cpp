@@ -10,6 +10,7 @@
 #include "std_srvs/Empty.h"
 #include "Astar.hpp"
 #include "combinatorics.hpp"
+#include "points_conversions.hpp"
 
 using namespace std;
 
@@ -40,7 +41,6 @@ private:
     float res;
     int width,height;
     PointI convertW2I(geometry_msgs::Point p);
-    geometry_msgs::Point convertI2W(PointI p);
     double distance2Path(vector<PointI> path, PointI goal, int r);
     int minDistanceGoal2Path(vector<PointI> path, vector<PointI> goal, int r);
 public:
@@ -134,13 +134,6 @@ void Planner::rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg){
 
 PointI Planner::convertW2I(geometry_msgs::Point p){
     PointI pf(p.x/res,p.y/res);
-    return pf;
-}
-
-geometry_msgs::Point Planner::convertI2W(PointI p){
-    geometry_msgs::Point pf;
-    pf.x=p.i*res;
-    pf.y=p.j*res;
     return pf;
 }
 
@@ -259,7 +252,7 @@ void Planner::plan(void){
           return ;
         }
         PointI pi_temp( (int) round((transform.getOrigin().x())/res), (int) round((transform.getOrigin().y())/res) );
-        p_temp.pose.position=convertI2W(pi_temp);
+        p_temp.pose.position=convertI2W(pi_temp, res);
         path_0.poses.push_back(p_temp);
         pr[0].push_back(pi_temp);
         g.push_back(pr[0].back());
@@ -271,7 +264,7 @@ void Planner::plan(void){
           return ;
         }
         pi_temp=PointI( (int) round((transform.getOrigin().x())/res), (int) round((transform.getOrigin().y())/res) );
-        p_temp.pose.position=convertI2W(pi_temp);
+        p_temp.pose.position=convertI2W(pi_temp, res);
         path_1.poses.push_back(p_temp);
         pr[1].push_back(pi_temp);
         g.push_back(pr[1].back());
@@ -673,12 +666,12 @@ void Planner::plan(void){
         }
         path_0.poses.clear();
         for(unsigned int p_i=0;p_i<pr[0].size();p_i++){
-            p_temp.pose.position=convertI2W(pr[0][p_i]);
+            p_temp.pose.position=convertI2W(pr[0][p_i], res);
             path_0.poses.push_back(p_temp);
         }
         path_1.poses.clear();
         for(unsigned int p_i=0;p_i<pr[1].size();p_i++){
-            p_temp.pose.position=convertI2W(pr[1][p_i]);
+            p_temp.pose.position=convertI2W(pr[1][p_i], res);
             path_1.poses.push_back(p_temp);
         }
         pub1.publish(path_0);

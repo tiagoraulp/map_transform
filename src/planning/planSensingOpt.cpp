@@ -13,6 +13,7 @@
 #include "std_msgs/String.h"
 #include "std_srvs/Empty.h"
 #include "PAstar.hpp"
+#include "points_conversions.hpp"
 
 using namespace std;
 
@@ -51,7 +52,6 @@ private:
     void rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg);
     bool getMapValue(int n, int i, int j);
     PointI convertW2I(geometry_msgs::Point p);
-    geometry_msgs::Point convertI2W(PointI p);
     float convertCostI2W(float cost);
     void graphCallback(const map_transform::VisCom::ConstPtr& graph);
     bool isGoal(PointI p0, PointI p1);
@@ -210,13 +210,6 @@ PointI Planner::convertW2I(geometry_msgs::Point p){
     return PointI(round(p.x/res-0.5),round(p.y/res-0.5));
 }
 
-geometry_msgs::Point Planner::convertI2W(PointI p){
-    geometry_msgs::Point pf;
-    pf.x=(p.i+0.5)*res;
-    pf.y=(p.j+0.5)*res;
-    return pf;
-}
-
 float Planner::convertCostI2W(float cost){
     return cost*res;
 }
@@ -347,7 +340,7 @@ void Planner::plan(void){
             if(path.cost>0){
                 if(path.points.size()!=0)
                     for(unsigned int p_i=0;p_i<path.points.size();p_i++){
-                        pw.pose.position=convertI2W(path.points[p_i]);
+                        pw.pose.position=convertI2W(path.points[p_i], res);
                         path_0.poses.push_back(pw);
                     }
                 else{
@@ -385,7 +378,7 @@ void Planner::plan(void){
                 if(path.cost>0){
                     if(path.points.size()!=0)
                         for(unsigned int p_i=0;p_i<path.points.size();p_i++){
-                            pw.pose.position=convertI2W(path.points[p_i]);
+                            pw.pose.position=convertI2W(path.points[p_i], res);
                             path_1.poses.push_back(pw);
                         }
                     else{
@@ -510,7 +503,7 @@ bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_
             path_0.poses.clear();
             if(path.points.size()!=0){
                 for(unsigned int p_i=0;p_i<path.points.size();p_i++){
-                    pw.pose.position=convertI2W(path.points[p_i]);
+                    pw.pose.position=convertI2W(path.points[p_i], res);
                     path_0.poses.push_back(pw);
                 }
                 perc_pt=pw.pose.position;

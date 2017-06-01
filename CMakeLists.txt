@@ -19,8 +19,9 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/utils)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/visibility)
-INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/conversions)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/types)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/planning)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/conversions)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/map)
 
 #uncomment if you have defined messages
@@ -64,8 +65,12 @@ SET(VISIBILITY_SRCS
     src/visibility/brute_force.cpp
 )
 
+SET(TYPES_SRCS
+    src/types/pointi.cpp
+)
+
 SET(CONVERSIONS_SRCS
-    src/conversions/points.cpp
+    src/conversions/points_conversions.cpp
 )
 
 SET(PLANNING_SRCS
@@ -79,10 +84,13 @@ target_link_libraries(utils_library ${OpenCV_LIBRARIES})
 ADD_LIBRARY(vis_library SHARED ${VISIBILITY_SRCS})
 target_link_libraries(vis_library utils_library)
 
+ADD_LIBRARY(types_library SHARED ${TYPES_SRCS})
+
 ADD_LIBRARY(conversions_library SHARED ${CONVERSIONS_SRCS})
+target_link_libraries(conversions_library types_library ${OpenCV_LIBRARIES})
 
 ADD_LIBRARY(planning_library SHARED ${PLANNING_SRCS})
-target_link_libraries(planning_library conversions_library utils_library)
+target_link_libraries(planning_library types_library utils_library)
 
 SET(target visibility)
 ROSBUILD_ADD_EXECUTABLE(${target}
@@ -101,19 +109,19 @@ TARGET_LINK_LIBRARIES(${target} vis_library)
 
 SET(target planner)
 rosbuild_add_executable(${target} src/planning/planner.cpp)
-TARGET_LINK_LIBRARIES(${target} planning_library)
+TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
 
 SET(target multiPlannerSens)
 rosbuild_add_executable(${target} src/planning/multi_planner_sensing.cpp)
-TARGET_LINK_LIBRARIES(${target} planning_library)
+TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
 
 SET(target planSensOpt)
 rosbuild_add_executable(${target} src/planning/planSensingOpt.cpp)
-TARGET_LINK_LIBRARIES(${target} planning_library)
+TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
 
 SET(target pddl-gen)
 rosbuild_add_executable(${target} src/planning/pddl-generator.cpp)
-TARGET_LINK_LIBRARIES(${target} planning_library)
+TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
 
 SET(target map-gen)
 rosbuild_add_executable(${target} src/map/map-generator.cpp)
