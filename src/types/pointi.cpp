@@ -17,3 +17,9 @@ bool PointI::operator==(const PointI &other) const {
 bool PointI::operator!=(const PointI &other) const {
   return !(*this == other);
 }
+
+unsigned long int PointI::diff2(PointI other){
+    unsigned long int diffi=(i-other.i);
+    unsigned long int diffj=(j-other.j);
+    return diffi*diffi+diffj*diffj;
+}

@@ -36,6 +36,7 @@ public:
     int getyPos() const ;
     T getLevel() const ;
     T getPriority() const ;
+    bool abovePriorityThreshold(T th) const ;
 
     virtual void updatePriority(const int & xDest, const int & yDest);
     // give better priority to going strait instead of diagonally
@@ -45,6 +46,6 @@ public:
 };
 
 template <typename T>
-Apath Astar(PointI p0, PointI p1, std::vector<std::vector<bool> > msg_rcv, bool disable_thin_diagonals=false);
+Apath Astar(PointI p0, PointI p1, std::vector<std::vector<bool> > msg_rcv, bool disable_thin_diagonals=false, T th=T(-1));
 
 #endif // ASTAR_HPP
