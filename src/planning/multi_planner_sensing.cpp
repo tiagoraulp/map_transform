@@ -53,7 +53,9 @@ private:
     cv::Mat or_map;
     vector<geometry_msgs::Point> regions;
     vector<PointI> goals;
-    vector<vector<bool> > goals_map;
+    vector<vector<int> > goalsRegionsIds;
+    vector<vector<int> > goals_map;
+    vector<vector<int> > goalsInRegions;
     std::vector<std::vector<float> > vis_;
     std::vector<std::vector<map_transform::VisNode> > crit_points;
     std::vector<bool> graph_rcv;
@@ -157,7 +159,7 @@ void Multirobotplannersensing::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& 
         res=msg->info.resolution;
         width=msg->info.width;
         height=msg->info.height;
-        goals_map.assign(msg->info.width, vector<bool>(msg->info.height,false));
+        goals_map.assign(msg->info.width, vector<int>(msg->info.height,-1));
     }
 }
 
@@ -193,8 +195,9 @@ bool Multirobotplannersensing::ask_plan(std_srvs::Empty::Request  &req, std_srvs
         pl=false;
         return false;
     }
-    goals_map.assign(width, vector<bool>(height,false));
+    goals_map.assign(width, vector<int>(height,-1));
     goals.clear();
+    goalsRegionsIds.clear();
     regions.clear();
     for(unsigned int i=0; i<srv.response.regions.poses.size(); i++){
         regions.push_back(srv.response.regions.poses[i].position);
@@ -208,8 +211,10 @@ bool Multirobotplannersensing::allAvailable(void){
 }
 
 void Multirobotplannersensing::regions2goals(void){
-    goals_map.assign(width, vector<bool>(height,false));
+    goals_map.assign(width, vector<int>(height,-1));
     goals.clear();
+    goalsRegionsIds.clear();
+    goalsInRegions.assign(regions.size(), vector<int>(0));
     for(unsigned int i=0; i<regions.size(); i++){
         geometry_msgs::Point pt=regions[i];
         PointI pi=convertW2I(pt, res);
@@ -220,11 +225,18 @@ void Multirobotplannersensing::regions2goals(void){
                 int jj=col-pi.j;
                 if(width>0 && height>0 && ( (ii*ii+jj*jj)<=(rad*rad) ) )
                     if(row>=0 && col>=0 && row<(int)msg_rcv[O_MAP].size() && col<(int)msg_rcv[O_MAP][0].size())
-                        if(getMapValue(O_MAP, row, col))
-                            if(!goals_map[row][col]){
+                        if(getMapValue(O_MAP, row, col)){
+                            if(goals_map[row][col]<0){
                                 goals.push_back(PointI(row, col));
-                                goals_map[row][col]=true;
+                                goals_map[row][col]=goals.size()-1;
+                                goalsRegionsIds.push_back(vector<int>(1,i));
+                                goalsInRegions[i].push_back(goals.size()-1);
                             }
+                            else{
+                                goalsRegionsIds[goals_map[row][col]].push_back(i);
+                                goalsInRegions[i].push_back(goals_map[row][col]);
+                            }
+                        }
             }
         }
     }
@@ -315,7 +327,7 @@ void Multirobotplannersensing::plan(void){
         vector<PointI> clusterpoints(0);
         clusterpoints.push_back(pr[i].front());
         vector<PointI> cluster_centers(0);
-        cluster_centers.push_back(pr[i].front());
+        vector<vector<bool> > goalsInClusters(0);
         int n=0;
         while(!clusterpoints.empty()){
             PointI p0=clusterpoints.back();
@@ -323,6 +335,7 @@ void Multirobotplannersensing::plan(void){
             cout<<"Robot "<<i<<"; From Point "<<n<<"; "<<p0.i<<" "<<p0.j<<endl;
             n++;
             vector<cv::Point> points(0);
+            vector<vector<vector<int> > > pointGoals(width, vector<vector<int> >(height,vector<int>(0)));
             for(unsigned int g=0; g<goals.size(); g++){
                 PApath path=pastar.run(p0, goals[g], 0.04, true);
                 PAresult paresult;
@@ -339,6 +352,7 @@ void Multirobotplannersensing::plan(void){
                     }
                     count[i]++;
                     points.push_back(cv::Point(paresult.perc_pt.i,paresult.perc_pt.j));
+                    pointGoals[points.back().x][points.back().y].push_back(g);
                 }
                 else{
                     count[i+2]++;
@@ -363,16 +377,30 @@ void Multirobotplannersensing::plan(void){
                 for(unsigned int pp=0; pp<cluster_centers.size();pp++){
                     closest_cluster.iter(cluster_centers[pp].diff2(med.getP()),cluster_centers[pp]);
                 }
+                bool new_cluster=false;
                 unsigned long int threshold=infl[i];
                 if(closest_cluster.getVal()>(threshold*threshold)){
-                    cluster_centers.push_back(med.getP());
-                    clusterpoints.push_back(med.getP());
+                    new_cluster=true;
                 }
                 else{
-                    Apath path=Astar<float>(closest_cluster.getP(), med.getP(), msg_rcv[E_MAP+i], false, 2*closest_cluster.getVal());
+                    Apath path=Astar<float>(closest_cluster.getP(), med.getP(), msg_rcv[E_MAP+i], false, infl[i]);//1*closest_cluster.getVal());
                     if(path.cost<0){
-                        cluster_centers.push_back(med.getP());
-                        clusterpoints.push_back(med.getP());
+                        new_cluster=true;
+                    }
+                }
+                int active_cluster;
+                if(new_cluster){
+                    cluster_centers.push_back(med.getP());
+                    clusterpoints.push_back(med.getP());
+                    goalsInClusters.push_back(vector<bool>(goals.size(), false));
+                    active_cluster=goalsInClusters.size()-1;
+                }
+                else{
+                    active_cluster=closest_cluster.getInd();
+                }
+                for(unsigned int pp=0; pp<clusters[cc].size();pp++){
+                    for(unsigned int gg=0; gg<pointGoals[clusters[cc][pp].x][clusters[cc][pp].y].size(); gg++){
+                        goalsInClusters[active_cluster][pointGoals[clusters[cc][pp].x][clusters[cc][pp].y][gg]]=true;
                     }
                 }
             }
