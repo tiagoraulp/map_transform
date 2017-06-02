@@ -44,6 +44,11 @@ T node<T>::getPriority() const {
 }
 
 template<typename T>
+bool node<T>::abovePriorityThreshold(T th) const{
+    return priority>(th*10);
+}
+
+template<typename T>
 float node<T>::costEstimate(const int x,const int y) const {
     return costEstimateDist(sqrt(x*x+y*y), level);
 }
@@ -88,7 +93,7 @@ bool operator<(const node<T> & a, const node<T> & b)
 }
 
 template <typename T>
-Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_thin_diagonals)
+Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_thin_diagonals, T th)
 {
     Apath path; path.points.clear();path.cost=-1;
     const int n=msg_rcv.size();
@@ -97,6 +102,11 @@ Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_th
     const int m=msg_rcv[0].size();
     if(m==0)
         return path;
+    bool threshold_active;
+    if(th<0)
+        threshold_active=false;
+    else
+        threshold_active=true;
     vector<vector<int> > closed_nodes_map;closed_nodes_map.assign(n,vector<int>(m,0));
     vector<vector<int> > open_nodes_map;open_nodes_map.assign(n,vector<int>(m,0));
     vector<vector<int> > dir_map;dir_map.assign(n,vector<int>(m,0));
@@ -109,6 +119,11 @@ Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_th
 
     while(!pq.empty()){
         n0=pq.top();
+        if(threshold_active)
+            if(n0.abovePriorityThreshold(th)){
+                path.cost=-2;
+                return path;
+            }
         x=n0.getxPos(); y=n0.getyPos();
         pq.pop();
         open_nodes_map[x][y]=0;
@@ -161,5 +176,5 @@ Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_th
 template class node<int>;
 template class node<float>;
 
-template Apath Astar<float>(PointI p0, PointI p1, vector<vector<bool> > msg, bool disable_thin_diagonals=false);
-template Apath Astar<int>(PointI p0, PointI p1, vector<vector<bool> > msg, bool disable_thin_diagonals=false);
+template Apath Astar<float>(PointI p0, PointI p1, vector<vector<bool> > msg, bool disable_thin_diagonals=false, float th);
+template Apath Astar<int>(PointI p0, PointI p1, vector<vector<bool> > msg, bool disable_thin_diagonals=false, int th);

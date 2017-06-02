@@ -13,6 +13,7 @@
 #include "PAstar.hpp"
 #include "points_conversions.hpp"
 #include "clustering.hpp"
+#include "vector_utils.hpp"
 
 #define V_MAP 0
 #define E_MAP 2
@@ -311,11 +312,16 @@ void Multirobotplannersensing::plan(void){
         PAstar pastar(infl[i], defl[i]);
         pastar.updateNavMap(msg_rcv[E_MAP+i]);
         pastar.updateOrMap(or_map);
+        vector<PointI> clusterpoints(0);
+        clusterpoints.push_back(pr[i].front());
         vector<PointI> cluster_centers(0);
         cluster_centers.push_back(pr[i].front());
-        while(!cluster_centers.empty()){
-            PointI p0=cluster_centers.back();
-            cluster_centers.pop_back();
+        int n=0;
+        while(!clusterpoints.empty()){
+            PointI p0=clusterpoints.back();
+            clusterpoints.pop_back();
+            cout<<"Robot "<<i<<"; From Point "<<n<<"; "<<p0.i<<" "<<p0.j<<endl;
+            n++;
             vector<cv::Point> points(0);
             for(unsigned int g=0; g<goals.size(); g++){
                 PApath path=pastar.run(p0, goals[g], 0.04, true);
@@ -348,7 +354,27 @@ void Multirobotplannersensing::plan(void){
                 }
                 posi/=clusters[cc].size();
                 posj/=clusters[cc].size();
-                points.push_back(cv::Point(round(posi),round(posj)));
+                FindMin<unsigned long int, PointI> med;
+                for(unsigned int pp=0; pp<clusters[cc].size();pp++){
+                    PointI pt(clusters[cc][pp].x,clusters[cc][pp].y);
+                    med.iter(pt.diff2(PointI(posi,posj)),pt);
+                }
+                FindMin<unsigned long int, PointI> closest_cluster;
+                for(unsigned int pp=0; pp<cluster_centers.size();pp++){
+                    closest_cluster.iter(cluster_centers[pp].diff2(med.getP()),cluster_centers[pp]);
+                }
+                unsigned long int threshold=infl[i];
+                if(closest_cluster.getVal()>(threshold*threshold)){
+                    cluster_centers.push_back(med.getP());
+                    clusterpoints.push_back(med.getP());
+                }
+                else{
+                    Apath path=Astar<float>(closest_cluster.getP(), med.getP(), msg_rcv[E_MAP+i], false, 2*closest_cluster.getVal());
+                    if(path.cost<0){
+                        cluster_centers.push_back(med.getP());
+                        clusterpoints.push_back(med.getP());
+                    }
+                }
             }
         }
     }
