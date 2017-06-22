@@ -92,3 +92,22 @@ Sequence combine(vector<int> g1, vector<int> g2, vector<int> gc){
     }
     return ret;
 }
+
+Sequence permute(vector<int> g1, vector<int> g2){
+    Sequence ret, temp, perm1, perm2;
+    for(unsigned int i=0;i<=g1.size();i++){
+        temp=permutations(g1,i);
+        perm1.append(temp);
+    }
+    for(unsigned int i=0;i<=g2.size();i++){
+        temp=permutations(g2,i);
+        perm2.append(temp);
+    }
+    for(unsigned int j=0;j<perm1.seq.size();j++){
+        for(unsigned int k=0; k<perm2.seq.size();k++){
+            ret.seq.push_back(perm1.seq[j]);
+            ret.rem.push_back(perm2.seq[k]);
+        }
+    }
+    return ret;
+}
