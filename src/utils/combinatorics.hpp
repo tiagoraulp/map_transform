@@ -18,4 +18,6 @@ Sequence combinations(std::vector<int> in, unsigned int size);
 
 Sequence combine(std::vector<int> g1, std::vector<int> g2, std::vector<int> gc);
 
+Sequence permute(std::vector<int> g1, std::vector<int> g2);
+
 #endif // COMBINATORICS_HPP
