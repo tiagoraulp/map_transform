@@ -764,8 +764,9 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
     FindMax<float, unsigned int> best_point;
     vector<float> ns;
     n=0;
-    if(level==0)
+    if(level==0){
         return best_point;
+    }
     cout<<"Level "<<level<<endl;
     for(unsigned int pt=0; pt<points.size();pt++){
         if(!points_visited[pt]){
@@ -795,35 +796,43 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
                 }
             }
             cout<<"\nFinal: "<<gained_cost<<endl;
-            vector<float> goal_costs_temp=goal_costs;
-            vector<bool> goal_visited_temp=goal_visited;
-            vector<vector<int> > paths_temp=paths;
-            vector<bool> points_visited_temp=points_visited;
-            paths_temp[robot].insert(paths_temp[robot].begin()+(min_pos.getInd()+1), pt+1);
-            for(auto goal=0u; goal<goals.size(); goal++){
-                if(costsP[robot][pt][goal]>=0){
-                    if( costsP[robot][pt][goal]<= goal_costs[goal] ){
-                        goal_costs_temp[goal]=costsP[robot][pt][goal];
-                    }
-                    goal_visited_temp[goal]=true;
-                }
-            }
-            points_visited_temp[pt]=true;
-            float n_temp;
-            FindMax<float, unsigned int> next=iterate(costsM, costsP, goal_costs_temp, goal_visited_temp, paths_temp, points, points_visited_temp, max_dist, robot, n_temp, level-1);
-            cout<<"Next: "<<(next.valid()?next.getVal():-1)<<" ("<<n_temp<<")"<<endl;
-            if(!next.valid()){
-                n_temp=0;
-                gained_cost+=0;
-                ns.push_back(1);
+            if(gained_cost<0){
+                best_point.iter(-1, 0);
+                ns.push_back(0);
             }
             else{
-                gained_cost=gained_cost/(n_temp+1)+n_temp/(n_temp+1)*next.getVal();
-                ns.push_back(n_temp+1);
+                vector<float> goal_costs_temp=goal_costs;
+                vector<bool> goal_visited_temp=goal_visited;
+                vector<vector<int> > paths_temp=paths;
+                vector<bool> points_visited_temp=points_visited;
+                paths_temp[robot].insert(paths_temp[robot].begin()+(min_pos.getInd()+1), pt+1);
+                for(auto goal=0u; goal<goals.size(); goal++){
+                    if(costsP[robot][pt][goal]>=0){
+                        if( costsP[robot][pt][goal]<= goal_costs[goal] ){
+                            goal_costs_temp[goal]=costsP[robot][pt][goal];
+                        }
+                        goal_visited_temp[goal]=true;
+                    }
+                }
+                points_visited_temp[pt]=true;
+                float n_temp;
+                FindMax<float, unsigned int> next=iterate(costsM, costsP, goal_costs_temp, goal_visited_temp, paths_temp, points, points_visited_temp, max_dist, robot, n_temp, level-1);
+                cout<<"Next: "<<(next.valid()?next.getVal():-1)<<" ("<<n_temp<<")"<<endl;
+                if(!next.valid()){
+                    n_temp=0;
+                    //gained_cost+=0;
+                    gained_cost+=max_dist*(level-1);
+                    ns.push_back(1);
+                }
+                else{
+                    //gained_cost=gained_cost/(n_temp+1)+n_temp/(n_temp+1)*next.getVal();
+                    gained_cost+=next.getVal();
+                    ns.push_back(n_temp+1);
+                }
+                //gained_cost+=next.valid()?next.getVal():0;
+                cout<<"FinalwNext: "<<gained_cost<<endl;
+                best_point.iter(gained_cost, min_pos.getInd());
             }
-            //gained_cost+=next.valid()?next.getVal():0;
-            cout<<"FinalwNext: "<<gained_cost<<endl;
-            best_point.iter(gained_cost, min_pos.getInd());
         }
         else{
             best_point.iter(-1, 0);
