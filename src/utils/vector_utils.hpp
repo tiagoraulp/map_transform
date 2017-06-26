@@ -15,10 +15,11 @@ protected:
     int ind;
     T fv;
     T2 p;
-    virtual bool func(T var)=0;
+    T fv2;
+    virtual bool func(T var, T local)=0;
 public:
-    void iter(T var);
-    void iter(T var,T2 pt);
+    //void iter(T var);
+    void iter(T var,T2 pt, T var2);
     FindElem();
     void clear(void);
     int getInd(void);
@@ -31,7 +32,7 @@ template <typename T, typename T2=T>
 class FindMax : public FindElem<T,T2>
 {
 protected:
-    bool func(T var);
+    bool func(T var, T local);
 public:
     FindMax(std::vector<T> vars);
     FindMax(std::vector<T> vars, std::vector<T2> pts);
@@ -42,7 +43,7 @@ template <typename T,typename T2=T>
 class FindMin : public FindElem<T,T2>
 {
 protected:
-    bool func(T var);
+    bool func(T var, T local);
 public:
     FindMin(std::vector<T> vars);
     FindMin(std::vector<T> vars, std::vector<T2> pts);
@@ -57,7 +58,6 @@ protected:
     std::vector<T2> p;
     virtual bool func(T var, T comp)=0;
 public:
-    unsigned int iter(T var);
     unsigned int iter(T var,T2 pt);
     OrderedVector();
     void clear(void);
@@ -85,34 +85,44 @@ public:
 };
 
 
-template <typename T, typename T2>
-void FindElem<T,T2>::iter(T var) {
-    if(n==0)
-    {
-        ind=0;
-        fv=var;
-    }
-    else if(func(var))
-    {
-        ind=n;
-        fv=var;
-    }
-    n++;
-}
+//template <typename T, typename T2>
+//void FindElem<T,T2>::iter(T var) {
+//    if(n==0)
+//    {
+//        ind=0;
+//        fv=var;
+//    }
+//    else if(func(var))
+//    {
+//        ind=n;
+//        fv=var;
+//    }
+//    n++;
+//}
 
 template <typename T, typename T2>
-void FindElem<T,T2>::iter(T var,T2 pt) {
+void FindElem<T,T2>::iter(T var,T2 pt=T2(), T var2=T()) {
     if(n==0)
     {
         ind=0;
         fv=var;
         p=pt;
+        fv2=var2;
     }
-    else if(func(var))
+    else if(func(var, fv))
     {
         ind=n;
         fv=var;
         p=pt;
+        fv2=var2;
+    }
+    else if(!func(-var, -fv)){
+        if(func(var2, fv2)){
+            ind=n;
+            fv=var;
+            p=pt;
+            fv2=var2;
+        }
     }
     n++;
 }
@@ -120,10 +130,7 @@ void FindElem<T,T2>::iter(T var,T2 pt) {
 template <typename T, typename T2>
 FindElem<T,T2>::FindElem()
 {
-    n=0;
-    ind=0;
-    fv=T();
-    p=T2();
+    clear();
 }
 
 template <typename T, typename T2>
@@ -133,6 +140,7 @@ void FindElem<T,T2>::clear(void)
     ind=0;
     fv=T();
     p=T2();
+    fv2=T();
 }
 
 template <typename T, typename T2>
@@ -160,9 +168,9 @@ bool FindElem<T,T2>::valid(void)
 }
 
 template <typename T, typename T2>
-bool FindMax<T,T2>::func(T var)
+bool FindMax<T,T2>::func(T var, T local)
 {
-    if(var>FindElem<T,T2>::fv)
+    if(var>local)
         return true;
     else
         return false;
@@ -192,9 +200,9 @@ FindMax<T,T2>::FindMax(void)
 }
 
 template <typename T, typename T2>
-bool FindMin<T,T2>::func(T var)
+bool FindMin<T,T2>::func(T var, T local)
 {
-    if(var<this->fv)
+    if(var<local)
         return true;
     else
         return false;
@@ -223,24 +231,24 @@ FindMin<T,T2>::FindMin(void)
 {
 }
 
-template <typename T, typename T2>
-unsigned int OrderedVector<T,T2>::iter(T var) {
-    typename std::vector<T>::iterator it=fv.begin();
-    for(unsigned int i=0; i<fv.size(); i++)
-    {
-        if(func(var,fv[i]))
-        {
-            fv.insert(it,var);
-            return i;
-        }
-        it++;
-    }
-    fv.insert(fv.end(),var);
-    return fv.size()-1;
-}
+//template <typename T, typename T2>
+//unsigned int OrderedVector<T,T2>::iter(T var) {
+//    typename std::vector<T>::iterator it=fv.begin();
+//    for(unsigned int i=0; i<fv.size(); i++)
+//    {
+//        if(func(var,fv[i]))
+//        {
+//            fv.insert(it,var);
+//            return i;
+//        }
+//        it++;
+//    }
+//    fv.insert(fv.end(),var);
+//    return fv.size()-1;
+//}
 
 template <typename T, typename T2>
-unsigned int OrderedVector<T,T2>::iter(T var,T2 pt) {
+unsigned int OrderedVector<T,T2>::iter(T var,T2 pt=T2()) {
     typename std::vector<T>::iterator it=fv.begin();
     typename std::vector<T2>::iterator itp=p.begin();
     for(unsigned int i=0; i<fv.size(); i++)
@@ -262,8 +270,7 @@ unsigned int OrderedVector<T,T2>::iter(T var,T2 pt) {
 template <typename T, typename T2>
 OrderedVector<T,T2>::OrderedVector()
 {
-    fv.clear();
-    p.clear();
+    clear();
 }
 
 template <typename T, typename T2>
