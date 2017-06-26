@@ -1,8 +1,8 @@
 <launch>
   <arg name="x_0" default="2"/>
-  <arg name="y_0" default="10"/>
+  <arg name="y_0" default="8.5"/>
   <arg name="x_1" default="2"/>
-  <arg name="y_1" default="10"/>
+  <arg name="y_1" default="8.5"/>
 
   <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/perception.png 0.1" respawn="false" > 
     <param name="frame_id" value="/map" />
@@ -10,7 +10,7 @@
 	
   <group ns="robot_0">
     <node pkg="map_transform" type="visibility" name="visibility" output="screen">   
-      <param name="defl" value="80" />
+      <param name="defl" value="130" />
       <param name="infl" value="13" />
       <param name="debug" value="false" />
       <param name="ground_truth" value="false" />
@@ -22,7 +22,7 @@
 
     <node name="planner" pkg="map_transform" type="planSensOpt" args="--server" output="screen">
       <param name="tf_prefix" value ="/robot_0" /> 
-      <param name="defl" value="80" />
+      <param name="defl" value="130" />
       <param name="infl" value="13" />
       <remap from="~v_map" to="/robot_0/visibility/v_map"/>
       <remap from="~e_map" to="/robot_0/visibility/e_map"/>
@@ -32,7 +32,7 @@
 
   <group ns="robot_1">
     <node pkg="map_transform" type="visibility" name="visibility" output="screen">   
-      <param name="defl" value="80" />
+      <param name="defl" value="130" />
       <param name="infl" value="13" />
       <param name="debug" value="false" />
       <param name="ground_truth" value="false" />
@@ -44,7 +44,7 @@
 
     <node name="planner" pkg="map_transform" type="planSensOpt" args="--server" output="screen">
       <param name="tf_prefix" value ="/robot_1" /> 
-      <param name="defl" value="80" />
+      <param name="defl" value="130" />
       <param name="infl" value="13" />
       <remap from="~v_map" to="/robot_1/visibility/v_map"/>
       <remap from="~e_map" to="/robot_1/visibility/e_map"/>
@@ -62,8 +62,8 @@
     <remap from="~map" to="/map"/>
     <param name="robot_0/infl" value="13" />
     <param name="robot_1/infl" value="13" />
-    <param name="robot_0/defl" value="80" />
-    <param name="robot_1/defl" value="80" />
+    <param name="robot_0/defl" value="130" />
+    <param name="robot_1/defl" value="130" />
     <param name="goalRegionsService" value="/regionsEditor/getRegions" />
     <param name="PAstarService" value="/planner/plan_point" />
   </node>
