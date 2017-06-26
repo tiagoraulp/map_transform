@@ -14,7 +14,7 @@
 #include "points_conversions.hpp"
 #include "clustering.hpp"
 #include "vector_utils.hpp"
-
+#include "ray.hpp"
 #include "combinatorics.hpp"
 
 #define V_MAP 0
@@ -81,6 +81,7 @@ private:
     float evaluate(vector<vector<vector<float> > > costM, vector<bool> feasible_goals, vector<vector<int> > paths, vector<float> goal_costs, vector<bool> goal_visited, float th=-1);
     float evaluate(vector<vector<vector<float> > > costM, vector<vector<vector<float> > > costP, vector<bool> feasible_goals, vector<vector<int> > paths, float th=-1);
     float costSensing(float K, float dist);
+    FindMax<float, unsigned int> iterate(vector<vector<vector<float> > > costsM, vector<vector<vector<float> > > costsP, vector<float> goal_costs, vector<bool> goal_visited, vector<vector<int> > paths, vector<PointI> points, vector<bool> points_visited, float max_dist, unsigned int robot,  float& n,int level=2);
 public:
     Multirobotplannersensing(ros::NodeHandle nh): nh_(nh){
         pub1 = nh_.advertise<nav_msgs::Path>("path0", 1,true);
@@ -340,11 +341,14 @@ void Multirobotplannersensing::plan(void){
     vector<float> goals_costs;
     vector<bool> goals_visited;
 
+    vector<int> goalsss;
+
     vector<int> count(4, 0);
     for(int i=0; i<2; i++){
     //for(int i=0; i<1; i++){
         cout<<"Robot "<<i<<endl;
         PAstar pastar(infl[i], defl[i]);
+        //cout<<"BLALBALBLALB: "<<defl[i]<<endl;
         pastar.updateNavMap(msg_rcv[E_MAP+i]);
         pastar.updateOrMap(or_map);
         vector<PointI> clusterpoints(0);
@@ -366,6 +370,11 @@ void Multirobotplannersensing::plan(void){
             clusterVisitOrder[curr_cluster+1]=n;
             cout<<"Robot "<<i<<"; From Point "<<n<<"; "<<p0.i<<" "<<p0.j<<"; order: "<<curr_cluster<<endl;
             n++;
+            if(p0.i==71 && p0.j==76 && i==0)
+                goalsss.push_back(curr_cluster);
+            if(p0.i==71 && p0.j==94 && i==0)
+                goalsss.push_back(curr_cluster);
+
             vector<cv::Point> points(0);
             vector<vector<vector<int> > > pointGoals(width, vector<vector<int> >(height,vector<int>(0)));
             for(unsigned int g=0; g<goals.size(); g++){
@@ -449,25 +458,42 @@ void Multirobotplannersensing::plan(void){
                 float sum=0, number=0;
                 if(other<goalsInClusters[pt].size() ){
                     for(unsigned int goal=0; goal<goalsInClusters[pt][other].size(); goal++){
-                        if(goalsInClusters[pt][other][goal]){
-                            if(bf_responses[i][goal][clusterVisitOrder[other]].cost>=0 ){
-                                sum+=bf_responses[i][goal][clusterVisitOrder[other]].costM;
-                                number++;
-                                float new_cost_p=bf_responses[i][goal][clusterVisitOrder[other]].costP;
-                                if( costsP[pt][goal]<0 && new_cost_p>=0 ){
-                                    feasible_goals[goal]=true;
-                                    newMaxValue[i][goal]=costSensing(0.04,(float)defl[i]);
-                                    costsP[pt][goal]=new_cost_p;
-                                    if( maxValue[goal]<costsP[pt][goal] ){
-                                        maxValue[goal]=costsP[pt][goal];
-                                    }
-                                }
-                                else if(new_cost_p>=0 && (costsP[pt][goal]>new_cost_p) ){
-                                    costsP[pt][goal]=new_cost_p;
-                                    if( maxValue[goal]<costsP[pt][goal] ){
-                                        maxValue[goal]=costsP[pt][goal];
-                                    }
-                                }
+                        float new_cost_p;
+                        if(bf_responses[i][goal][clusterVisitOrder[other]].cost>=0 && goalsInClusters[pt][other][goal]){
+                            sum+=bf_responses[i][goal][clusterVisitOrder[other]].costM;
+                            number++;
+                            new_cost_p=bf_responses[i][goal][clusterVisitOrder[other]].costP;
+
+                        }
+                        else if(costsP[pt][goal]<0){
+                            new_cost_p=-1;
+                            //bool test=false;
+                            if( ( (cluster_centers[pt].i-goals[goal].i)*(cluster_centers[pt].i-goals[goal].i)+(cluster_centers[pt].j-goals[goal].j)*(cluster_centers[pt].j-goals[goal].j) )<=(defl[i]*defl[i]) ){
+                                //test=true;
+                                if(raytracing(or_map, cluster_centers[pt].i, cluster_centers[pt].j, goals[goal].i, goals[goal].j, true))
+                                    new_cost_p=costSensing(0.04,sqrt( (cluster_centers[pt].i-goals[goal].i)*(cluster_centers[pt].i-goals[goal].i)+(cluster_centers[pt].j-goals[goal].j)*(cluster_centers[pt].j-goals[goal].j) ));
+                            }
+                            //if(pt==1){
+                                //cout<<"Debug 0: "<<other<<";;;"<<cluster_centers[pt].i<<"; "<<cluster_centers[pt].j<<endl;
+                                //cout<<"Debug 1: "<<other<<";;;"<<goals[goal].i<<"; "<<goals[goal].j<<endl;
+                                //cout<<"Debug 2: "<<other<<";;;"<<defl[i]<<"; "<<new_cost_p<<"; "<<test<<endl;
+                            //}
+                        }
+                        else{
+                            new_cost_p=-1;
+                        }
+                        if( costsP[pt][goal]<0 && new_cost_p>=0 ){
+                            feasible_goals[goal]=true;
+                            newMaxValue[i][goal]=costSensing(0.04,(float)defl[i]);
+                            costsP[pt][goal]=new_cost_p;
+                            if( maxValue[goal]<costsP[pt][goal] ){
+                                maxValue[goal]=costsP[pt][goal];
+                            }
+                        }
+                        else if(new_cost_p>=0 && (costsP[pt][goal]>new_cost_p) ){
+                            costsP[pt][goal]=new_cost_p;
+                            if( maxValue[goal]<costsP[pt][goal] ){
+                                maxValue[goal]=costsP[pt][goal];
                             }
                         }
                     }
@@ -513,44 +539,46 @@ void Multirobotplannersensing::plan(void){
         bool finished=false;
         while(!finished){
         //while(!points.empty()){
-            FindMax<float, unsigned int> best_point;
-            for(unsigned int pt=0; pt<points.size();pt++){
-                if(!points_visited[pt]){
-                    float gained_cost=0;
-                    FindMin<float> min_pos;
-                    for(unsigned int pos=0; pos<(paths[i].size()-1); pos++){
-                        min_pos.iter(costsM[paths[i][pos]][pt+1]+costsM[pt+1][paths[i][pos+1]]-costsM[paths[i][pos]][paths[i][pos+1]]);
-                        cout<<paths[i][pos]<<"; "<<pt+1<<"; "<<paths[i][pos+1]<<"; "<<costsM[paths[i][pos]][pt+1]<<"; "<<costsM[paths[i][pos+1]][pt+1]<<"; "<<costsM[paths[i][pos]][paths[i][pos+1]]<<"; "<<costsM[paths[i][pos]][pt+1]+costsM[pt+1][paths[i][pos+1]]-costsM[paths[i][pos]][paths[i][pos+1]]<<endl;
-                    }
-                    min_pos.iter(costsM[paths[i].back()][pt+1]);
-                    cout<<costsM[paths[i].back()][pt+1]<<endl;
-                    gained_cost+=-min_pos.getVal();
-                    cout<<"Point "<<pt<<"; motion: "<<min_pos.getVal()<<"; ";
-                    bool new_goal=false;
-                    for(auto goal=0u; goal<goals.size(); goal++){
-                        if(maxValue[goal]>=0 && costsP[pt][goal]>=0){
-                            if( costsP[pt][goal]<= goal_costs[goal] ){
-                                if(!new_goal && !goal_visited[goal]){
-                                    new_goal=true;
-                                    gained_cost+=max_dist;
-                                    cout<<"Special; ";
-                                }
-                                for(auto region=0u; region<goalsRegionsIds[goal].size(); region++){
-                                    gained_cost+=(goal_costs[goal]-costsP[pt][goal])/goalsInRegions[goalsRegionsIds[goal][region]].size();
-                                    //cout<<(goal_costs[goal]-costsP[pt][goal])/goalsInRegions[goalsRegionsIds[goal][region]].size()<<";";
-                                }
-                            }
-                        }
-                    }
-                    cout<<"\nFinal: "<<gained_cost<<endl;
-                    //for(unsigned int other=0; other<points.size(); other++){
-                    //}
-                    best_point.iter(gained_cost, min_pos.getInd());
-                }
-                else{
-                    best_point.iter(-1, 0);
-                }
-            }
+//            FindMax<float, unsigned int> best_point;
+//            for(unsigned int pt=0; pt<points.size();pt++){
+//                if(!points_visited[pt]){
+//                    float gained_cost=0;
+//                    FindMin<float> min_pos;
+//                    for(unsigned int pos=0; pos<(paths[i].size()-1); pos++){
+//                        min_pos.iter(costsM[paths[i][pos]][pt+1]+costsM[pt+1][paths[i][pos+1]]-costsM[paths[i][pos]][paths[i][pos+1]]);
+//                        cout<<paths[i][pos]<<"; "<<pt+1<<"; "<<paths[i][pos+1]<<"; "<<costsM[paths[i][pos]][pt+1]<<"; "<<costsM[paths[i][pos+1]][pt+1]<<"; "<<costsM[paths[i][pos]][paths[i][pos+1]]<<"; "<<costsM[paths[i][pos]][pt+1]+costsM[pt+1][paths[i][pos+1]]-costsM[paths[i][pos]][paths[i][pos+1]]<<endl;
+//                    }
+//                    min_pos.iter(costsM[paths[i].back()][pt+1]);
+//                    cout<<costsM[paths[i].back()][pt+1]<<endl;
+//                    gained_cost+=-min_pos.getVal();
+//                    cout<<"Point "<<pt<<"; motion: "<<min_pos.getVal()<<"; ";
+//                    bool new_goal=false;
+//                    for(auto goal=0u; goal<goals.size(); goal++){
+//                        if(maxValue[goal]>=0 && costsP[pt][goal]>=0){
+//                            if( costsP[pt][goal]<= goal_costs[goal] ){
+//                                if(!new_goal && !goal_visited[goal]){
+//                                    new_goal=true;
+//                                    gained_cost+=max_dist;
+//                                    cout<<"Special; ";
+//                                }
+//                                for(auto region=0u; region<goalsRegionsIds[goal].size(); region++){
+//                                    gained_cost+=(goal_costs[goal]-costsP[pt][goal])/goalsInRegions[goalsRegionsIds[goal][region]].size();
+//                                    //cout<<(goal_costs[goal]-costsP[pt][goal])/goalsInRegions[goalsRegionsIds[goal][region]].size()<<";";
+//                                }
+//                            }
+//                        }
+//                    }
+//                    cout<<"\nFinal: "<<gained_cost<<endl;
+//                    //for(unsigned int other=0; other<points.size(); other++){
+//                    //}
+//                    best_point.iter(gained_cost, min_pos.getInd());
+//                }
+//                else{
+//                    best_point.iter(-1, 0);
+//                }
+//            }
+            float n_temp;
+            FindMax<float, unsigned int> best_point=iterate(costsMs, costsPs, goal_costs, goal_visited, paths, points, points_visited, max_dist, i,n_temp, 2);
             if( (best_point.getVal()<0) || !best_point.valid())
                 finished=true;
             else{
@@ -558,21 +586,13 @@ void Multirobotplannersensing::plan(void){
                 for(auto goal=0u; goal<goals.size(); goal++){
                     if(maxValue[goal]>=0 && costsP[best_point.getInd()][goal]>=0){
                         if( costsP[best_point.getInd()][goal]<= goal_costs[goal] ){
-                            //cout<<(goal_costs[goal]-costsP[best_point.getInd()][goal])<<";";
                             goal_costs[goal]=costsP[best_point.getInd()][goal];
-                            //cout<<goal<<"; ";
                         }
                         goal_visited[goal]=true;
                     }
                 }
-                //cout<<endl;
                 points_visited[best_point.getInd()]=true;
             }
-            for(auto test=0u; test<goal_costs.size(); test++){
-                //if(goals[test].i<100 && goals[test].j>100)
-                    //cout<<goal_costs[test]<<"; ";
-            }
-            //cout<<endl;
             num_visited++;
             if( (num_visited==points_visited.size()) )
                 finished=true;
@@ -591,15 +611,15 @@ void Multirobotplannersensing::plan(void){
             p_0=pr[0].front();
         else
             p_0=clusterPts[0][paths[0][p_i-1]-1];
-        cout<<p_0.i<<":"<<p_0.j<<"; ";
+        //cout<<p_0.i<<":"<<p_0.j<<"; ";
         //cout<<clusterPts[0][paths[0][p_i]-1].i<<":"<<clusterPts[0][paths[0][p_i]-1].j<<"; ";
         path_temp=Astar<float>(p_0, clusterPts[0][paths[0][p_i]-1], msg_rcv[E_MAP+0]);
         pr[0].insert(pr[0].end(), path_temp.points.begin(), path_temp.points.end());
     }
-    if(paths[0].back()==0)
-        cout<<pr[0].front().i<<":"<<pr[0].front().j<<"; "<<endl;
-    else
-        cout<<clusterPts[0][paths[0].back()-1].i<<":"<<clusterPts[0][paths[0].back()-1].j<<"; "<<endl;
+    //if(paths[0].back()==0)
+    //    cout<<pr[0].front().i<<":"<<pr[0].front().j<<"; "<<endl;
+    //else
+    //    cout<<clusterPts[0][paths[0].back()-1].i<<":"<<clusterPts[0][paths[0].back()-1].j<<"; "<<endl;
 //    for(unsigned int p_i=1;p_i<paths[1].size();p_i++){
 //        if(paths[1][p_i-1]==0)
 //            p_0=pr[1].front();
@@ -639,8 +659,13 @@ void Multirobotplannersensing::plan(void){
     prTest[0].clear();
     prTest[0].push_back(pr[0].front());
     vector<vector<int> > pathTest(2, vector<int>(1, 0));
-    pathTest[0].push_back(1);
-    pathTest[0].push_back(2);
+
+
+    for(unsigned int sss=0; sss<goalsss.size(); sss++)
+        pathTest[0].push_back(goalsss[sss]+1);
+
+    //pathTest[0].push_back(2);
+    //pathTest[0].push_back(2);
     for(unsigned int p_i=1;p_i<pathTest[0].size();p_i++){
         if(pathTest[0][p_i-1]==0)
             p_0=pr[0].front();
@@ -735,6 +760,87 @@ void Multirobotplannersensing::plan(void){
     pl=false;
 }
 
+FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vector<float> > > costsM, vector<vector<vector<float> > > costsP, vector<float> goal_costs, vector<bool> goal_visited, vector<vector<int> > paths, vector<PointI> points, vector<bool> points_visited, float max_dist, unsigned int robot, float& n,int level){
+    FindMax<float, unsigned int> best_point;
+    vector<float> ns;
+    n=0;
+    if(level==0)
+        return best_point;
+    cout<<"Level "<<level<<endl;
+    for(unsigned int pt=0; pt<points.size();pt++){
+        if(!points_visited[pt]){
+            float gained_cost=0;
+            FindMin<float> min_pos;
+            for(unsigned int pos=0; pos<(paths[robot].size()-1); pos++){
+                min_pos.iter(costsM[robot][paths[robot][pos]][pt+1]+costsM[robot][pt+1][paths[robot][pos+1]]-costsM[robot][paths[robot][pos]][paths[robot][pos+1]]);
+                cout<<paths[robot][pos]<<"; "<<pt+1<<"; "<<paths[robot][pos+1]<<"; "<<costsM[robot][paths[robot][pos]][pt+1]<<"; "<<costsM[robot][paths[robot][pos+1]][pt+1]<<"; "<<costsM[robot][paths[robot][pos]][paths[robot][pos+1]]<<"; "<<costsM[robot][paths[robot][pos]][pt+1]+costsM[robot][pt+1][paths[robot][pos+1]]-costsM[robot][paths[robot][pos]][paths[robot][pos+1]]<<endl;
+            }
+            min_pos.iter(costsM[robot][paths[robot].back()][pt+1]);
+            cout<<costsM[robot][paths[robot].back()][pt+1]<<endl;
+            gained_cost+=-min_pos.getVal();
+            cout<<"Level "<<level<<"; Point "<<pt<<"; motion: "<<min_pos.getVal()<<"; ";
+            bool new_goal=false;
+            for(auto goal=0u; goal<goals.size(); goal++){
+                if(costsP[robot][pt][goal]>=0){
+                    if( costsP[robot][pt][goal]<= goal_costs[goal] ){
+                        if(!new_goal && !goal_visited[goal]){
+                            new_goal=true;
+                            gained_cost+=max_dist;
+                            cout<<"Special; ";
+                        }
+                        for(auto region=0u; region<goalsRegionsIds[goal].size(); region++){
+                            gained_cost+=(goal_costs[goal]-costsP[robot][pt][goal])/goalsInRegions[goalsRegionsIds[goal][region]].size();
+                        }
+                    }
+                }
+            }
+            cout<<"\nFinal: "<<gained_cost<<endl;
+            vector<float> goal_costs_temp=goal_costs;
+            vector<bool> goal_visited_temp=goal_visited;
+            vector<vector<int> > paths_temp=paths;
+            vector<bool> points_visited_temp=points_visited;
+            paths_temp[robot].insert(paths_temp[robot].begin()+(min_pos.getInd()+1), pt+1);
+            for(auto goal=0u; goal<goals.size(); goal++){
+                if(costsP[robot][pt][goal]>=0){
+                    if( costsP[robot][pt][goal]<= goal_costs[goal] ){
+                        goal_costs_temp[goal]=costsP[robot][pt][goal];
+                    }
+                    goal_visited_temp[goal]=true;
+                }
+            }
+            points_visited_temp[pt]=true;
+            float n_temp;
+            FindMax<float, unsigned int> next=iterate(costsM, costsP, goal_costs_temp, goal_visited_temp, paths_temp, points, points_visited_temp, max_dist, robot, n_temp, level-1);
+            cout<<"Next: "<<(next.valid()?next.getVal():-1)<<" ("<<n_temp<<")"<<endl;
+            if(!next.valid()){
+                n_temp=0;
+                gained_cost+=0;
+                ns.push_back(1);
+            }
+            else{
+                gained_cost=gained_cost/(n_temp+1)+n_temp/(n_temp+1)*next.getVal();
+                ns.push_back(n_temp+1);
+            }
+            //gained_cost+=next.valid()?next.getVal():0;
+            cout<<"FinalwNext: "<<gained_cost<<endl;
+            best_point.iter(gained_cost, min_pos.getInd());
+        }
+        else{
+            best_point.iter(-1, 0);
+            ns.push_back(0);
+        }
+    }
+    if( (best_point.getVal()<0) || !best_point.valid()){
+        //finished=true;
+        best_point.clear();
+        n=0;
+    }
+    else{
+        n=ns[best_point.getInd()];
+    }
+    return best_point;
+}
+
 void Multirobotplannersensing::publish(void){
     if(goals.size()>0){
         visualization_msgs::MarkerArray points;
@@ -777,8 +883,8 @@ float Multirobotplannersensing::evaluate(vector<vector<vector<float> > > costM, 
     }
     for(unsigned int g=0; g<feasible_goals.size(); g++){
         if(feasible_goals[g] && !goal_visited[g]){
-            //for(int abc=0; abc<feasible_goals.size();abc++){
-            //    cout<<g<<"-"<<feasible_goals[g]<<":"<<goal_visited[g]<<"; ";
+            //for(unsigned int abc=0; abc<feasible_goals.size();abc++){
+            //    cout<<abc<<"-"<<feasible_goals[abc]<<":"<<goal_visited[abc]<<"; ";
             //}
             return -1;
         }
@@ -789,6 +895,8 @@ float Multirobotplannersensing::evaluate(vector<vector<vector<float> > > costM, 
                     return sum;
         }
     }
+    float temp=sum;
+    cout<<"Sens: "<<temp<<endl;
     for(unsigned int i=0; i<paths.size(); i++){
         for(unsigned int pt=1; pt<paths[i].size(); pt++){
             if( (paths[i][pt-1]<0) || (paths[i][pt-1]>=(int)costM[i].size()) )
@@ -801,6 +909,7 @@ float Multirobotplannersensing::evaluate(vector<vector<vector<float> > > costM, 
                     return sum;
         }
     }
+    cout<<"Motion: "<<sum-temp<<endl;
     return sum;
 }
 
@@ -816,6 +925,7 @@ float Multirobotplannersensing::evaluate(vector<vector<vector<float> > > costM, 
         if(resolve)
             paths[pp].insert(paths[pp].begin(), 0);
     }
+    //cout<<"Testaaaaaaaa"<<endl;
     for(unsigned int i=0; i<paths.size(); i++){
         for(unsigned int pt=1; pt<paths[i].size(); pt++){
             for(unsigned int g=0; g<feasible_goals.size(); g++){
@@ -833,7 +943,9 @@ float Multirobotplannersensing::evaluate(vector<vector<vector<float> > > costM, 
             }
         }
     }
+    //cout<<"Testeeeeeeeeeee"<<endl;
     return evaluate(costM, feasible_goals, paths, goal_costs, goal_visited, th);
+    //cout<<"Testeooooooo"<<endl;
 }
 
 float Multirobotplannersensing::costSensing(float K, float dist){
@@ -846,54 +958,54 @@ int main(int argc, char **argv){
   Multirobotplannersensing planner(nh);
   ros::Rate loop_rate(10);
 
-  vector<int> xxx; xxx.push_back(3); xxx.push_back(1); xxx.push_back(5);
-  Sequence x;
-  cout<<"------ P0 ------"<<endl;
-  x=permutations(xxx,0);
-  x.print();
-  cout<<"------ P1 ------"<<endl;
-  x=permutations(xxx,1);
-  x.print();
-  cout<<"------ P2 ------"<<endl;
-  x=permutations(xxx,2);
-  x.print();
+//  vector<int> xxx; xxx.push_back(3); xxx.push_back(1); xxx.push_back(5);
+//  Sequence x;
+//  cout<<"------ P0 ------"<<endl;
+//  x=permutations(xxx,0);
+//  x.print();
+//  cout<<"------ P1 ------"<<endl;
+//  x=permutations(xxx,1);
+//  x.print();
+//  cout<<"------ P2 ------"<<endl;
+//  x=permutations(xxx,2);
+//  x.print();
 
-  cout<<"------ P3 ------"<<endl;
-  x=permutations(xxx,3);
-  x.print();
-  cout<<"------ P4 ------"<<endl;
-  x=permutations(xxx,4);
-  x.print();
+//  cout<<"------ P3 ------"<<endl;
+//  x=permutations(xxx,3);
+//  x.print();
+//  cout<<"------ P4 ------"<<endl;
+//  x=permutations(xxx,4);
+//  x.print();
 
-  cout<<"------ C0 ------"<<endl;
-  x=combinations(xxx,0);
-  x.print();
-  cout<<"------ C1 ------"<<endl;
-  x=combinations(xxx,1);
-  x.print();
-  cout<<"------ C2 ------"<<endl;
-  x=combinations(xxx,2);
-  x.print();
+//  cout<<"------ C0 ------"<<endl;
+//  x=combinations(xxx,0);
+//  x.print();
+//  cout<<"------ C1 ------"<<endl;
+//  x=combinations(xxx,1);
+//  x.print();
+//  cout<<"------ C2 ------"<<endl;
+//  x=combinations(xxx,2);
+//  x.print();
 
-  cout<<"------ C3 ------"<<endl;
-  x=combinations(xxx,3);
-  x.print();
-  cout<<"------ C4 ------"<<endl;
-  x=combinations(xxx,4);
-  x.print();
+//  cout<<"------ C3 ------"<<endl;
+//  x=combinations(xxx,3);
+//  x.print();
+//  cout<<"------ C4 ------"<<endl;
+//  x=combinations(xxx,4);
+//  x.print();
 
-  vector<int> gc; gc.push_back(1); gc.push_back(2);
-  vector<int> g1; g1.push_back(11); g1.push_back(12);
-  vector<int> g2; g2.push_back(21); g2.push_back(22);
-  cout<<"------ Comb ------"<<endl;
-  x=combine(g1,g2,gc);
-  x.print();
-  cout<<"------ Perm ------"<<endl;
-  x=permute(g1,g2);
-  x.print();
-  cout<<"------ Test ------"<<endl;
-  x=permute(g1,vector<int>(0));
-  x.print();
+//  vector<int> gc; gc.push_back(1); gc.push_back(2);
+//  vector<int> g1; g1.push_back(11); g1.push_back(12);
+//  vector<int> g2; g2.push_back(21); g2.push_back(22);
+//  cout<<"------ Comb ------"<<endl;
+//  x=combine(g1,g2,gc);
+//  x.print();
+//  cout<<"------ Perm ------"<<endl;
+//  x=permute(g1,g2);
+//  x.print();
+//  cout<<"------ Test ------"<<endl;
+//  x=permute(g1,vector<int>(0));
+//  x.print();
 
   while (ros::ok()){
     ros::spinOnce();
