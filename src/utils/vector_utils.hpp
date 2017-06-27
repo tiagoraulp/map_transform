@@ -179,6 +179,7 @@ bool FindMax<T,T2>::func(T var, T local)
 template <typename T, typename T2>
 FindMax<T,T2>::FindMax(std::vector<T> vars)
 {
+    this->clear();
     for(int i=0;i<vars.size();i++)
     {
         this->iter(vars[i]);
@@ -188,6 +189,7 @@ FindMax<T,T2>::FindMax(std::vector<T> vars)
 template <typename T, typename T2>
 FindMax<T,T2>::FindMax(std::vector<T> vars, std::vector<T2> pts)
 {
+    this->clear();
     for(int i=0;i<vars.size();i++)
     {
         this->iter(vars[i],pts[i]);
@@ -197,6 +199,7 @@ FindMax<T,T2>::FindMax(std::vector<T> vars, std::vector<T2> pts)
 template <typename T, typename T2>
 FindMax<T,T2>::FindMax(void)
 {
+    this->clear();
 }
 
 template <typename T, typename T2>
@@ -211,6 +214,7 @@ bool FindMin<T,T2>::func(T var, T local)
 template <typename T, typename T2>
 FindMin<T,T2>::FindMin(std::vector<T> vars)
 {
+    this->clear();
     for(int i=0;i<vars.size();i++)
     {
         this->iter(vars[i]);
@@ -220,6 +224,7 @@ FindMin<T,T2>::FindMin(std::vector<T> vars)
 template <typename T, typename T2>
 FindMin<T,T2>::FindMin(std::vector<T> vars, std::vector<T2> pts)
 {
+    this->clear();
     for(int i=0;i<vars.size();i++)
     {
         this->iter(vars[i],pts[i]);
@@ -229,6 +234,7 @@ FindMin<T,T2>::FindMin(std::vector<T> vars, std::vector<T2> pts)
 template <typename T, typename T2>
 FindMin<T,T2>::FindMin(void)
 {
+    this->clear();
 }
 
 //template <typename T, typename T2>
@@ -316,6 +322,7 @@ bool OrderedDecresc<T,T2>::func(T var, T comp)
 template <typename T, typename T2>
 OrderedDecresc<T,T2>::OrderedDecresc(void)
 {
+    this->clear();
 }
 
 template <typename T, typename T2>
@@ -330,6 +337,7 @@ bool OrderedCresc<T,T2>::func(T var, T comp)
 template <typename T, typename T2>
 OrderedCresc<T,T2>::OrderedCresc(void)
 {
+    this->clear();
 }
 
 int boundPos(int x, int max);
