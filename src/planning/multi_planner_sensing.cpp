@@ -81,7 +81,7 @@ private:
     float evaluate(vector<vector<vector<float> > > costM, vector<bool> feasible_goals, vector<vector<int> > paths, vector<float> goal_costs, vector<bool> goal_visited, float th=-1);
     float evaluate(vector<vector<vector<float> > > costM, vector<vector<vector<float> > > costP, vector<bool> feasible_goals, vector<vector<int> > paths, float th=-1);
     float costSensing(float K, float dist);
-    FindMax<float, unsigned int> iterate(vector<vector<vector<float> > > costsM, vector<vector<vector<float> > > costsP, vector<float> goal_costs, vector<bool> goal_visited, vector<vector<int> > paths, vector<vector<bool> > points_visited, float max_dist, unsigned int& robot,  float& n,int level=2);
+    FindMax<float, unsigned int> iterate(vector<vector<vector<float> > > costsM, vector<vector<vector<float> > > costsP, vector<float> goal_costs, vector<bool> goal_visited, vector<vector<int> > paths, vector<vector<bool> > points_visited, vector<vector<float> > newMaxValue, float max_dist, float multi_levels, unsigned int& robot,  float& n,int level=2);
 public:
     Multirobotplannersensing(ros::NodeHandle nh): nh_(nh){
         pub1 = nh_.advertise<nav_msgs::Path>("path0", 1,true);
@@ -348,6 +348,8 @@ void Multirobotplannersensing::plan(void){
 
     vector<vector<bool> > points_visited(2, vector<bool>(0));
 
+    vector<vector<bool> > papositive(2, vector<bool>(goals.size(), true));
+
     vector<int> count(4, 0);
     for(int i=0; i<2; i++){
     //for(int i=0; i<1; i++){
@@ -383,25 +385,34 @@ void Multirobotplannersensing::plan(void){
             vector<cv::Point> points(0);
             vector<vector<vector<int> > > pointGoals(width, vector<vector<int> >(height,vector<int>(0)));
             for(unsigned int g=0; g<goals.size(); g++){
-                PApath path=pastar.run(p0, goals[g], 0.04, true);
                 PAresult paresult;
-                paresult.p0=p0;
-                if(path.cost>=0){
-                    paresult.cost=path.cost;
-                    paresult.costM=path.costM;
-                    paresult.costP=path.costP;
-                    if(path.points.size()!=0){
-                        paresult.perc_pt=path.points.back();
+                if(papositive[i][g]){
+                    PApath path=pastar.run(p0, goals[g], 0.04, true);
+                    paresult.p0=p0;
+                    if(path.cost>=0){
+                        paresult.cost=path.cost;
+                        paresult.costM=path.costM;
+                        paresult.costP=path.costP;
+                        if(path.points.size()!=0){
+                            paresult.perc_pt=path.points.back();
+                        }
+                        else{
+                            paresult.perc_pt=p0;
+                        }
+                        count[i]++;
+                        points.push_back(cv::Point(paresult.perc_pt.i,paresult.perc_pt.j));
+                        pointGoals[points.back().x][points.back().y].push_back(g);
                     }
                     else{
-                        paresult.perc_pt=p0;
+                        papositive[i][g]=false;
+                        count[i+2]++;
                     }
-                    count[i]++;
-                    points.push_back(cv::Point(paresult.perc_pt.i,paresult.perc_pt.j));
-                    pointGoals[points.back().x][points.back().y].push_back(g);
                 }
                 else{
-                    count[i+2]++;
+                    paresult.cost=-1;
+                    paresult.p0=p0;
+                    paresult.costM=-1;
+                    paresult.costP=-1;
                 }
                 bf_responses[i][g].push_back(paresult);
             }
@@ -466,9 +477,8 @@ void Multirobotplannersensing::plan(void){
                             sum+=bf_responses[i][goal][clusterVisitOrder[other]].costM;
                             number++;
                             new_cost_p=bf_responses[i][goal][clusterVisitOrder[other]].costP;
-
                         }
-                        else if(costsP[pt][goal]<0){
+                        else if( (costsP[pt][goal]<0) && papositive[i][goal]){
                             new_cost_p=-1;
                             //bool test=false;
                             if( ( (cluster_centers[pt].i-goals[goal].i)*(cluster_centers[pt].i-goals[goal].i)+(cluster_centers[pt].j-goals[goal].j)*(cluster_centers[pt].j-goals[goal].j) )<=(defl[i]*defl[i]) ){
@@ -488,7 +498,7 @@ void Multirobotplannersensing::plan(void){
                         if( costsP[pt][goal]<0 && new_cost_p>=0 ){
                             feasible_goals[goal]=true;
                             newMaxValue[i][goal]=costSensing(0.04,(float)defl[i]);
-                            maxValue[goal]=costSensing(0.04,(float)defl[i]);
+                            maxValue[goal]=costSensing(0.04,(float)max(defl[0], defl[1]));
                             costsP[pt][goal]=new_cost_p;
                             //if( maxValue[goal]<costsP[pt][goal] ){
                             //    maxValue[goal]=costsP[pt][goal];
@@ -575,6 +585,8 @@ void Multirobotplannersensing::plan(void){
         //goals_visited=goal_visited;
     }
 
+    float multi_levels=regions.size()*max(max_dist, costSensing(0.04,(float)max(defl[0], defl[1])) ); // ?? think, probably no need for max_dist
+
     //vector<float> goal_costs=newMaxValue[i];
     vector<float> goal_costs=maxValue;
     vector<bool> goal_visited(goals.size(), false);
@@ -586,7 +598,7 @@ void Multirobotplannersensing::plan(void){
     while(!finished){
         float n_temp;
         unsigned int robot;
-        FindMax<float, unsigned int> best_point=iterate(costsMs, costsPs, goal_costs, goal_visited, paths, points_visited, max_dist, robot,n_temp, 2);
+        FindMax<float, unsigned int> best_point=iterate(costsMs, costsPs, goal_costs, goal_visited, paths, points_visited, newMaxValue, max_dist, multi_levels, robot,n_temp, 2);
         if( (best_point.getVal()<(-max_dist*2)) || !best_point.valid())
             finished=true;
         else{
@@ -797,7 +809,7 @@ void Multirobotplannersensing::plan(void){
     pl=false;
 }
 
-FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vector<float> > > costsM, vector<vector<vector<float> > > costsP, vector<float> goal_costs, vector<bool> goal_visited, vector<vector<int> > paths, vector<vector<bool> > points_visited, float max_dist, unsigned int& robot_index, float& n,int level){
+FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vector<float> > > costsM, vector<vector<vector<float> > > costsP, vector<float> goal_costs, vector<bool> goal_visited, vector<vector<int> > paths, vector<vector<bool> > points_visited, vector<vector<float> > newMaxValue, float max_dist, float multi_levels, unsigned int& robot_index, float& n,int level){
     FindMax<float, unsigned int> best_point;
     vector<FindMax<float, unsigned int> > best_point_temp(2);
     vector<vector<float> > ns(2);
@@ -807,7 +819,7 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
     }
     cout<<"Level "<<level<<endl;
     for(unsigned int robot=0; robot<paths.size(); robot++){
-        cout<<"Robot "<<robot<<endl;
+        //cout<<"Robot "<<robot<<endl;
         for(unsigned int pt=0; pt<points_visited[robot].size();pt++){
             if(!points_visited[robot][pt]){
                 float gained_cost=0;
@@ -815,13 +827,14 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
                 FindMin<float> min_pos;
                 for(unsigned int pos=0; pos<(paths[robot].size()-1); pos++){
                     min_pos.iter(costsM[robot][paths[robot][pos]][pt+1]+costsM[robot][pt+1][paths[robot][pos+1]]-costsM[robot][paths[robot][pos]][paths[robot][pos+1]]);
-                    cout<<paths[robot][pos]<<"; "<<pt+1<<"; "<<paths[robot][pos+1]<<"; "<<costsM[robot][paths[robot][pos]][pt+1]<<"; "<<costsM[robot][paths[robot][pos+1]][pt+1]<<"; "<<costsM[robot][paths[robot][pos]][paths[robot][pos+1]]<<"; "<<costsM[robot][paths[robot][pos]][pt+1]+costsM[robot][pt+1][paths[robot][pos+1]]-costsM[robot][paths[robot][pos]][paths[robot][pos+1]]<<endl;
+                    //cout<<paths[robot][pos]<<"; "<<pt+1<<"; "<<paths[robot][pos+1]<<"; "<<costsM[robot][paths[robot][pos]][pt+1]<<"; "<<costsM[robot][paths[robot][pos+1]][pt+1]<<"; "<<costsM[robot][paths[robot][pos]][paths[robot][pos+1]]<<"; "<<costsM[robot][paths[robot][pos]][pt+1]+costsM[robot][pt+1][paths[robot][pos+1]]-costsM[robot][paths[robot][pos]][paths[robot][pos+1]]<<endl;
                 }
                 min_pos.iter(costsM[robot][paths[robot].back()][pt+1]);
-                cout<<costsM[robot][paths[robot].back()][pt+1]<<endl;
+                //cout<<costsM[robot][paths[robot].back()][pt+1]<<endl;
                 gained_cost+=-min_pos.getVal();
-                cout<<"Level "<<level<<"; Point "<<pt<<"; motion: "<<min_pos.getVal()<<"; ";
+                //cout<<"Level "<<level<<"; Point "<<pt<<"; motion: "<<min_pos.getVal()<<"; ";
                 bool new_goal=false;
+                FindMax<float> unfeas_gain;
                 for(auto goal=0u; goal<goals.size(); goal++){
                     if(costsP[robot][pt][goal]>=0){
                         if( costsP[robot][pt][goal]<= goal_costs[goal] ){
@@ -829,7 +842,14 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
                                 new_goal=true;
                                 //gained_cost+=max_dist;
                                 special=true;
-                                cout<<"Special; ";
+                                //cout<<"Special; ";
+                                //// NewSpecial goals not reachable to other
+                                float unfeasible_gain=0;
+                                for(unsigned int feas=0; feas<newMaxValue.size(); feas++){
+                                    if(newMaxValue[feas][goal]<0)
+                                        unfeasible_gain+=multi_levels;
+                                }
+                                unfeas_gain.iter(unfeasible_gain);
                             }
                             for(auto region=0u; region<goalsRegionsIds[goal].size(); region++){
                                 gained_cost+=(goal_costs[goal]-costsP[robot][pt][goal])/goalsInRegions[goalsRegionsIds[goal][region]].size();
@@ -837,10 +857,15 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
                         }
                     }
                 }
-                cout<<"\nFinal: "<<gained_cost<<endl;
+                ////NewSpecial
+                if(unfeas_gain.valid())
+                    gained_cost+=unfeas_gain.getVal();
+                //cout<<"\nFinal: "<<gained_cost<<endl;
+                cout<<"Level "<<level<<"; Robot "<<robot<<"; Point "<<pt<<"; Final: "<<gained_cost<<";"<<endl;
                 if(gained_cost<0 && !special){
                     best_point_temp[robot].iter(-1-max_dist*level, 0);
                     ns[robot].push_back(0);
+                    cout<<"Level "<<level<<"; Robot "<<robot<<"; Point "<<pt<<"; FinalComplete: "<<"No tree, Stop"<<";"<<endl;
                 }
                 else{
                     float mid_gained_cost=gained_cost;
@@ -860,8 +885,8 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
                     points_visited_temp[robot][pt]=true;
                     float n_temp;
                     unsigned int r_temp;
-                    FindMax<float, unsigned int> next=iterate(costsM, costsP, goal_costs_temp, goal_visited_temp, paths_temp, points_visited_temp, max_dist, r_temp, n_temp, level-1);
-                    cout<<"Next: "<<(next.valid()?next.getVal():-1)<<" ("<<n_temp<<")"<<endl;
+                    FindMax<float, unsigned int> next=iterate(costsM, costsP, goal_costs_temp, goal_visited_temp, paths_temp, points_visited_temp, newMaxValue, max_dist, multi_levels , r_temp, n_temp, level-1);
+                    //cout<<"Next: "<<(next.valid()?next.getVal():-1)<<" ("<<n_temp<<")"<<endl;
                     if(!next.valid()){
                         n_temp=0;
                         gained_cost+=0;
@@ -874,7 +899,8 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
                         ns[robot].push_back(n_temp+1);
                     }
                     //gained_cost+=next.valid()?next.getVal():0;
-                    cout<<"FinalwNext: "<<gained_cost<<endl;
+                    //cout<<"FinalwNext: "<<gained_cost<<endl;
+                    cout<<"Level "<<level<<"; Robot "<<robot<<"; Point "<<pt<<"; Next: "<<(next.valid()?next.getVal():-1)<<"; FinalComplete: "<<gained_cost<<";"<<endl;
                     best_point_temp[robot].iter(gained_cost, min_pos.getInd(), mid_gained_cost);
                 }
             }
