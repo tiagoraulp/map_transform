@@ -579,8 +579,9 @@ cv::Mat_<int> create_robot_model(int size){
     return ret;
 }
 
-cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size){
+cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size, vector<vector<vector<cv::Point> > > & result_act){
     cv::Mat_<int> ret=cv::Mat_<int>::ones(r_map.rows, r_map.cols)*-1;
+    result_act=vector<vector<vector<cv::Point> > >(r_map.rows, vector<vector<cv::Point> >(r_map.cols, vector<cv::Point>(0)));
     if(pos.x<0 || pos.x>=r_map.rows || pos.y<0 || pos.y>=r_map.cols)
         return ret;
     if(r_map.at<uchar>(pos.x,pos.y)==0)
@@ -594,6 +595,7 @@ cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size){
     vc.clear();
     vc.push_back(pos);
     reach(pos.x,pos.y)=0;
+    result_act[pos.x][pos.y].push_back(cv::Point(pos.x,pos.y));
 
     while(vc.size()!=0){
         //cout<<vc[0].x<<" "<<vc[0].y<<" "<<ret(vc[0].x,vc[0].y)<<endl;
@@ -610,6 +612,10 @@ cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size){
                 if( r_map.at<uchar>(i,j)!=0 && reach(i,j)==-1 && max(abs(i-vc[0].x),abs(j-vc[0].y))<=1 ){
                     vc.push_back(cv::Point(i,j));
                     reach(i,j)=reach(vc[0].x,vc[0].y)+1;
+                    result_act[i][j].push_back(cv::Point(i,j));
+                }
+                if( robot(i-vc[0].x+size,j-vc[0].y+size) && r_map.at<uchar>(i,j)==0 ){
+                    result_act[i][j].push_back(cv::Point(vc[0].x,vc[0].y));
                 }
             }
         }
@@ -652,9 +658,39 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         //ttt=ros::Time::now();
 
+        vis_.vis.assign(map_or.rows*map_or.cols, -2);
+        vis_.crit_points.assign(map_or.rows*map_or.cols,map_transform::VisNode());
+
+        //cv::Mat_<int> distance_transf=distance_transform(r_map, cv::Point(pos.x,pos.y));
+
         tt=ros::Time::now();
-        cv::Mat_<int> dist_transf=actuation_transform(r_map, cv::Point(pos.x,pos.y), rad);
+        vector<vector<vector<cv::Point> > > result_act;
+        cv::Mat_<int> dist_transf=actuation_transform(r_map, cv::Point(pos.x,pos.y), rad, result_act);
         //cout<<"Time Act_Transf: "<<ros::Time::now()-tt<<endl;
+        geometry_msgs::Pose ps;
+        for(auto i=0u; i<result_act.size(); i++){
+            for(auto j=0u; j<result_act[i].size(); j++){
+                if(result_act[i][j].size()==1){
+                    ps.position.x=result_act[i][j][0].x;
+                    ps.position.y=result_act[i][j][0].y;
+                    vis_.crit_points[i*map_or.cols+j].points.push_back(ps);
+                }
+                else if(result_act[i][j].size()>1){
+                    vector<vector<cv::Point> > results_act=cluster_points(result_act[i][j]);
+                    for(auto k=0u; k<results_act.size(); k++){
+                        FindMin<float> closest_pt;
+                        for(auto l=0u; l<results_act[k].size(); l++){
+                            float d1=(float)(i-results_act[k][l].x);
+                            float d2=(float)(j-results_act[k][l].y);
+                            closest_pt.iter( d1*d1+d2*d2 );
+                        }
+                        ps.position.x=results_act[k][closest_pt.getInd()].x;
+                        ps.position.y=results_act[k][closest_pt.getInd()].y;
+                        vis_.crit_points[i*map_or.cols+j].points.push_back(ps);
+                    }
+                }
+            }
+        }
 
         tt=ros::Time::now();
         double min_, max_;
@@ -979,8 +1015,8 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
     //vis_.assign(vis_map.rows*vis_map.cols, map_transform::VisNode());
     //vis_.assign(vis_map.rows*vis_map.cols, -2);
-    vis_.vis.assign(vis_map.rows*vis_map.cols, -2);
-    vis_.crit_points.assign(vis_map.rows*vis_map.cols,map_transform::VisNode());
+    //vis_.vis.assign(vis_map.rows*vis_map.cols, -2);
+    //vis_.crit_points.assign(vis_map.rows*vis_map.cols,map_transform::VisNode());
 
     for (unsigned int k=0;k<unreach.frontiers.size();k++){//1;k++){//
         long int countP=0;
