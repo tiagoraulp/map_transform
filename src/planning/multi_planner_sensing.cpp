@@ -748,7 +748,7 @@ void Multirobotplannersensing::plan(void){
         }
     }
     //Sequence seq=permute(cl_seq, vector<int>(0));
-    Sequence seq=permute(cl_seq[0], cl_seq[1]);
+    Sequence seq;//=permute(cl_seq[0], cl_seq[1]);
     FindMin<float, vector<int> > min_seq;
     FindMin<float, vector<int> > min_seq2;
     vector<vector<int> > pathBFseq;
@@ -843,60 +843,88 @@ void Multirobotplannersensing::plan(void){
     float opt_dist=1.0/2.0/0.04;
 
     for(unsigned int i=0; i<2; i++){
-//        vector<vector<int> > crit_goals;
-//        vector<PointI> crit_pts;
-//        vector<vector<int> > crit_map(or_map.rows, vector<int>(or_map.cols,-1));
-//        vector<vector<int> > other_goals;
-//        vector<PointI> other_pts;
-//        vector<vector<int> > other_map(or_map.rows, vector<int>(or_map.cols,-1));
-//        vector<vector<vector<int> > > other_temp_map(or_map.rows, vector<vector<int> >(or_map.cols,vector<int>(0)));
-//        vector<cv::Point> other_temp;
-//        for(unsigned int goal=0; goal<goals.size(); goal++){
-//            int index=goals[goal].i*or_map.cols+goals[goal].j;
-//            if( vis_[i][index]<0 ){
-// //                for(unsigned int crit=0; crit<crit_points[i][index].points.size(); crit++){
-// //                    PointI critPt(crit_points[i][index].points[crit].position.x,crit_points[i][index].points[crit].position.y);
-// //                    if( other_temp_map[critPt.i][critPt.j].empty() )
-// //                        other_temp.push_back(cv::Point(critPt.i, critPt.j));
-// //                    other_temp_map[critPt.i][critPt.j].push_back(goal);
-// //                }
-//            }
-//            else{
-//                for(unsigned int crit=0; crit<crit_points[i][index].points.size(); crit++){
-//                    PointI critPt(crit_points[i][index].points[crit].position.x,crit_points[i][index].points[crit].position.y);
-//                    if( crit_map[critPt.i][critPt.j]<0 ){
-//                        crit_pts.push_back(critPt);
-//                        crit_map[critPt.i][critPt.j]=crit_pts.size()-1;
-//                        crit_goals.push_back(vector<int>(1, goal));
-//                    }
-//                    else{
-//                        crit_goals[crit_map[critPt.i][critPt.j]].push_back(goal);
-//                    }
-//                }
-//            }
-//        }
-//        vector<vector<cv::Point> > groups=cluster_points(other_temp);
-//        for(unsigned int group=0; group<groups.size(); group++){
-//            vector<PointI> other_pts_temp;
-//            for(unsigned int pt=0; pt<groups[group].size(); pt++){
-//                FindMin<float, PointI> closest_other;
-//                for(unsigned other=0; other<other_pts_temp.size(); other++){
-//                    float d1=groups[group][pt].x-other_pts_temp[other].i;
-//                    float d2=groups[group][pt].y-other_pts_temp[other].j;
-//                    closest_other.iter( d1*d1+d2*d2, other_pts_temp[other]);
-//                }
-//                float threshold=opt_dist*opt_dist;
-//                if(closest_other.valid() && (closest_other.getVal()<(threshold*threshold)) ){
-//                    other_goals[other_map[closest_other.getP().i][closest_other.getP().j]].insert(other_goals[other_map[closest_other.getP().i][closest_other.getP().j]].begin(),
-//                            other_temp_map[groups[group][pt].x][groups[group][pt].y].begin(), other_temp_map[groups[group][pt].x][groups[group][pt].y].end());
-//                }
-//                else{
-//                    other_pts_temp.push_back(PointI(groups[group][pt].x,groups[group][pt].y));
-//                    other_pts.push_back(PointI(groups[group][pt].x,groups[group][pt].y));
-//                    other_map[groups[group][pt].x][groups[group][pt].y]=other_pts.size()-1;
-//                    other_goals.push_back(other_temp_map[groups[group][pt].x][groups[group][pt].y]);
-//                }
-//            }
+        vector<vector<int> > crit_goals;
+        vector<PointI> crit_pts;
+        vector<vector<int> > crit_map(or_map.rows, vector<int>(or_map.cols,-1));
+        vector<vector<int> > other_goals;
+        vector<PointI> other_pts;
+        vector<vector<int> > other_map(or_map.rows, vector<int>(or_map.cols,-1));
+        vector<vector<vector<int> > > other_temp_map(or_map.rows, vector<vector<int> >(or_map.cols,vector<int>(0)));
+        vector<cv::Point> other_temp;
+        for(unsigned int goal=0; goal<goals.size(); goal++){
+            int index=goals[goal].i*or_map.cols+goals[goal].j;
+            if( vis_[i][index]<0 ){
+                for(unsigned int crit=0; crit<crit_points[i][index].points.size(); crit++){
+                    PointI critPt(crit_points[i][index].points[crit].position.x,crit_points[i][index].points[crit].position.y);
+                    if( other_temp_map[critPt.i][critPt.j].empty() )
+                        other_temp.push_back(cv::Point(critPt.i, critPt.j));
+                    other_temp_map[critPt.i][critPt.j].push_back(goal);
+                }
+            }
+            else{
+                for(unsigned int crit=0; crit<crit_points[i][index].points.size(); crit++){
+                    PointI critPt(crit_points[i][index].points[crit].position.x,crit_points[i][index].points[crit].position.y);
+                    if( crit_map[critPt.i][critPt.j]<0 ){
+                        crit_pts.push_back(critPt);
+                        crit_map[critPt.i][critPt.j]=crit_pts.size()-1;
+                        crit_goals.push_back(vector<int>(1, goal));
+                    }
+                    else{
+                        crit_goals[crit_map[critPt.i][critPt.j]].push_back(goal);
+                    }
+                }
+            }
+        }
+        vector<vector<PointI> > other_clusters;
+        vector<vector<cv::Point> > groups=cluster_points(other_temp);
+        for(unsigned int group=0; group<groups.size(); group++){
+            vector<PointI> other_pts_temp;
+            for(unsigned int pt=0; pt<groups[group].size(); pt++){
+                FindMin<float, PointI> closest_other;
+                for(unsigned other=0; other<other_pts_temp.size(); other++){
+                    float d1=groups[group][pt].x-other_pts_temp[other].i;
+                    float d2=groups[group][pt].y-other_pts_temp[other].j;
+                    closest_other.iter( d1*d1+d2*d2, other_pts_temp[other]);
+                }
+                float threshold=opt_dist*opt_dist;
+                if(closest_other.valid() && (closest_other.getVal()<=(threshold*threshold)) ){
+                    if( raytracing(or_map, closest_other.getP().i, closest_other.getP().j,groups[group][pt].x, groups[group][pt].y,true)){
+                        other_goals[other_map[closest_other.getP().i][closest_other.getP().j]].insert(other_goals[other_map[closest_other.getP().i][closest_other.getP().j]].begin(),
+                            other_temp_map[groups[group][pt].x][groups[group][pt].y].begin(), other_temp_map[groups[group][pt].x][groups[group][pt].y].end());
+                        other_clusters[other_map[closest_other.getP().i][closest_other.getP().j]].push_back(PointI(groups[group][pt].x,groups[group][pt].y));
+                    }
+                }
+                else{
+                    other_pts_temp.push_back(PointI(groups[group][pt].x,groups[group][pt].y));
+                    other_pts.push_back(PointI(groups[group][pt].x,groups[group][pt].y));
+                    other_map[groups[group][pt].x][groups[group][pt].y]=other_pts.size()-1;
+                    other_goals.push_back(other_temp_map[groups[group][pt].x][groups[group][pt].y]);
+                    other_clusters.push_back(vector<PointI>(1,PointI(groups[group][pt].x,groups[group][pt].y)));
+                }
+            }
+        }
+        vector<vector<float> > other_goals_cost(goals.size(), vector<float>(other_pts.size(),-1));
+        for(unsigned int pt=0; pt<other_goals.size(); pt++){
+            for(unsigned int goal=0; goal<other_goals[pt].size(); goal++){
+                int goalOr=other_goals[pt][goal];
+                if(other_goals_cost[goalOr][pt]<0)
+                    other_goals_cost[goalOr][pt]=costSensingSqDist(0.04, (other_pts[pt].i-goals[goalOr].i)*(other_pts[pt].i-goals[goalOr].i)+(other_pts[pt].j-goals[goalOr].j)*(other_pts[pt].j-goals[goalOr].j));
+            }
+            float posi=0, posj=0;
+            for(unsigned int other=0; other<other_clusters[pt].size();other++){
+                posi+=other_clusters[pt][other].i;
+                posj+=other_clusters[pt][other].j;
+            }
+            posi/=(float)other_clusters[pt].size();
+            posj/=(float)other_clusters[pt].size();
+            posi=round(posi);
+            posj=round(posj);
+            FindMin<unsigned long int, PointI> med;
+            for(unsigned int pp=0; pp<other_clusters[pt].size();pp++){
+                med.iter(other_clusters[pt][pp].diff2(PointI(posi,posj)),other_clusters[pt][pp]);
+            }
+            other_pts[pt]=med.getP();
+        }
 
         cout<<"Robot "<<i<<endl;
         vector<PointI> clusterpoints(0);
@@ -933,73 +961,146 @@ void Multirobotplannersensing::plan(void){
                 if(papositive[i][goal]){
                     //if(crit_points[i][index].points.size()>2)
                     //    cout<<"OOOOOHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH"<<endl;
-                    for(unsigned int crit=0; crit<crit_points[i][index].points.size(); crit++){
-                        PointI critPt(crit_points[i][index].points[crit].position.x,crit_points[i][index].points[crit].position.y);
-                        Apath path;
-                        if( apath_map[critPt.i][critPt.j].cost<0 ){
-                            path=Astar<float>(p0, critPt, msg_rcv[E_MAP+i]);
-                            path.points.insert(path.points.begin(),p0);
-                            apath_map[critPt.i][critPt.j]=path;
-                        }
-                        else{
-                            path=apath_map[critPt.i][critPt.j];
-                        }
-                        float offset=sqrt( (goals[goal].i-critPt.i)*(goals[goal].i-critPt.i)+(goals[goal].j-critPt.j)*(goals[goal].j-critPt.j) );
-                        //if( vis_[i][index]<0 ){
-                        //    offset=0;
-                        //}
-                        //else{
-                        //    offset=sqrt( (goals[goal].i-critPt.i)*(goals[goal].i-critPt.i)+(goals[goal].j-critPt.j)*(goals[goal].j-critPt.j) );
-                        //}
-                        paresult.p0=p0;
-                        paresult.perc_pt=path.points.back();
-                        paresult.costP=costSensing(0.04, offset);
-                        paresult.costM=path.cost;
-                        float margin=max(opt_dist-offset,(float)0.0);
-                        int begining=max((int)path.points.size()-1-((int)ceil(margin)), 0);
-                        //if(n==1 && goal==0 && crit==0)
-                        //    cout<<"Margin: "<<margin<<"; Offset: "<<offset<<"; Begin: "<<begining<<"; Test: "<<(begining!=((int)path.points.size()-1))<<endl;
-                        if(begining!=((int)path.points.size()-1)){
-                            bool found_end=false;
-                            float diff=0;
-                            for(int it=begining; it<((int)path.points.size()); it++){
+                    int index=goals[goal].i*or_map.cols+goals[goal].j;
+                    if( vis_[i][index]<0 ){
+                        for(unsigned int crit=0; crit<other_goals_cost[goal].size(); crit++){
+                            if(other_goals_cost[goal][crit]<0){
+                                continue;
+                            }
+                            else{
+                                PointI critPt=other_pts[crit];
+                                Apath path;
+                                if( apath_map[critPt.i][critPt.j].cost<0 ){
+                                    path=Astar<float>(p0, critPt, msg_rcv[E_MAP+i]);
+                                    path.points.insert(path.points.begin(),p0);
+                                    apath_map[critPt.i][critPt.j]=path;
+                                }
+                                else{
+                                    path=apath_map[critPt.i][critPt.j];
+                                }
+                                paresult.p0=p0;
+                                paresult.perc_pt=path.points.back();
+                                paresult.costP=other_goals_cost[goal][crit];
+                                paresult.costM=path.cost;
+                                //float offset=sqrt( (goals[goal].i-critPt.i)*(goals[goal].i-critPt.i)+(goals[goal].j-critPt.j)*(goals[goal].j-critPt.j) );
+                                float offset=0;
+                                //float margin=max(opt_dist-offset,(float)0.0);
+                                float margin=max(2*opt_dist-offset,(float)0.0);
+                                int begining=max((int)path.points.size()-1-((int)ceil(margin)), 0);
                                 //if(n==1 && goal==0 && crit==0)
-                                //    cout<<"it: "<<it<<" out of "<<(path.points.size()-1)<<endl;
-                                if(!found_end){
-                                    float sens_dist=float((goals[goal].i-path.points[it].i)*(goals[goal].i-path.points[it].i)+(goals[goal].j-path.points[it].j)*(goals[goal].j-path.points[it].j));
-                                    //if(n==1 && goal==0 && crit==0)
-                                    //    cout<<"Sens dist: "<<sens_dist<<endl;
-                                    if( sens_dist <=(opt_dist*opt_dist) ){
+                                //    cout<<"Margin: "<<margin<<"; Offset: "<<offset<<"; Begin: "<<begining<<"; Test: "<<(begining!=((int)path.points.size()-1))<<endl;
+                                if(begining!=((int)path.points.size()-1)){
+                                    bool found_end=false;
+                                    float diff=0;
+                                    for(int it=begining; it<((int)path.points.size()); it++){
                                         //if(n==1 && goal==0 && crit==0)
-                                        //    cout<<"Radius: True"<<endl;
-                                        if(raytracing(or_map, path.points[it].i, path.points[it].j, goals[goal].i, goals[goal].j, true)){
+                                        //    cout<<"it: "<<it<<" out of "<<(path.points.size()-1)<<endl;
+                                        if(!found_end){
+                                            float sens_dist=float((goals[goal].i-path.points[it].i)*(goals[goal].i-path.points[it].i)+(goals[goal].j-path.points[it].j)*(goals[goal].j-path.points[it].j));
                                             //if(n==1 && goal==0 && crit==0)
-                                            //    cout<<"RayTrace: True"<<endl;
-                                            paresult.perc_pt=path.points[it];
-                                            paresult.costP=costSensingSqDist(0.04, sens_dist);
-                                            found_end=true;
+                                            //    cout<<"Sens dist: "<<sens_dist<<endl;
+                                            if( sens_dist <=(opt_dist*opt_dist) ){
+                                                //if(n==1 && goal==0 && crit==0)
+                                                //    cout<<"Radius: True"<<endl;
+                                                if(raytracing(or_map, path.points[it].i, path.points[it].j, goals[goal].i, goals[goal].j, true)){
+                                                    //if(n==1 && goal==0 && crit==0)
+                                                    //    cout<<"RayTrace: True"<<endl;
+                                                    paresult.perc_pt=path.points[it];
+                                                    paresult.costP=costSensingSqDist(0.04, sens_dist);
+                                                    found_end=true;
+                                                }
+                                            }
+                                        }
+                                        else{
+                                            if( (it-1)<0 )
+                                                continue;
+                                            else{
+                                                int num=abs(path.points[it].i-path.points[it-1].i)+abs(path.points[it].j-path.points[it-1].j);
+                                                diff+=(num==2)?1.41421356237:1;
+                                            }
+                                        }
+                                    }
+                                    paresult.costM=path.cost-diff;
+                                }
+                                paresult.cost=paresult.costM+paresult.costP;
+                                //cout<<i<<"; "<<goal<<"; "<<n-1<<"; "<<vis_responses[i][goal][n-1].size()<<" -- "<<vis_responses[0][0][0].size()<<endl;
+                                vis_responses[i][goal][n-1].push_back(paresult);
+
+                                points.push_back(cv::Point(paresult.perc_pt.i,paresult.perc_pt.j));
+                                pointGoals[points.back().x][points.back().y].push_back(goal);
+                                pointGoalsRun[points.back().x][points.back().y].push_back(vis_responses[i][goal][n-1].size()-1);
+                            }
+                        }
+                    }
+                    else{
+                        for(unsigned int crit=0; crit<crit_points[i][index].points.size(); crit++){
+                            PointI critPt(crit_points[i][index].points[crit].position.x,crit_points[i][index].points[crit].position.y);
+                            Apath path;
+                            if( apath_map[critPt.i][critPt.j].cost<0 ){
+                                path=Astar<float>(p0, critPt, msg_rcv[E_MAP+i]);
+                                path.points.insert(path.points.begin(),p0);
+                                apath_map[critPt.i][critPt.j]=path;
+                            }
+                            else{
+                                path=apath_map[critPt.i][critPt.j];
+                            }
+                            float offset=sqrt( (goals[goal].i-critPt.i)*(goals[goal].i-critPt.i)+(goals[goal].j-critPt.j)*(goals[goal].j-critPt.j) );
+                            //if( vis_[i][index]<0 ){
+                            //    offset=0;
+                            //}
+                            //else{
+                            //    offset=sqrt( (goals[goal].i-critPt.i)*(goals[goal].i-critPt.i)+(goals[goal].j-critPt.j)*(goals[goal].j-critPt.j) );
+                            //}
+                            paresult.p0=p0;
+                            paresult.perc_pt=path.points.back();
+                            paresult.costP=costSensing(0.04, offset);
+                            paresult.costM=path.cost;
+                            float margin=max(opt_dist-offset,(float)0.0);
+                            int begining=max((int)path.points.size()-1-((int)ceil(margin)), 0);
+                            //if(n==1 && goal==0 && crit==0)
+                            //    cout<<"Margin: "<<margin<<"; Offset: "<<offset<<"; Begin: "<<begining<<"; Test: "<<(begining!=((int)path.points.size()-1))<<endl;
+                            if(begining!=((int)path.points.size()-1)){
+                                bool found_end=false;
+                                float diff=0;
+                                for(int it=begining; it<((int)path.points.size()); it++){
+                                    //if(n==1 && goal==0 && crit==0)
+                                    //    cout<<"it: "<<it<<" out of "<<(path.points.size()-1)<<endl;
+                                    if(!found_end){
+                                        float sens_dist=float((goals[goal].i-path.points[it].i)*(goals[goal].i-path.points[it].i)+(goals[goal].j-path.points[it].j)*(goals[goal].j-path.points[it].j));
+                                        //if(n==1 && goal==0 && crit==0)
+                                        //    cout<<"Sens dist: "<<sens_dist<<endl;
+                                        if( sens_dist <=(opt_dist*opt_dist) ){
+                                            //if(n==1 && goal==0 && crit==0)
+                                            //    cout<<"Radius: True"<<endl;
+                                            if(raytracing(or_map, path.points[it].i, path.points[it].j, goals[goal].i, goals[goal].j, true)){
+                                                //if(n==1 && goal==0 && crit==0)
+                                                //    cout<<"RayTrace: True"<<endl;
+                                                paresult.perc_pt=path.points[it];
+                                                paresult.costP=costSensingSqDist(0.04, sens_dist);
+                                                found_end=true;
+                                            }
+                                        }
+                                    }
+                                    else{
+                                        if( (it-1)<0 )
+                                            continue;
+                                        else{
+                                            int num=abs(path.points[it].i-path.points[it-1].i)+abs(path.points[it].j-path.points[it-1].j);
+                                            diff+=(num==2)?1.41421356237:1;
                                         }
                                     }
                                 }
-                                else{
-                                    if( (it-1)<0 )
-                                        continue;
-                                    else{
-                                        int num=abs(path.points[it].i-path.points[it-1].i)+abs(path.points[it].j-path.points[it-1].j);
-                                        diff+=(num==2)?1.41421356237:1;
-                                    }
-                                }
+                                paresult.costM=path.cost-diff;
                             }
-                            paresult.costM=path.cost-diff;
+                            paresult.cost=paresult.costM+paresult.costP;
+                            //cout<<i<<"; "<<goal<<"; "<<n-1<<"; "<<vis_responses[i][goal][n-1].size()<<" -- "<<vis_responses[0][0][0].size()<<endl;
+                            vis_responses[i][goal][n-1].push_back(paresult);
+
+                            points.push_back(cv::Point(paresult.perc_pt.i,paresult.perc_pt.j));
+                            pointGoals[points.back().x][points.back().y].push_back(goal);
+                            pointGoalsRun[points.back().x][points.back().y].push_back(crit);
+
                         }
-                        paresult.cost=paresult.costM+paresult.costP;
-                        //cout<<i<<"; "<<goal<<"; "<<n-1<<"; "<<vis_responses[i][goal][n-1].size()<<" -- "<<vis_responses[0][0][0].size()<<endl;
-                        vis_responses[i][goal][n-1].push_back(paresult);
-
-                        points.push_back(cv::Point(paresult.perc_pt.i,paresult.perc_pt.j));
-                        pointGoals[points.back().x][points.back().y].push_back(goal);
-                        pointGoalsRun[points.back().x][points.back().y].push_back(crit);
-
                     }
                 }
                 else{
