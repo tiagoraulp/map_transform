@@ -24,6 +24,8 @@
 
 using namespace std;
 
+#define LAMBDA 0.04
+
 class PAresult{
 public:
     float cost, costM, costP;
@@ -398,7 +400,7 @@ void Multirobotplannersensing::plan(void){
             for(unsigned int g=0; g<goals.size(); g++){
                 PAresult paresult;
                 if(papositive[i][g]){
-                    PApath path=pastar.run(p0, goals[g], 0.04, true);
+                    PApath path=pastar.run(p0, goals[g], LAMBDA, true);
                     paresult.p0=p0;
                     if(path.cost>=0){
                         paresult.cost=path.cost;
@@ -500,8 +502,8 @@ void Multirobotplannersensing::plan(void){
                             }
                             if( costsP[pt][goal]<0 && new_cost_p>=0 ){
                                 feasible_goals[goal]=true;
-                                newMaxValue[i][goal]=costSensing(0.04,(float)defl[i]);
-                                maxValue[goal]=costSensing(0.04,(float)max(defl[0], defl[1]));
+                                newMaxValue[i][goal]=costSensing(LAMBDA,(float)defl[i]);
+                                maxValue[goal]=costSensing(LAMBDA,(float)max(defl[0], defl[1]));
                                 costsP[pt][goal]=new_cost_p;
                                 //if( maxValue[goal]<costsP[pt][goal] ){
                                 //    maxValue[goal]=costsP[pt][goal];
@@ -549,9 +551,9 @@ void Multirobotplannersensing::plan(void){
                     if( ( (cluster_centers[pt].i-goals[goal].i)*(cluster_centers[pt].i-goals[goal].i)+(cluster_centers[pt].j-goals[goal].j)*(cluster_centers[pt].j-goals[goal].j) )<=(defl[i]*defl[i]) ){
                         if(raytracing(or_map, cluster_centers[pt].i, cluster_centers[pt].j, goals[goal].i, goals[goal].j, true)){
                             feasible_goals[goal]=true;
-                            newMaxValue[i][goal]=costSensing(0.04,(float)defl[i]);
-                            maxValue[goal]=costSensing(0.04,(float)max(defl[0], defl[1]));
-                            costsP[pt][goal]=costSensingSqDist(0.04,( (cluster_centers[pt].i-goals[goal].i)*(cluster_centers[pt].i-goals[goal].i)+(cluster_centers[pt].j-goals[goal].j)*(cluster_centers[pt].j-goals[goal].j) ));
+                            newMaxValue[i][goal]=costSensing(LAMBDA,(float)defl[i]);
+                            maxValue[goal]=costSensing(LAMBDA,(float)max(defl[0], defl[1]));
+                            costsP[pt][goal]=costSensingSqDist(LAMBDA,( (cluster_centers[pt].i-goals[goal].i)*(cluster_centers[pt].i-goals[goal].i)+(cluster_centers[pt].j-goals[goal].j)*(cluster_centers[pt].j-goals[goal].j) ));
                         }
                     }
                 }
@@ -613,7 +615,7 @@ void Multirobotplannersensing::plan(void){
     cout<<"----> Method 1 (Heuristic Search):"<<endl;
     t0=ros::Time::now();
 
-    float multi_levels=regions.size()*max(max_dist, costSensing(0.04,(float)max(defl[0], defl[1])) ); // ?? think, probably no need for max_dist
+    float multi_levels=regions.size()*max(max_dist, costSensing(LAMBDA,(float)max(defl[0], defl[1])) ); // ?? think, probably no need for max_dist
 
     //vector<float> goal_costs=newMaxValue[i];
     vector<float> goal_costs=maxValue;
@@ -844,7 +846,7 @@ void Multirobotplannersensing::plan(void){
     max_dist=-1;
     papositive=vector<vector<bool> >(2, vector<bool>(goals.size(), true));
 
-    float opt_dist=1.0/2.0/0.04;
+    float opt_dist=1.0/2.0/LAMBDA;
 
     for(unsigned int i=0; i<2; i++){
         vector<vector<int> > crit_goals;
@@ -920,7 +922,7 @@ void Multirobotplannersensing::plan(void){
             for(unsigned int goal=0; goal<other_goals[pt].size(); goal++){
                 int goalOr=other_goals[pt][goal];
                 if(other_goals_cost[goalOr][pt]<0)
-                    other_goals_cost[goalOr][pt]=costSensingSqDist(0.04, (other_pts[pt].i-goals[goalOr].i)*(other_pts[pt].i-goals[goalOr].i)+(other_pts[pt].j-goals[goalOr].j)*(other_pts[pt].j-goals[goalOr].j));
+                    other_goals_cost[goalOr][pt]=costSensingSqDist(LAMBDA, (other_pts[pt].i-goals[goalOr].i)*(other_pts[pt].i-goals[goalOr].i)+(other_pts[pt].j-goals[goalOr].j)*(other_pts[pt].j-goals[goalOr].j));
             }
             float posi=0, posj=0;
             for(unsigned int other=0; other<other_clusters[pt].size();other++){
@@ -1018,7 +1020,7 @@ void Multirobotplannersensing::plan(void){
                                                     //if(n==1 && goal==0 && crit==0)
                                                     //    cout<<"RayTrace: True"<<endl;
                                                     paresult.perc_pt=path.points[it];
-                                                    paresult.costP=costSensingSqDist(0.04, sens_dist);
+                                                    paresult.costP=costSensingSqDist(LAMBDA, sens_dist);
                                                     found_end=true;
                                                 }
                                             }
@@ -1065,7 +1067,7 @@ void Multirobotplannersensing::plan(void){
                             //}
                             paresult.p0=p0;
                             paresult.perc_pt=path.points.back();
-                            paresult.costP=costSensing(0.04, offset);
+                            paresult.costP=costSensing(LAMBDA, offset);
                             paresult.costM=path.cost;
                             float margin=max(opt_dist-offset,(float)0.0);
                             int begining=max((int)path.points.size()-1-((int)ceil(margin)), 0);
@@ -1088,7 +1090,7 @@ void Multirobotplannersensing::plan(void){
                                                 //if(n==1 && goal==0 && crit==0)
                                                 //    cout<<"RayTrace: True"<<endl;
                                                 paresult.perc_pt=path.points[it];
-                                                paresult.costP=costSensingSqDist(0.04, sens_dist);
+                                                paresult.costP=costSensingSqDist(LAMBDA, sens_dist);
                                                 found_end=true;
                                             }
                                         }
@@ -1224,8 +1226,8 @@ void Multirobotplannersensing::plan(void){
                                 if( costsP[pt][goal]<0 && new_cost_p>=0 ){
                                     //cout<<"Test123"<<endl;
                                     feasible_goals[goal]=true;
-                                    newMaxValue[i][goal]=costSensing(0.04,(float)defl[i]);
-                                    maxValue[goal]=costSensing(0.04,(float)max(defl[0], defl[1]));
+                                    newMaxValue[i][goal]=costSensing(LAMBDA,(float)defl[i]);
+                                    maxValue[goal]=costSensing(LAMBDA,(float)max(defl[0], defl[1]));
                                     costsP[pt][goal]=new_cost_p;
                                     //cout<<"Test123"<<endl;
 
@@ -1273,9 +1275,9 @@ void Multirobotplannersensing::plan(void){
                     if( ( (cluster_centers[pt].i-goals[goal].i)*(cluster_centers[pt].i-goals[goal].i)+(cluster_centers[pt].j-goals[goal].j)*(cluster_centers[pt].j-goals[goal].j) )<=(defl[i]*defl[i]) ){
                         if(raytracing(or_map, cluster_centers[pt].i, cluster_centers[pt].j, goals[goal].i, goals[goal].j, true)){
                             feasible_goals[goal]=true;
-                            newMaxValue[i][goal]=costSensing(0.04,(float)defl[i]);
-                            maxValue[goal]=costSensing(0.04,(float)max(defl[0], defl[1]));
-                            costsP[pt][goal]=costSensingSqDist(0.04,( (cluster_centers[pt].i-goals[goal].i)*(cluster_centers[pt].i-goals[goal].i)+(cluster_centers[pt].j-goals[goal].j)*(cluster_centers[pt].j-goals[goal].j) ));
+                            newMaxValue[i][goal]=costSensing(LAMBDA,(float)defl[i]);
+                            maxValue[goal]=costSensing(LAMBDA,(float)max(defl[0], defl[1]));
+                            costsP[pt][goal]=costSensingSqDist(LAMBDA,( (cluster_centers[pt].i-goals[goal].i)*(cluster_centers[pt].i-goals[goal].i)+(cluster_centers[pt].j-goals[goal].j)*(cluster_centers[pt].j-goals[goal].j) ));
                         }
                     }
                 }
@@ -1297,7 +1299,7 @@ void Multirobotplannersensing::plan(void){
 
     paths=vector<vector<int> > (2, vector<int>(1, 0));
 
-    multi_levels=regions.size()*max(max_dist, costSensing(0.04,(float)max(defl[0], defl[1])) ); // ?? think, probably no need for max_dist
+    multi_levels=regions.size()*max(max_dist, costSensing(LAMBDA,(float)max(defl[0], defl[1])) ); // ?? think, probably no need for max_dist
 
     goal_costs=maxValue;
 
