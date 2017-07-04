@@ -345,8 +345,8 @@ void Multirobotplannersensing::plan(void){
 
     vector<vector<float> > newMaxValue(2, vector<float>(goals.size(), -1));
 
-    vector<vector<vector<float> > > costsMs;
-    vector<vector<vector<float> > > costsPs;
+    vector<vector<vector<float> > > costsMs(2);
+    vector<vector<vector<float> > > costsPs(2);
     vector<bool> feasible_goals(goals.size(), false);
     vector<float> goals_costs;
     vector<bool> goals_visited;
@@ -557,8 +557,12 @@ void Multirobotplannersensing::plan(void){
                 }
             }
         }
-        costsMs.push_back(costsM);
-        costsPs.push_back(costsP);
+        //costsMs.push_back(costsM);
+        //costsPs.push_back(costsP);
+
+
+        costsMs[i]=costsM;
+        costsPs[i]=costsP;
 
 
 //        if(i>0)
@@ -689,7 +693,7 @@ void Multirobotplannersensing::plan(void){
 
 
 
-    ROS_INFO("%d %d %d %d", count[0], count[1], count[2], count[3]);
+    //ROS_INFO("%d %d %d %d", count[0], count[1], count[2], count[3]);
 
     diff = ros::Time::now() - t0;
     ROS_INFO("Time for Heuristic approach: %f; cost: %f", diff.toSec(), evaluate(costsMs,feasible_goals,paths,goals_costs,goals_visited));
@@ -748,7 +752,7 @@ void Multirobotplannersensing::plan(void){
         }
     }
     //Sequence seq=permute(cl_seq, vector<int>(0));
-    Sequence seq;//=permute(cl_seq[0], cl_seq[1]);
+    Sequence seq=permute(cl_seq[0], cl_seq[1]);
     FindMin<float, vector<int> > min_seq;
     FindMin<float, vector<int> > min_seq2;
     vector<vector<int> > pathBFseq;
@@ -887,6 +891,7 @@ void Multirobotplannersensing::plan(void){
                     closest_other.iter( d1*d1+d2*d2, other_pts_temp[other]);
                 }
                 float threshold=opt_dist*opt_dist;
+                ////////////////////////////////////////////// what happens if ray tracing fails?????? it's not added neither creates new cluster!!
                 if(closest_other.valid() && (closest_other.getVal()<=(threshold*threshold)) ){
                     if( raytracing(or_map, closest_other.getP().i, closest_other.getP().j,groups[group][pt].x, groups[group][pt].y,true)){
                         other_goals[other_map[closest_other.getP().i][closest_other.getP().j]].insert(other_goals[other_map[closest_other.getP().i][closest_other.getP().j]].begin(),
