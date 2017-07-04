@@ -891,15 +891,22 @@ void Multirobotplannersensing::plan(void){
                     closest_other.iter( d1*d1+d2*d2, other_pts_temp[other]);
                 }
                 float threshold=opt_dist*opt_dist;
-                ////////////////////////////////////////////// what happens if ray tracing fails?????? it's not added neither creates new cluster!!
+                // ////////////////////////////////////////////// what happens if ray tracing fails?????? it's not added neither creates new cluster!!
+                bool new_cluster=false;
                 if(closest_other.valid() && (closest_other.getVal()<=(threshold*threshold)) ){
                     if( raytracing(or_map, closest_other.getP().i, closest_other.getP().j,groups[group][pt].x, groups[group][pt].y,true)){
                         other_goals[other_map[closest_other.getP().i][closest_other.getP().j]].insert(other_goals[other_map[closest_other.getP().i][closest_other.getP().j]].begin(),
                             other_temp_map[groups[group][pt].x][groups[group][pt].y].begin(), other_temp_map[groups[group][pt].x][groups[group][pt].y].end());
                         other_clusters[other_map[closest_other.getP().i][closest_other.getP().j]].push_back(PointI(groups[group][pt].x,groups[group][pt].y));
                     }
+                    else{
+                        new_cluster=true;
+                    }
                 }
                 else{
+                    new_cluster=true;
+                }
+                if(new_cluster){
                     other_pts_temp.push_back(PointI(groups[group][pt].x,groups[group][pt].y));
                     other_pts.push_back(PointI(groups[group][pt].x,groups[group][pt].y));
                     other_map[groups[group][pt].x][groups[group][pt].y]=other_pts.size()-1;
