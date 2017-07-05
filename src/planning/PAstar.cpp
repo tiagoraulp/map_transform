@@ -62,6 +62,7 @@ float nodePA<T>::costEstimate(const int x,const int y) const
             return 1.0*this->costEstimateDist((sqrt(x*x+y*y)-defl), sens)+k2*defl;
         else
             return k2*sqrt(x*x+y*y);
+        //// could also use opt here?!...
     }
     else{
         if(opt<0)
@@ -80,7 +81,7 @@ float nodePA<T>::costEstimate(const int x,const int y) const
                 float yy=crit.points[i].position.y-this->yPos;
                 float xG=crit.points[i].position.x-Gx;
                 float yG=crit.points[i].position.y-Gy;
-                min_est.iter(1.0*(sqrt(xx*xx+yy*yy)-2*infl)+k2*sqrt(xG*xG+yG*yG));
+                min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*sqrt(xG*xG+yG*yG));
             }
             est2=min_est.getVal();
             return max(est1,est2);
@@ -135,7 +136,9 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
             float yG=crit.points[i].position.y-Gy;
             float T2C_dist=sqrt(xG*xG+yG*yG);
             float ext_dist=max(K-T2C_dist,(float)0.0);
-            min_est.iter(1.0*(sqrt(xx*xx+yy*yy)-2*infl-ext_dist)+k2*(T2C_dist+ext_dist)*(T2C_dist+ext_dist));
+            //min_est.iter(1.0*(sqrt(xx*xx+yy*yy)-2*infl-ext_dist)+k2*(T2C_dist+ext_dist)*(T2C_dist+ext_dist));
+            // can only guarantee the sensing distance is T2C_dist...
+            min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
         }
         est2=min_est.getVal();
         return max(est1,est2);
