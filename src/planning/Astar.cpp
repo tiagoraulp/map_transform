@@ -16,6 +16,7 @@ static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
 Apath::Apath(){
     cost=-1;
     points.clear();
+    exp_nodes=0;
 }
 
 template<typename T>

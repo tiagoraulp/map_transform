@@ -8,6 +8,7 @@
 class PApath: public Apath {
 public:
     double costM, costP;
+    long int exp_nodes_r, tested_goal;
     PApath();
 };
 

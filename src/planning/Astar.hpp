@@ -8,6 +8,7 @@ class Apath{
 public:
     std::vector<PointI> points;
     double cost;
+    long int exp_nodes;
     Apath();
 };
 

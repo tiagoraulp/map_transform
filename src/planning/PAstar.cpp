@@ -19,6 +19,8 @@ static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
 PApath::PApath(): Apath(){
     costM=-1;
     costP=-1;
+    exp_nodes_r=0;
+    tested_goal=0;
 }
 
 template<typename T>
@@ -380,6 +382,9 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             {
                 exp_nodes=0; exp_nodes_r=0, tested_goal=0;
             }
+            path.exp_nodes=exp_nodes;
+            path.exp_nodes_r=exp_nodes_r;
+            path.tested_goal=tested_goal;
             //myfile[index_file]<<exp_nodes<<"; "<<exp_nodes_r<<"; "<<tested_goal<<"; ";
             //cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
             //cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
@@ -431,6 +436,9 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
     {
         exp_nodes=0; exp_nodes_r=0, tested_goal=0;
     }
+    path.exp_nodes=exp_nodes;
+    path.exp_nodes_r=exp_nodes_r;
+    path.tested_goal=tested_goal;
     //cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
     //cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
     //cout<<"Goal Tested nodes: "<<tested_goal<<endl;
