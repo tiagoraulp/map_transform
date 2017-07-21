@@ -754,7 +754,7 @@ void Multirobotplannersensing::plan(void){
         }
     }
     //Sequence seq=permute(cl_seq, vector<int>(0));
-    Sequence seq=permute(cl_seq[0], cl_seq[1]);
+    Sequence seq;//=permute(cl_seq[0], cl_seq[1]);
     FindMin<float, vector<int> > min_seq;
     FindMin<float, vector<int> > min_seq2;
     vector<vector<int> > pathBFseq;

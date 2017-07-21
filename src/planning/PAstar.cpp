@@ -42,40 +42,107 @@ nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2,
 
 template<typename T>
 float nodePA<T>::costSensing(const int x,const int y) const{
-    if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
+    float dist=(x)*(x)+(y)*(y);
+    if( ( dist )>(defl*defl) )
         return -2;
     else
-        return k2*sqrt(x*x+y*y);
+        return k2*sqrt(dist);
 }
 
 template<typename T>
 float nodePA<T>::costSensing2(const int x,const int y) const{
-    if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
+    float dist=(x)*(x)+(y)*(y);
+    if( ( dist )>(defl*defl) )
         return -2;
     else
-        return k2*(x*x+y*y);
+        return k2*(dist);
 }
 
 template<typename T>
 float nodePA<T>::costEstimate(const int x,const int y) const
 {
+    float dist=(x)*(x)+(y)*(y);
     if(1.0>k2){
-        if( ( (x)*(x)+(y)*(y) )>(defl*defl) )
-            return 1.0*this->costEstimateDist((sqrt(x*x+y*y)-defl), sens)+k2*defl;
+        if( ( dist )>(defl*defl) )
+            return 1.0*this->costEstimateDist((sqrt(dist)-defl), sens)+k2*defl;
         else
-            return k2*sqrt(x*x+y*y);
+            return k2*sqrt(dist);
         //// could also use opt here?!...
     }
     else{
         if(opt<0)
-            return 1.0*this->costEstimateDist(sqrt(x*x+y*y),sens);
+            return 1.0*this->costEstimateDist(sqrt(dist),sens);
         else{
             float est1;
-            if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
-                est1=1.0*this->costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt;
+            if( ( dist )>(opt*opt) )
+                est1=1.0*this->costEstimateDist((sqrt(dist)-opt),sens)+k2*opt;
             else
                 est1=k2*opt;
 
+            if(crit.points.empty()){
+                return est1;
+            }
+            else{
+                float est2;
+                FindMin<float> min_est;
+                for(int i=0;i<crit.points.size();i++){
+                    float xx=crit.points[i].position.x-this->xPos;
+                    float yy=crit.points[i].position.y-this->yPos;
+                    float xG=crit.points[i].position.x-Gx;
+                    float yG=crit.points[i].position.y-Gy;
+                    min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*sqrt(xG*xG+yG*yG));
+                }
+                est2=min_est.getVal();
+                return max(est1,est2);
+            }
+        }
+    }
+}
+
+template<typename T>
+float nodePA<T>::costEstimate2(const int x,const int y) const{
+    float dist=(x)*(x)+(y)*(y);
+    if(opt<0){
+        if(K<defl)
+            if( ( dist )>=(K*K) )
+                return 1.0*this->costEstimateDist((sqrt(dist)-K),sens)+k2*K*K;
+            else
+                return k2*(dist);
+        else
+            if( ( dist )>=(defl*defl) )
+                return 1.0*this->costEstimateDist((sqrt(dist)-defl),sens)+k2*defl*defl;
+            else
+                return k2*(dist);
+    }
+    else{
+        float est1;
+        if(K<defl)
+            if( K>opt )
+                if( ( dist )>=(K*K) )
+                    est1= 1.0*this->costEstimateDist((sqrt(dist)-K),sens)+k2*K*K;
+                else
+                    if( ( dist )>=(opt*opt) )
+                        est1= k2*(dist);
+                    else
+                        est1= k2*opt*opt;
+            else
+                if( ( dist )>=(opt*opt) )
+                    est1= 1.0*this->costEstimateDist((sqrt(dist)-opt),sens)+k2*opt*opt;
+                else
+                    est1= k2*opt*opt;
+        else
+            if( ( dist )>=(defl*defl) )
+                est1= 1.0*this->costEstimateDist((sqrt(dist)-defl),sens)+k2*defl*defl;
+            else
+                if( ( dist )>=(opt*opt) )
+                    est1= k2*(dist);
+                else
+                    est1= k2*opt*opt;
+
+        if(crit.points.empty()){
+            return est1;
+        }
+        else{
             float est2;
             FindMin<float> min_est;
             for(int i=0;i<crit.points.size();i++){
@@ -83,67 +150,17 @@ float nodePA<T>::costEstimate(const int x,const int y) const
                 float yy=crit.points[i].position.y-this->yPos;
                 float xG=crit.points[i].position.x-Gx;
                 float yG=crit.points[i].position.y-Gy;
-                min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*sqrt(xG*xG+yG*yG));
+                float T2C_dist=sqrt(xG*xG+yG*yG);
+                if(this->xPos==180 && this->yPos==180)
+                    cout<<"T2C: "<<T2C_dist<<endl;
+                float ext_dist=max(K-T2C_dist,(float)0.0);
+                //min_est.iter(1.0*(sqrt(xx*xx+yy*yy)-2*infl-ext_dist)+k2*(T2C_dist+ext_dist)*(T2C_dist+ext_dist));
+                // can only guarantee the sensing distance is T2C_dist...
+                min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
             }
             est2=min_est.getVal();
             return max(est1,est2);
         }
-    }
-}
-
-template<typename T>
-float nodePA<T>::costEstimate2(const int x,const int y) const{
-    if(opt<0){
-        if(K<defl)
-            if( ( (x)*(x)+(y)*(y) )>=(K*K) )
-                return 1.0*this->costEstimateDist((sqrt(x*x+y*y)-K),sens)+k2*K*K;
-            else
-                return k2*(x*x+y*y);
-        else
-            if( ( (x)*(x)+(y)*(y) )>=(defl*defl) )
-                return 1.0*this->costEstimateDist((sqrt(x*x+y*y)-defl),sens)+k2*defl*defl;
-            else
-                return k2*(x*x+y*y);
-    }
-    else{
-        float est1;
-        if(K<defl)
-            if( K>opt )
-                if( ( (x)*(x)+(y)*(y) )>=(K*K) )
-                    est1= 1.0*this->costEstimateDist((sqrt(x*x+y*y)-K),sens)+k2*K*K;
-                else
-                    if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
-                        est1= k2*(x*x+y*y);
-                    else
-                        est1= k2*opt*opt;
-            else
-                if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
-                    est1= 1.0*this->costEstimateDist((sqrt(x*x+y*y)-opt),sens)+k2*opt*opt;
-                else
-                    est1= k2*opt*opt;
-        else
-            if( ( (x)*(x)+(y)*(y) )>=(defl*defl) )
-                est1= 1.0*this->costEstimateDist((sqrt(x*x+y*y)-defl),sens)+k2*defl*defl;
-            else
-                if( ( (x)*(x)+(y)*(y) )>=(opt*opt) )
-                    est1= k2*(x*x+y*y);
-                else
-                    est1= k2*opt*opt;
-        float est2;
-        FindMin<float> min_est;
-        for(int i=0;i<crit.points.size();i++){
-            float xx=crit.points[i].position.x-this->xPos;
-            float yy=crit.points[i].position.y-this->yPos;
-            float xG=crit.points[i].position.x-Gx;
-            float yG=crit.points[i].position.y-Gy;
-            float T2C_dist=sqrt(xG*xG+yG*yG);
-            float ext_dist=max(K-T2C_dist,(float)0.0);
-            //min_est.iter(1.0*(sqrt(xx*xx+yy*yy)-2*infl-ext_dist)+k2*(T2C_dist+ext_dist)*(T2C_dist+ext_dist));
-            // can only guarantee the sensing distance is T2C_dist...
-            min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
-        }
-        est2=min_est.getVal();
-        return max(est1,est2);
     }
 }
 
@@ -180,6 +197,8 @@ void nodePA<T>::updatePriority(const int & xDest, const int & yDest){
      this->priority=this->level+estimate(xDest, yDest)*1;
     else
         this->priority=this->level;
+    if(this->xPos==180 && this->yPos==180)
+        cout<<"G: "<<this->priority<<endl;
 }
 
 template<typename T>
@@ -366,6 +385,9 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
         else
             exp_nodes++;
 
+        //if(!crit.points.empty())
+        //    cout<<"Hmmm: "<<x<<"; "<<y<<endl;
+
         open_nodes_map[x][y]=0;
         if(stop){
             while(!(x==p0.i && y==p0.j)){
@@ -378,6 +400,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             path.cost=n0.getCost();
             path.costM=n0.getMotionCost();
             path.costP=n0.getSensingCost();
+            cout<<"Solution M: "<<path.costM<<"; P: "<<path.costP<<endl;
             if(opt==-5)
             {
                 exp_nodes=0; exp_nodes_r=0, tested_goal=0;
