@@ -17,6 +17,8 @@
 
 using namespace std;
 
+#define LAMBDA 0.001
+
 class Planner{
 private:
     int infl;
@@ -238,7 +240,7 @@ void Planner::plan(void){
 
         ROS_INFO("Planning!!");
 
-        //path=pastar.run(pi, convertW2I(goals[0], res), 0.04, true, -5,true);
+        //path=pastar.run(pi, convertW2I(goals[0], res), LAMBDA, true, -5,true);
 
 //        for(unsigned int tt=0;tt<2;tt++){
 //            for(unsigned ll=0;ll<7;ll++){
@@ -278,11 +280,14 @@ void Planner::plan(void){
 
         pi=convertWtf2I(p, res);
 
-        for(unsigned int ii=0; ii<goals.size();ii++){
+        //for(unsigned int ii=max((int)(goals.size()-1), 0); ii<goals.size();ii++){
+        //for(unsigned int ii=0; ii<goals.size();ii++){
+        for(unsigned int ii=0; ii<1;ii++){
             ROS_INFO("Goal %u",ii);
             ros::Time t01=ros::Time::now();
             ros::Duration diff;
-            for(unsigned int i=ii; i<ii+1;i++){
+            //for(unsigned int i=ii; i<ii+1;i++){
+            for(unsigned int i=ii; i<goals.size();i++){
                 PointI g=convertW2I(goals[i], res);
                 if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                     //clearG();
@@ -299,15 +304,17 @@ void Planner::plan(void){
                     path.cost=-3;
                     continue;
                 }
-                path=pastar.run(pi, g, 0.04, true, -3, true);
+                path=pastar.run(pi, g, LAMBDA, true, -3, true);
+                cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
             }
             diff = ros::Time::now() - t01;
             //if(path.cost!=-2)
             //    myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
             ROS_INFO("Time BFS: %f; Cost: %f",diff.toSec(),path.cost);
-            //path=pastar.run(pi, convertW2I(goals[0], res), 0.04, true, -5);
+            //path=pastar.run(pi, convertW2I(goals[0], res), LAMBDA, true, -5);
             t01=ros::Time::now();
-            for(unsigned int i=ii; i<ii+1;i++){
+            //for(unsigned int i=ii; i<ii+1;i++){
+            for(unsigned int i=ii; i<goals.size();i++){
                 PointI g=convertW2I(goals[i], res);
                 if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                     //clearG();
@@ -324,7 +331,8 @@ void Planner::plan(void){
                     path.cost=-3;
                     continue;
                 }
-                path=pastar.run(pi, g, 0.04, true);
+                path=pastar.run(pi, g, LAMBDA, true);
+                cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
             }
             diff = ros::Time::now() - t01;
             //if(path.cost>=0)
@@ -344,10 +352,11 @@ void Planner::plan(void){
                 }
             }
             pub1.publish(path_0);
-            //path=pastar.run(pi, convertW2I(goals[0], res),0.04, true, -5);
+
             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
                 t01=ros::Time::now();
-                for(unsigned int i=ii; i<ii+1;i++){
+                //for(unsigned int i=ii; i<ii+1;i++){
+                for(unsigned int i=ii; i<goals.size();i++){
                     PointI g=convertW2I(goals[i], res);
                     if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                         //clearG();
@@ -364,10 +373,39 @@ void Planner::plan(void){
                         path.cost=-3;
                         continue;
                     }
-                    path=pastar.run(pi, g, 0.04, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, crit_points[g.i*msg_rcv[0][0].size()+g.j]);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false);
+                    cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 }
                 diff = ros::Time::now() - t01;
-                ROS_INFO("Time PA-RDVM: %f; Cost: %f",diff.toSec(),path.cost);
+                ROS_INFO("Time PA-RDVM (1): %f; Cost: %f",diff.toSec(),path.cost);
+            }
+
+            //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
+            if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
+                t01=ros::Time::now();
+                //for(unsigned int i=ii; i<ii+1;i++){
+                for(unsigned int i=ii; i<goals.size();i++){
+                    PointI g=convertW2I(goals[i], res);
+                    if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size()){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(!msg_rcv[0][g.i][g.j]){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, crit_points[g.i*msg_rcv[0][0].size()+g.j]);
+                    cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                }
+                diff = ros::Time::now() - t01;
+                ROS_INFO("Time PA-RDVM (1+2): %f; Cost: %f",diff.toSec(),path.cost);
                 //if(path.cost>=0)
                 //    myfile[index_file]<<diff<<"; "<<path.cost<<"; "<<"\n";
                 if(path.cost>0){
@@ -492,8 +530,8 @@ bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_
         pt.x=transform.getOrigin().x();
         pt.y=transform.getOrigin().y();
         PointI pi=convertWtf2I(pt, res);
-        //pastar.run(pi, gi, 0.04, true, -5);
-        PApath path=pastar.run(pi, gi, 0.04, true);
+        //pastar.run(pi, gi, LAMBDA, true, -5);
+        PApath path=pastar.run(pi, gi, LAMBDA, true);
         if(path.cost>=0){
             path_0.poses.clear();
             if(path.points.size()!=0){
