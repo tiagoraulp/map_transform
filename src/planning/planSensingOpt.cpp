@@ -402,7 +402,7 @@ void Planner::plan(void){
                         path.cost=-3;
                         continue;
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, crit_points[g.i*msg_rcv[0][0].size()+g.j]);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j]);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 }
                 diff = ros::Time::now() - t01;
@@ -436,7 +436,7 @@ void Planner::plan(void){
                         float yG=crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.y-g.j;
                         crits_dists.push_back(sqrt(xG*xG+yG*yG));
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, crit_points[g.i*msg_rcv[0][0].size()+g.j], crits_dists);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 }
                 diff = ros::Time::now() - t01;

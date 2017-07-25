@@ -17,8 +17,8 @@ class nodePA: public node<T>{
     int infl, defl;
     T sens;
     float opt;
-    map_transform::VisNode crit;
-    std::vector<float> dist_c_g;
+    map_transform::VisNode * crit;
+    std::vector<float> * dist_c_g;
     float K;
     bool bfs;
     bool power;
@@ -33,7 +33,7 @@ class nodePA: public node<T>{
     float costEstimate(const int x,const int y) const;
     float costEstimate2(const int x,const int y) const;
 public:
-    nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode cr_, std::vector<float> dist_crit_goal);
+    nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode * cr_, std::vector<float> * dist_crit_goal);
     T getSensing() const;
     double getCost() const;
     double getMotionCost() const;
@@ -58,7 +58,7 @@ public:
     void updateNavMap(std::vector<std::vector<bool> > map);
     void updateOrMap(cv::Mat map);
     template <typename T=float>
-    PApath run(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode(), std::vector<float> dist_crit_goal=std::vector<float>(0));
+    PApath run(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL);
 };
 
 #endif // PASTAR_HPP
