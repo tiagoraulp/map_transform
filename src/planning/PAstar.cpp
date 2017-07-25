@@ -24,7 +24,7 @@ PApath::PApath(): Apath(){
 }
 
 template<typename T>
-nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode cr_, std::vector<float> dist_crit_goal): node<T>(xp, yp, d, p){
+nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode * cr_, std::vector<float> * dist_crit_goal): node<T>(xp, yp, d, p){
     infl=inf;defl=def;sens=ss;opt=dist;crit=cr_; dist_c_g=dist_crit_goal;
     power=q;
     bfs=bfs_;
@@ -79,17 +79,17 @@ float nodePA<T>::costEstimate(const int x,const int y) const
             else
                 est1=k2*opt;
 
-            if(crit.points.empty()){
+            if(crit==NULL || crit->points.empty()){
                 return est1;
             }
             else{
                 float est2;
                 FindMin<float> min_est;
-                for(int i=0;i<crit.points.size();i++){
-                    float xx=crit.points[i].position.x-this->xPos;
-                    float yy=crit.points[i].position.y-this->yPos;
-                    float xG=crit.points[i].position.x-Gx;
-                    float yG=crit.points[i].position.y-Gy;
+                for(int i=0;i<crit->points.size();i++){
+                    float xx=crit->points[i].position.x-this->xPos;
+                    float yy=crit->points[i].position.y-this->yPos;
+                    float xG=crit->points[i].position.x-Gx;
+                    float yG=crit->points[i].position.y-Gy;
                     min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*sqrt(xG*xG+yG*yG));
                 }
                 est2=min_est.getVal();
@@ -139,38 +139,38 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                 else
                     est1= k2*opt*opt;
 
-        if(crit.points.empty()){
+        if(crit==NULL || crit->points.empty()){
             return est1;
         }
-        else if(crit.points.size()==1){
-            if(dist_c_g.empty()){
-                float xx=crit.points[0].position.x-this->xPos;
-                float yy=crit.points[0].position.y-this->yPos;
-                float xG=crit.points[0].position.x-Gx;
-                float yG=crit.points[0].position.y-Gy;
+        else if(crit->points.size()==1){
+            if(dist_c_g==NULL || dist_c_g->empty()){
+                float xx=crit->points[0].position.x-this->xPos;
+                float yy=crit->points[0].position.y-this->yPos;
+                float xG=crit->points[0].position.x-Gx;
+                float yG=crit->points[0].position.y-Gy;
                 float T2C_dist=sqrt(xG*xG+yG*yG);
                 float ext_dist=max(K-T2C_dist,(float)0.0);
                 float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
                 return max(est1,est2);
             }
             else{
-                float xx=crit.points[0].position.x-this->xPos;
-                float yy=crit.points[0].position.y-this->yPos;
-                float ext_dist=max(K-dist_c_g[0],(float)0.0);
-                float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(dist_c_g[0])*(dist_c_g[0]);
+                float xx=crit->points[0].position.x-this->xPos;
+                float yy=crit->points[0].position.y-this->yPos;
+                float ext_dist=max(K-(*dist_c_g)[0],(float)0.0);
+                float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*((*dist_c_g)[0])*((*dist_c_g)[0]);
                 //cout<<"TEST"<<endl;
                 return max(est1,est2);
             }
         }
         else{
-            if(dist_c_g.empty()){
+            if(dist_c_g==NULL || dist_c_g->empty()){
                 float est2;
                 FindMin<float> min_est;
-                for(int i=0;i<crit.points.size();i++){
-                    float xx=crit.points[i].position.x-this->xPos;
-                    float yy=crit.points[i].position.y-this->yPos;
-                    float xG=crit.points[i].position.x-Gx;
-                    float yG=crit.points[i].position.y-Gy;
+                for(int i=0;i<crit->points.size();i++){
+                    float xx=crit->points[i].position.x-this->xPos;
+                    float yy=crit->points[i].position.y-this->yPos;
+                    float xG=crit->points[i].position.x-Gx;
+                    float yG=crit->points[i].position.y-Gy;
                     float T2C_dist=sqrt(xG*xG+yG*yG);
                     if(this->xPos==180 && this->yPos==180)
                         cout<<"T2C: "<<T2C_dist<<endl;
@@ -185,13 +185,13 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
             else{
                 float est2;
                 FindMin<float> min_est;
-                for(int i=0;i<crit.points.size();i++){
-                    float xx=crit.points[i].position.x-this->xPos;
-                    float yy=crit.points[i].position.y-this->yPos;
-                    float ext_dist=max(K-dist_c_g[i],(float)0.0);
+                for(int i=0;i<crit->points.size();i++){
+                    float xx=crit->points[i].position.x-this->xPos;
+                    float yy=crit->points[i].position.y-this->yPos;
+                    float ext_dist=max(K-(*dist_c_g)[i],(float)0.0);
                     //min_est.iter(1.0*(sqrt(xx*xx+yy*yy)-2*infl-ext_dist)+k2*(T2C_dist+ext_dist)*(T2C_dist+ext_dist));
                     // can only guarantee the sensing distance is T2C_dist...
-                    min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(dist_c_g[i])*(dist_c_g[i]));
+                    min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*((*dist_c_g)[i])*((*dist_c_g)[i]));
                 }
                 est2=min_est.getVal();
                 //cout<<"TEST1234"<<endl;
@@ -298,7 +298,7 @@ PAstar::PAstar(){
 }
 
 template <typename T>
-PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode crit, std::vector<float> dist_crit_goal){
+PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode * crit, std::vector<float> * dist_crit_goal){
     PApath path; path.points.clear();path.cost=-1;
     const int n=map_.size();
     if(n<=0){
@@ -517,5 +517,5 @@ bool PAstar::isGoal(PointI p0, PointI p1){
     }
 }
 
-template PApath PAstar::run<float>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode(), std::vector<float> dist_crit_goal=std::vector<float>(0));
-template PApath PAstar::run<int>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode crit=map_transform::VisNode(), std::vector<float> dist_crit_goal=std::vector<float>(0));
+template PApath PAstar::run<float>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL);
+template PApath PAstar::run<int>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL);
