@@ -17,7 +17,8 @@
 
 using namespace std;
 
-#define LAMBDA 0.001
+//#define LAMBDA 0.001
+#define LAMBDA 0.04
 
 class Planner{
 private:
@@ -406,6 +407,40 @@ void Planner::plan(void){
                 }
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1+2): %f; Cost: %f",diff.toSec(),path.cost);
+            }
+
+            //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
+            if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
+                t01=ros::Time::now();
+                //for(unsigned int i=ii; i<ii+1;i++){
+                for(unsigned int i=ii; i<goals.size();i++){
+                    PointI g=convertW2I(goals[i], res);
+                    if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size()){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(!msg_rcv[0][g.i][g.j]){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    vector<float> crits_dists;
+                    for(unsigned int cc=0; cc<crit_points[g.i*msg_rcv[0][0].size()+g.j].points.size(); cc++){
+                        float xG=crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.x-g.i;
+                        float yG=crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.y-g.j;
+                        crits_dists.push_back(sqrt(xG*xG+yG*yG));
+                    }
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, crit_points[g.i*msg_rcv[0][0].size()+g.j], crits_dists);
+                    cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                }
+                diff = ros::Time::now() - t01;
+                ROS_INFO("Time PA-RDVM (1+2-OPT): %f; Cost: %f",diff.toSec(),path.cost);
                 //if(path.cost>=0)
                 //    myfile[index_file]<<diff<<"; "<<path.cost<<"; "<<"\n";
                 if(path.cost>0){
