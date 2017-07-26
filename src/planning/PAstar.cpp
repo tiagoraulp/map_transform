@@ -46,7 +46,7 @@ bool nodePA<T>::validSensing(const int x, const int y, float dist) const{
         return false;
     else if( (opt>=0) && (dist<(opt*opt)) )
         return false;
-    else if( (crit!=NULL) && !(crit->points.empty()) ){
+    else if( (opt>=0) && (crit!=NULL) && !(crit->points.empty()) ){
         for(int i=0;i<crit->points.size();i++){
             float xG=Gx-crit->points[i].position.x;
             float yG=Gy-crit->points[i].position.y;
