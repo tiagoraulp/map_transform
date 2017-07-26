@@ -25,7 +25,9 @@ PApath::PApath(): Apath(){
 
 template<typename T>
 nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode * cr_, std::vector<float> * dist_crit_goal, bool use_opt_sens, bool use_crit_sens): node<T>(xp, yp, d, p){
-    infl=inf;defl=def;sens=ss;opt=dist;crit=cr_; dist_c_g=dist_crit_goal; useCritSens=use_crit_sens; useOptSens=use_opt_sens;
+    infl=inf;defl=def;sens=ss;
+    opt=dist-1.5; // opt should be dist in continuous case where dist is minimum; -1.5 (max dist neighbors) adjusts for discretizations errors...
+    crit=cr_; dist_c_g=dist_crit_goal; useCritSens=use_crit_sens; useOptSens=use_opt_sens;
     power=q;
     bfs=bfs_;
     k2=cost2;
@@ -117,13 +119,14 @@ float nodePA<T>::costEstimate(const int x,const int y) const
                     float yy=crit->points[0].position.y-this->yPos;
                     float xG=crit->points[0].position.x-Gx;
                     float yG=crit->points[0].position.y-Gy;
-                    float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*sqrt(xG*xG+yG*yG);
+                    float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*(sqrt(xG*xG+yG*yG)-1.5);
+                    //same correction as before with -1.5; only correcting for xG and yG; do xx and yy also need?
                     return max(est1,est2);
                 }
                 else{
                     float xx=crit->points[0].position.x-this->xPos;
                     float yy=crit->points[0].position.y-this->yPos;
-                    float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0), sens)+k2*((*dist_c_g)[0]);
+                    float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0), sens)+k2*((*dist_c_g)[0]-1.5);
                     return max(est1,est2);
                 }
             }
@@ -136,7 +139,7 @@ float nodePA<T>::costEstimate(const int x,const int y) const
                         float yy=crit->points[i].position.y-this->yPos;
                         float xG=crit->points[i].position.x-Gx;
                         float yG=crit->points[i].position.y-Gy;
-                        min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*sqrt(xG*xG+yG*yG));
+                        min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*(sqrt(xG*xG+yG*yG)-1.5));
                     }
                     est2=min_est.getVal();
                     return max(est1,est2);
@@ -147,7 +150,7 @@ float nodePA<T>::costEstimate(const int x,const int y) const
                     for(int i=0;i<crit->points.size();i++){
                         float xx=crit->points[i].position.x-this->xPos;
                         float yy=crit->points[i].position.y-this->yPos;
-                        min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*((*dist_c_g)[i]));
+                        min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*((*dist_c_g)[i]-1.5));
                     }
                     est2=min_est.getVal();
                     return max(est1,est2);
@@ -206,7 +209,7 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                 float yy=crit->points[0].position.y-this->yPos;
                 float xG=crit->points[0].position.x-Gx;
                 float yG=crit->points[0].position.y-Gy;
-                float T2C_dist=sqrt(xG*xG+yG*yG);
+                float T2C_dist=sqrt(xG*xG+yG*yG)-1.5;
                 float ext_dist=max(K-T2C_dist,(float)0.0);
                 float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
                 return max(est1,est2);
@@ -214,8 +217,9 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
             else{
                 float xx=crit->points[0].position.x-this->xPos;
                 float yy=crit->points[0].position.y-this->yPos;
-                float ext_dist=max(K-(*dist_c_g)[0],(float)0.0);
-                float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*((*dist_c_g)[0])*((*dist_c_g)[0]);
+                float T2C_dist=(*dist_c_g)[0]-1.5;
+                float ext_dist=max(K-T2C_dist,(float)0.0);
+                float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
                 //cout<<"TEST"<<endl;
                 return max(est1,est2);
             }
@@ -229,7 +233,7 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                     float yy=crit->points[i].position.y-this->yPos;
                     float xG=crit->points[i].position.x-Gx;
                     float yG=crit->points[i].position.y-Gy;
-                    float T2C_dist=sqrt(xG*xG+yG*yG);
+                    float T2C_dist=sqrt(xG*xG+yG*yG)-1.5;
                     if(this->xPos==180 && this->yPos==180)
                         cout<<"T2C: "<<T2C_dist<<endl;
                     float ext_dist=max(K-T2C_dist,(float)0.0);
@@ -246,10 +250,11 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                 for(int i=0;i<crit->points.size();i++){
                     float xx=crit->points[i].position.x-this->xPos;
                     float yy=crit->points[i].position.y-this->yPos;
-                    float ext_dist=max(K-(*dist_c_g)[i],(float)0.0);
+                    float T2C_dist=(*dist_c_g)[i]-1.5;
+                    float ext_dist=max(K-T2C_dist,(float)0.0);
                     //min_est.iter(1.0*(sqrt(xx*xx+yy*yy)-2*infl-ext_dist)+k2*(T2C_dist+ext_dist)*(T2C_dist+ext_dist));
                     // can only guarantee the sensing distance is T2C_dist...
-                    min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*((*dist_c_g)[i])*((*dist_c_g)[i]));
+                    min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
                 }
                 est2=min_est.getVal();
                 //cout<<"TEST1234"<<endl;
