@@ -24,8 +24,8 @@ PApath::PApath(): Apath(){
 }
 
 template<typename T>
-nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode * cr_, std::vector<float> * dist_crit_goal): node<T>(xp, yp, d, p){
-    infl=inf;defl=def;sens=ss;opt=dist;crit=cr_; dist_c_g=dist_crit_goal;
+nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode * cr_, std::vector<float> * dist_crit_goal, bool use_opt_sens, bool use_crit_sens): node<T>(xp, yp, d, p){
+    infl=inf;defl=def;sens=ss;opt=dist;crit=cr_; dist_c_g=dist_crit_goal; useCritSens=use_crit_sens; useOptSens=use_opt_sens;
     power=q;
     bfs=bfs_;
     k2=cost2;
@@ -44,9 +44,10 @@ template<typename T>
 bool nodePA<T>::validSensing(const int x, const int y, float dist) const{
     if( ( dist )>(defl*defl) )
         return false;
-    else if( (opt>=0) && (dist<(opt*opt)) )
+    else if( useOptSens && (opt>=0) && (dist<(opt*opt)) )
         return false;
-    else if( (opt>=0) && (crit!=NULL) && !(crit->points.empty()) ){
+    else if( useCritSens && (opt>=0) && (crit!=NULL) && !(crit->points.empty()) ){
+        float angle=atan2(y,x);
         for(int i=0;i<crit->points.size();i++){
             float xG=Gx-crit->points[i].position.x;
             float yG=Gy-crit->points[i].position.y;
@@ -59,7 +60,6 @@ bool nodePA<T>::validSensing(const int x, const int y, float dist) const{
             }
             float angleCG=atan2(yG, xG);
             float angleDelta=atan2(infl, distCG);
-            float angle=atan2(y,x);
             if( abs(boundAngleRN(angleCG-angle))<angleDelta )
                 return true;
         }
@@ -356,7 +356,7 @@ PAstar::PAstar(){
 }
 
 template <typename T>
-PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode * crit, std::vector<float> * dist_crit_goal){
+PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode * crit, std::vector<float> * dist_crit_goal, bool use_opt_sens, bool use_crit_sens){
     PApath path; path.points.clear();path.cost=-1;
     const int n=map_.size();
     if(n<=0){
@@ -398,7 +398,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
 //    }
     priority_queue<nodePA<T> > pq[3];
     int pqi;
-    nodePA<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, k2, opt, quad, bfs, crit, dist_crit_goal);
+    nodePA<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, k2, opt, quad, bfs, crit, dist_crit_goal, use_opt_sens, use_crit_sens);
     int i, j, x, y, xdx, ydy;
     pqi=0;
 
@@ -524,7 +524,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
                      ))
                 {
                     nodePA<T> m0=nodePA<T>( xdx, ydy, n0.getLevel(),
-                                 n0.getPriority(), infl, defl, n0.getSensing(), k2, opt, quad, bfs, crit, dist_crit_goal);
+                                 n0.getPriority(), infl, defl, n0.getSensing(), k2, opt, quad, bfs, crit, dist_crit_goal, use_opt_sens, use_crit_sens);
                     m0.nextLevel(i);
                     m0.updatePriority(p1.i, p1.j);
                     m0.updateSensing(p1.i, p1.j);
@@ -575,5 +575,5 @@ bool PAstar::isGoal(PointI p0, PointI p1){
     }
 }
 
-template PApath PAstar::run<float>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL);
-template PApath PAstar::run<int>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL);
+template PApath PAstar::run<float>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false);
+template PApath PAstar::run<int>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false);
