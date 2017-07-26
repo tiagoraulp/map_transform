@@ -14,6 +14,7 @@
 #include "std_srvs/Empty.h"
 #include "PAstar.hpp"
 #include "points_conversions.hpp"
+#include <cmath>
 
 using namespace std;
 
@@ -488,12 +489,18 @@ void Planner::plan(void){
                         continue;
                     }
                     vector<float> crits_dists;
-                    for(unsigned int cc=0; cc<crit_points[g.i*msg_rcv[0][0].size()+g.j].points.size(); cc++){
-                        float xG=crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.x-g.i;
-                        float yG=crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.y-g.j;
-                        crits_dists.push_back(sqrt(xG*xG+yG*yG));
+                    vector<float> crits_angles;
+                    vector<float> crits_anglesDelta;
+                    if(vis_[g.i*msg_rcv[0][0].size()+g.j]>=0){
+                        for(unsigned int cc=0; cc<crit_points[g.i*msg_rcv[0][0].size()+g.j].points.size(); cc++){
+                            float xG=g.i-crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.x;
+                            float yG=g.j-crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.y;
+                            crits_dists.push_back(sqrt(xG*xG+yG*yG));
+                            crits_angles.push_back(atan2(yG,xG));
+                            crits_anglesDelta.push_back(atan2(infl,crits_dists.back()));
+                        }
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 }
                 diff = ros::Time::now() - t01;
