@@ -1,0 +1,33 @@
+<launch>
+  <arg name="x_0" default="2"/>
+  <arg name="y_0" default="15"/>
+
+  <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/new_test_2.png 0.1" respawn="false" > 
+    <param name="frame_id" value="/map" />
+  </node>
+	
+  <group ns="robot_0">
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">   
+      <param name="defl" value="150" />
+      <param name="infl" value="13" />
+      <param name="debug" value="false" />
+      <param name="ground_truth" value="false" />
+      <param name="tf_prefix" value ="/robot_0" /> 
+      <remap from="/robot_0/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_0" args="$(arg x_0) $(arg y_0) 0 0 0 0 /map /robot_0/base_link 10"/>
+
+    <node name="planner" pkg="map_transform" type="planSensOpt" output="screen">
+      <param name="tf_prefix" value ="/robot_0" /> 
+      <param name="defl" value="150" />
+      <param name="infl" value="13" />
+      <remap from="/robot_0/planner/v_map" to="/robot_0/visibility/v_map"/>
+      <remap from="/robot_0/planner/e_map" to="/robot_0/visibility/e_map"/>
+      <remap from="/robot_0/planner/map" to="/map"/>
+      <remap from="/robot_0/planner/graph" to="/robot_0/visibility/graph"/>
+    </node>
+  </group>
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/planning.rviz" />
+</launch>
