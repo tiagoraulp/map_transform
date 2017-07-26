@@ -41,9 +41,38 @@ nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2,
 }
 
 template<typename T>
+bool nodePA<T>::validSensing(const int x, const int y, float dist) const{
+    if( ( dist )>(defl*defl) )
+        return false;
+    else if( (opt>=0) && (dist<(opt*opt)) )
+        return false;
+    else if( (crit!=NULL) && !(crit->points.empty()) ){
+        for(int i=0;i<crit->points.size();i++){
+            float xG=Gx-crit->points[i].position.x;
+            float yG=Gy-crit->points[i].position.y;
+            float distCG;
+            if(dist_c_g==NULL || dist_c_g->empty()){
+                distCG=sqrt(xG*xG+yG*yG);
+            }
+            else{
+                distCG=(*dist_c_g)[i];
+            }
+            float angleCG=atan2(yG, xG);
+            float angleDelta=atan2(infl, distCG);
+            float angle=atan2(y,x);
+            if( abs(boundAngleRN(angleCG-angle))<angleDelta )
+                return true;
+        }
+        return false;
+    }
+    else
+        return true;
+}
+
+template<typename T>
 float nodePA<T>::costSensing(const int x,const int y) const{
     float dist=(x)*(x)+(y)*(y);
-    if( ( dist )>(defl*defl) )
+    if(!validSensing(x,y,dist))
         return -2;
     else
         return k2*sqrt(dist);
@@ -52,7 +81,7 @@ float nodePA<T>::costSensing(const int x,const int y) const{
 template<typename T>
 float nodePA<T>::costSensing2(const int x,const int y) const{
     float dist=(x)*(x)+(y)*(y);
-    if( ( dist )>(defl*defl) )
+    if(!validSensing(x,y,dist))
         return -2;
     else
         return k2*(dist);
@@ -82,18 +111,47 @@ float nodePA<T>::costEstimate(const int x,const int y) const
             if(crit==NULL || crit->points.empty()){
                 return est1;
             }
-            else{
-                float est2;
-                FindMin<float> min_est;
-                for(int i=0;i<crit->points.size();i++){
-                    float xx=crit->points[i].position.x-this->xPos;
-                    float yy=crit->points[i].position.y-this->yPos;
-                    float xG=crit->points[i].position.x-Gx;
-                    float yG=crit->points[i].position.y-Gy;
-                    min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*sqrt(xG*xG+yG*yG));
+            else if(crit->points.size()==1){
+                if(dist_c_g==NULL || dist_c_g->empty()){
+                    float xx=crit->points[0].position.x-this->xPos;
+                    float yy=crit->points[0].position.y-this->yPos;
+                    float xG=crit->points[0].position.x-Gx;
+                    float yG=crit->points[0].position.y-Gy;
+                    float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*sqrt(xG*xG+yG*yG);
+                    return max(est1,est2);
                 }
-                est2=min_est.getVal();
-                return max(est1,est2);
+                else{
+                    float xx=crit->points[0].position.x-this->xPos;
+                    float yy=crit->points[0].position.y-this->yPos;
+                    float est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0), sens)+k2*((*dist_c_g)[0]);
+                    return max(est1,est2);
+                }
+            }
+            else{
+                if(dist_c_g==NULL || dist_c_g->empty()){
+                    float est2;
+                    FindMin<float> min_est;
+                    for(int i=0;i<crit->points.size();i++){
+                        float xx=crit->points[i].position.x-this->xPos;
+                        float yy=crit->points[i].position.y-this->yPos;
+                        float xG=crit->points[i].position.x-Gx;
+                        float yG=crit->points[i].position.y-Gy;
+                        min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*sqrt(xG*xG+yG*yG));
+                    }
+                    est2=min_est.getVal();
+                    return max(est1,est2);
+                }
+                else{
+                    float est2;
+                    FindMin<float> min_est;
+                    for(int i=0;i<crit->points.size();i++){
+                        float xx=crit->points[i].position.x-this->xPos;
+                        float yy=crit->points[i].position.y-this->yPos;
+                        min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*((*dist_c_g)[i]));
+                    }
+                    est2=min_est.getVal();
+                    return max(est1,est2);
+                }
             }
         }
     }

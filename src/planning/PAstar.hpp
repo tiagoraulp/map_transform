@@ -27,7 +27,7 @@ class nodePA: public node<T>{
     float k2;
     float (nodePA::*costEst) (const int x, const int y) const;
     float (nodePA::*costSens) (const int x, const int y) const;
-
+    bool validSensing(const int x, const int y, float dist) const;
     float costSensing(const int x,const int y) const;
     float costSensing2(const int x,const int y) const;
     float costEstimate(const int x,const int y) const;
