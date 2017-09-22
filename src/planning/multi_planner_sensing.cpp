@@ -43,7 +43,7 @@ class Multirobotplannersensing{
 private:
     ros::NodeHandle nh_;
     ros::Publisher pub1, pub2, pub3, pub4, pub5, pub6, pub7, pub8, pub9;
-    ros::Publisher pub_markers;
+    ros::Publisher pub_markers, pub_rob_markers;
     ros::Subscriber sub1, sub2, sub3, sub4, sub5;
     ros::Subscriber graph_subscriber1, graph_subscriber2;
     ros::ServiceServer service;
@@ -70,6 +70,9 @@ private:
     vector<vector<vector<PAresult> > > bf_responses;
     vector<vector<vector<vector<PAresult> > > > vis_responses;
     vector<vector<bool> > papositive;
+    vector<vector<PointI> > crits;
+    vector<vector<PointI> > critsVM;
+    vector<vector<PointI> > critsPA;
     void graphCallback(const map_transform::VisCom::ConstPtr& graph, int index);
     void graphCallback1(const map_transform::VisCom::ConstPtr& graph);
     void graphCallback2(const map_transform::VisCom::ConstPtr& graph);
@@ -100,6 +103,7 @@ public:
         pub8 = nh_.advertise<nav_msgs::Path>("pathVisTest_0", 1,true);
         pub9 = nh_.advertise<nav_msgs::Path>("pathVisTest_1", 1,true);
         pub_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1,true);
+        pub_rob_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_robot_marker_array", 1,true);
         sub1 = nh_.subscribe("robot_0/v_map", 1, &Multirobotplannersensing::rcv_map1, this);
         sub2 = nh_.subscribe("robot_1/v_map", 1, &Multirobotplannersensing::rcv_map2, this);
         sub3 = nh_.subscribe("robot_0/e_map", 1, &Multirobotplannersensing::rcv_map3, this);
@@ -133,6 +137,10 @@ public:
         nh_.param("robot_1/infl", infl[1], 8);
         nh_.param("robot_0/defl", defl[0], 80);
         nh_.param("robot_1/defl", defl[1], 80);
+
+        crits.resize(2, vector<PointI>(0));
+        critsVM.resize(2, vector<PointI>(0));
+        critsPA.resize(2, vector<PointI>(0));
     }
     ~Multirobotplannersensing(){
     }
@@ -383,6 +391,8 @@ void Multirobotplannersensing::plan(void){
         int n=0;
         while(!clusterpoints.empty()){
             PointI p0=clusterpoints.back();
+            if(n>0)
+                critsPA[i].push_back(p0);
             int curr_cluster=clusterpointsID.back();
             clusterpoints.pop_back();
             clusterpointsID.pop_back();
@@ -872,6 +882,7 @@ void Multirobotplannersensing::plan(void){
             else{
                 for(unsigned int crit=0; crit<crit_points[i][index].points.size(); crit++){
                     PointI critPt(crit_points[i][index].points[crit].position.x,crit_points[i][index].points[crit].position.y);
+                    crits[i].push_back(critPt);
                     if( crit_map[critPt.i][critPt.j]<0 ){
                         crit_pts.push_back(critPt);
                         crit_map[critPt.i][critPt.j]=crit_pts.size()-1;
@@ -954,6 +965,8 @@ void Multirobotplannersensing::plan(void){
         int n=0;
         while(!clusterpoints.empty()){
             PointI p0=clusterpoints.back();
+            if(n>0)
+                critsVM[i].push_back(p0);
             int curr_cluster=clusterpointsID.back();
             clusterpoints.pop_back();
             clusterpointsID.pop_back();
@@ -1107,6 +1120,33 @@ void Multirobotplannersensing::plan(void){
                                     }
                                 }
                                 paresult.costM=path.cost-diff;
+                            }
+                            else{
+                                //cout<<"New!"<<endl;
+                                float diff=0;
+                                FindMin<float, float, float> new_perc_pt;
+                                for(int it=((int)path.points.size()-2); it>=max((int)path.points.size()-2-2*infl[i],0); it--){
+                                    float sens_dist=float((goals[goal].i-path.points[it].i)*(goals[goal].i-path.points[it].i)+(goals[goal].j-path.points[it].j)*(goals[goal].j-path.points[it].j));
+                                    float newP=costSensingSqDist(LAMBDA, sens_dist);
+                                    int num=abs(path.points[it].i-path.points[it+1].i)+abs(path.points[it].j-path.points[it+1].j);
+                                    float motion=(num==2)?1.41421356237:1;
+                                    diff+=motion;
+                                    //cout<<newP<<" sens; "<<(paresult.costP-newP)<<" loss; "<<motion<<" gain; "<<endl;
+                                    //if((motion+(paresult.costP-newP))>0){
+                                    if(raytracing(or_map, path.points[it].i, path.points[it].j, goals[goal].i, goals[goal].j, true)){
+                                        new_perc_pt.iter(paresult.costM-diff+newP,paresult.costM-diff, newP);
+                                        continue;
+                                    }
+                                    else
+                                        break;
+                                    //}
+                                    //break;
+                                }
+                                if(new_perc_pt.valid()){
+                                    paresult.perc_pt=path.points[(int)path.points.size()-2-new_perc_pt.getInd()];
+                                    paresult.costM=new_perc_pt.getP();
+                                    paresult.costP=new_perc_pt.getOP();
+                                }
                             }
                             paresult.cost=paresult.costM+paresult.costP;
                             //cout<<i<<"; "<<goal<<"; "<<n-1<<"; "<<vis_responses[i][goal][n-1].size()<<" -- "<<vis_responses[0][0][0].size()<<endl;
@@ -1445,7 +1485,7 @@ void Multirobotplannersensing::plan(void){
 
 FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vector<float> > > costsM, vector<vector<vector<float> > > costsP, vector<float> goal_costs, vector<bool> goal_visited, vector<vector<int> > paths, vector<vector<bool> > points_visited, vector<vector<float> > newMaxValue, float max_dist, float multi_levels, unsigned int& robot_index, float& n,int level){
     FindMax<float, unsigned int> best_point;
-    vector<FindMax<float, unsigned int> > best_point_temp(2);
+    vector<FindMax<float, unsigned int, float> > best_point_temp(2);
     vector<vector<float> > ns(2);
     n=0;
     if(level==0){
@@ -1544,7 +1584,7 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
                     //gained_cost+=next.valid()?next.getVal():0;
                     //cout<<"FinalwNext: "<<gained_cost<<endl;
                     //cout<<"Level "<<level<<"; Robot "<<robot<<"; Point "<<pt<<"; Next: "<<(next.valid()?next.getVal():-1)<<"; FinalComplete: "<<gained_cost<<";"<<endl;
-                    best_point_temp[robot].iter(gained_cost, min_pos.getInd(), mid_gained_cost);
+                    best_point_temp[robot].iter(gained_cost, min_pos.getInd(), 0.0, mid_gained_cost);
                 }
             }
             else{
@@ -1633,6 +1673,186 @@ void Multirobotplannersensing::publish(void){
         }
         pub_markers.publish(points);
     }
+
+    if(critsPA[0].size()>0){
+        visualization_msgs::MarkerArray points;
+        visualization_msgs::Marker point;
+        point.header.frame_id = "/map";
+        point.header.stamp =  ros::Time::now();
+        point.ns = "critsPA0";
+        point.action = visualization_msgs::Marker::ADD;
+        point.pose.orientation.w = 1.0;
+        point.type = visualization_msgs::Marker::SPHERE;
+        point.scale.x = res;
+        point.scale.y = res;
+        point.scale.z = 0.01;
+        point.color.r = 1.0;
+        point.color.a = 1.0;
+        point.lifetime = ros::Duration(2);
+        for (unsigned int i = 0; i < critsPA[0].size(); ++i){
+            point.pose.position=convertI2W(critsPA[0][i], res);
+            point.id = i;
+            points.markers.push_back(point);
+        }
+        pub_markers.publish(points);
+    }
+    if(critsPA[1].size()>0){
+        visualization_msgs::MarkerArray points;
+        visualization_msgs::Marker point;
+        point.header.frame_id = "/map";
+        point.header.stamp =  ros::Time::now();
+        point.ns = "critsPA1";
+        point.action = visualization_msgs::Marker::ADD;
+        point.pose.orientation.w = 1.0;
+        point.type = visualization_msgs::Marker::SPHERE;
+        point.scale.x = res;
+        point.scale.y = res;
+        point.scale.z = 0.01;
+        point.color.r = 1.0;
+        point.color.a = 1.0;
+        point.lifetime = ros::Duration(2);
+        for (unsigned int i = 0; i < critsPA[1].size(); ++i){
+            point.pose.position=convertI2W(critsPA[1][i], res);
+            point.id = i;
+            points.markers.push_back(point);
+        }
+        pub_markers.publish(points);
+    }
+    if(critsVM[0].size()>0){
+        visualization_msgs::MarkerArray points;
+        visualization_msgs::Marker point;
+        point.header.frame_id = "/map";
+        point.header.stamp =  ros::Time::now();
+        point.ns = "critsVM0";
+        point.action = visualization_msgs::Marker::ADD;
+        point.pose.orientation.w = 1.0;
+        point.type = visualization_msgs::Marker::SPHERE;
+        point.scale.x = res;
+        point.scale.y = res;
+        point.scale.z = 0.01;
+        point.color.r = 1.0;
+        point.color.a = 1.0;
+        point.lifetime = ros::Duration(2);
+        for (unsigned int i = 0; i < critsVM[0].size(); ++i){
+            point.pose.position=convertI2W(critsVM[0][i], res);
+            point.id = i;
+            points.markers.push_back(point);
+        }
+        pub_markers.publish(points);
+    }
+    if(critsVM[1].size()>0){
+        visualization_msgs::MarkerArray points;
+        visualization_msgs::Marker point;
+        point.header.frame_id = "/map";
+        point.header.stamp =  ros::Time::now();
+        point.ns = "critsVM1";
+        point.action = visualization_msgs::Marker::ADD;
+        point.pose.orientation.w = 1.0;
+        point.type = visualization_msgs::Marker::SPHERE;
+        point.scale.x = res;
+        point.scale.y = res;
+        point.scale.z = 0.01;
+        point.color.r = 1.0;
+        point.color.a = 1.0;
+        point.lifetime = ros::Duration(2);
+        for (unsigned int i = 0; i < critsVM[1].size(); ++i){
+            point.pose.position=convertI2W(critsVM[1][i], res);
+            point.id = i;
+            points.markers.push_back(point);
+        }
+        pub_markers.publish(points);
+    }
+    if(crits[0].size()>0){
+        visualization_msgs::MarkerArray points;
+        visualization_msgs::Marker point;
+        point.header.frame_id = "/map";
+        point.header.stamp =  ros::Time::now();
+        point.ns = "crits0";
+        point.action = visualization_msgs::Marker::ADD;
+        point.pose.orientation.w = 1.0;
+        point.type = visualization_msgs::Marker::SPHERE;
+        point.scale.x = res;
+        point.scale.y = res;
+        point.scale.z = 0.01;
+        point.color.r = 1.0;
+        point.color.a = 1.0;
+        point.lifetime = ros::Duration(2);
+        for (unsigned int i = 0; i < crits[0].size(); ++i){
+            point.pose.position=convertI2W(crits[0][i], res);
+            point.id = i;
+            points.markers.push_back(point);
+        }
+        pub_markers.publish(points);
+    }
+    if(crits[1].size()>0){
+        visualization_msgs::MarkerArray points;
+        visualization_msgs::Marker point;
+        point.header.frame_id = "/map";
+        point.header.stamp =  ros::Time::now();
+        point.ns = "crits1";
+        point.action = visualization_msgs::Marker::ADD;
+        point.pose.orientation.w = 1.0;
+        point.type = visualization_msgs::Marker::SPHERE;
+        point.scale.x = res;
+        point.scale.y = res;
+        point.scale.z = 0.01;
+        point.color.r = 1.0;
+        point.color.a = 1.0;
+        point.lifetime = ros::Duration(2);
+        for (unsigned int i = 0; i < crits[1].size(); ++i){
+            point.pose.position=convertI2W(crits[1][i], res);
+            point.id = i;
+            points.markers.push_back(point);
+        }
+        pub_markers.publish(points);
+    }
+
+
+//    tf::StampedTransform transform;
+//    try{
+//        pos_listener.lookupTransform("/map", "/robot_0/base_link", ros::Time(0), transform);
+//    }
+//    catch (tf::TransformException ex){
+//        return;
+//    }
+//    float p0x=transform.getOrigin().x();
+//    float p0y=transform.getOrigin().y();
+//    try{
+//        pos_listener.lookupTransform("/map", "/robot_1/base_link", ros::Time(0), transform);
+//    }
+//    catch (tf::TransformException ex){
+//        return;
+//    }
+//    float p1x=transform.getOrigin().x();
+//    float p1y=transform.getOrigin().y();
+
+    visualization_msgs::MarkerArray robots;
+    visualization_msgs::Marker robot;
+    robot.header.frame_id = "/robot_0/base_link";
+    robot.header.stamp =  ros::Time::now();
+    robot.ns = "robot0";
+    robot.id=0;
+    robot.action = visualization_msgs::Marker::ADD;
+    robot.pose.orientation.w = 1.0;
+    robot.type = visualization_msgs::Marker::SPHERE;
+    robot.scale.x = 2.0*((float)infl[0])*res;
+    robot.scale.y = 2.0*((float)infl[0])*res;
+    robot.scale.z = 0.01;
+    robot.color.r = 1.0;
+    robot.color.a = 1.0;
+    robot.lifetime = ros::Duration(1);
+    robots.markers.push_back(robot);
+    robot.header.frame_id = "/robot_1/base_link";
+    robot.ns="robot1";
+    robot.scale.x = 2.0*((float)infl[1])*res;
+    robot.scale.y = 2.0*((float)infl[1])*res;
+    robot.scale.z = 0.01;
+    robot.color.b = 1.0;
+    robot.color.r = 0.0;
+    robot.color.a = 1.0;
+    robot.lifetime = ros::Duration(1);
+    robots.markers.push_back(robot);
+    pub_rob_markers.publish(robots);
 }
 
 
