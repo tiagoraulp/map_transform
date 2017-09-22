@@ -516,7 +516,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             path.cost=n0.getCost();
             path.costM=n0.getMotionCost();
             path.costP=n0.getSensingCost();
-            cout<<"Solution M: "<<path.costM<<"; P: "<<path.costP<<endl;
+            //cout<<"Solution M: "<<path.costM<<"; P: "<<path.costP<<endl;
             if(opt==-5)
             {
                 exp_nodes=0; exp_nodes_r=0, tested_goal=0;

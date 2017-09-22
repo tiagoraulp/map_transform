@@ -42,7 +42,7 @@ public:
 class Multirobotplannersensing{
 private:
     ros::NodeHandle nh_;
-    ros::Publisher pub1, pub2, pub3, pub4, pub5, pub6, pub7;
+    ros::Publisher pub1, pub2, pub3, pub4, pub5, pub6, pub7, pub8, pub9;
     ros::Publisher pub_markers;
     ros::Subscriber sub1, sub2, sub3, sub4, sub5;
     ros::Subscriber graph_subscriber1, graph_subscriber2;
@@ -97,6 +97,8 @@ public:
         pub5 = nh_.advertise<nav_msgs::Path>("pathBF_1", 1,true);
         pub6 = nh_.advertise<nav_msgs::Path>("pathVis_0", 1,true);
         pub7 = nh_.advertise<nav_msgs::Path>("pathVis_1", 1,true);
+        pub8 = nh_.advertise<nav_msgs::Path>("pathVisTest_0", 1,true);
+        pub9 = nh_.advertise<nav_msgs::Path>("pathVisTest_1", 1,true);
         pub_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1,true);
         sub1 = nh_.subscribe("robot_0/v_map", 1, &Multirobotplannersensing::rcv_map1, this);
         sub2 = nh_.subscribe("robot_1/v_map", 1, &Multirobotplannersensing::rcv_map2, this);
@@ -1209,11 +1211,11 @@ void Multirobotplannersensing::plan(void){
                                 //cout<<"c is"<<clusterVisitOrder[other]<<"out of"<<vis_responses[0][0].size()<<endl;
                                 //cout<<"crit is"<<crit<<"out of"<<vis_responses[0][0][0].size()<<endl;
                                 //cout<<0<<" - "<<clusterVisitOrder[0]<<"; "<<1<<" - "<<clusterVisitOrder[1]<<"; "<<2<<" - "<<clusterVisitOrder[2]<<"; "<<endl;
-                                if(vis_responses[i][goal][clusterVisitOrder[other]][crit].cost>=0 ){
+                                if(vis_responses[i][goal][clusterVisitOrder[other]][goalsInClustersRun[pt][other][goal][crit]].cost>=0 ){
                                     //cout<<"Test0"<<endl;
-                                    sum+=vis_responses[i][goal][clusterVisitOrder[other]][crit].costM;
+                                    sum+=vis_responses[i][goal][clusterVisitOrder[other]][goalsInClustersRun[pt][other][goal][crit]].costM;
                                     number++;
-                                    new_cost_p=vis_responses[i][goal][clusterVisitOrder[other]][crit].costP;
+                                    new_cost_p=vis_responses[i][goal][clusterVisitOrder[other]][goalsInClustersRun[pt][other][goal][crit]].costP;
                                     //cout<<"Test0"<<endl;
                                 }
                                 else{
@@ -1392,6 +1394,51 @@ void Multirobotplannersensing::plan(void){
 
     diff = ros::Time::now() - t0;
     ROS_INFO("Time for heuristic planning with Visibity Maps: %f; cost: %f", diff.toSec(), evaluate(costsMs,feasible_goals,paths,goals_costs,goals_visited));
+
+    /////////////////////////// METHOD 5 ///////////////////////////////////////
+
+    cout<<"----> Method 5 (Test Vis Seq):"<<endl;
+    t0=ros::Time::now();
+
+    cout<<"Robot 0: ";
+
+    prTest[0].clear();
+    prTest[0].push_back(pr[0].front());
+    prTest[1].clear();
+    prTest[1].push_back(pr[1].front());
+    pathTest.assign(2, vector<int>(1, 0));
+
+
+    pathTest[0].push_back(1);
+    pathTest[1].push_back(3);
+    for(unsigned int robb=0; robb<2; robb++){
+        for(unsigned int p_i=1;p_i<pathTest[robb].size();p_i++){
+            if(pathTest[robb][p_i-1]==0)
+                p_0=pr[robb].front();
+            else{
+                if((pathTest[robb][p_i-1]-1)<0 || (pathTest[robb][p_i-1]-1)>=(int)clusterPts[robb].size() )
+                    break;
+                p_0=clusterPts[robb][pathTest[robb][p_i-1]-1];
+            }
+            if((pathTest[robb][p_i]-1)<0 || (pathTest[robb][p_i]-1)>=(int)clusterPts[robb].size() )
+                break;
+            path_temp=Astar<float>(p_0, clusterPts[robb][pathTest[robb][p_i]-1], msg_rcv[E_MAP+robb]);
+            prTest[robb].insert(prTest[robb].end(), path_temp.points.begin(), path_temp.points.end());
+        }
+        path_2.poses.clear();
+        for(unsigned int p_i=0;p_i<prTest[robb].size();p_i++){
+            p_temp.pose.position=convertI2W(prTest[robb][p_i], res);
+            path_2.poses.push_back(p_temp);
+        }
+        if(robb==0)
+            pub8.publish(path_2);
+        else
+            pub9.publish(path_2);
+    }
+
+    diff = ros::Time::now() - t0;
+    ROS_INFO("Time for planning with Test Sequence: %f; cost: %f", diff.toSec(), evaluate(costsMs,costsPs,feasible_goals,pathTest));
+
 
     pl=false;
 }
@@ -1603,6 +1650,7 @@ float Multirobotplannersensing::evaluate(vector<vector<vector<float> > > costM, 
         if(resolve)
             paths[pp].insert(paths[pp].begin(), 0);
     }
+    vector<float> temps_sums(regions.size(), 0.0);
     for(unsigned int g=0; g<feasible_goals.size(); g++){
         if(feasible_goals[g] && !goal_visited[g]){
             //for(unsigned int abc=0; abc<feasible_goals.size();abc++){
@@ -1612,24 +1660,31 @@ float Multirobotplannersensing::evaluate(vector<vector<vector<float> > > costM, 
         }
         for(auto region=0u; region<goalsRegionsIds[g].size(); region++){
             sum+=(goal_costs[g])/goalsInRegions[goalsRegionsIds[g][region]].size();
+            temps_sums[goalsRegionsIds[g][region]]+=(goal_costs[g])/goalsInRegions[goalsRegionsIds[g][region]].size();
             if(stop_th)
                 if(sum>th)
                     return sum;
         }
     }
+    for(auto it=0u; it<temps_sums.size(); it++){
+        cout<<"Target "<<it<<": "<<temps_sums[it]<<endl;
+    }
     //float temp=sum;
     //cout<<"Sens: "<<temp<<endl;
     for(unsigned int i=0; i<paths.size(); i++){
+        float temp_sum=0;
         for(unsigned int pt=1; pt<paths[i].size(); pt++){
             if( (paths[i][pt-1]<0) || (paths[i][pt-1]>=(int)costM[i].size()) )
                 return -1;
             if( (paths[i][pt]<0) || (paths[i][pt]>=(int)costM[i].size()) )
                 return -1;
             sum+=costM[i][paths[i][pt]][paths[i][pt-1]];
+            temp_sum+=costM[i][paths[i][pt]][paths[i][pt-1]];
             if(stop_th)
                 if(sum>th)
                     return sum;
         }
+        cout<<"Motion "<<i<<": "<<temp_sum<<endl;
     }
     //cout<<"Motion: "<<sum-temp<<endl;
     return sum;
