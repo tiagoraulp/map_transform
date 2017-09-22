@@ -7,7 +7,7 @@
 
 std::vector<cv::Point> bf_hlx(int defl);
 
-template <typename T, typename T2=T>
+template <typename T, typename T2=T, typename T3=T>
 class FindElem
 {
 protected:
@@ -15,21 +15,23 @@ protected:
     int ind;
     T fv;
     T2 p;
+    T3 op;
     T fv2;
     virtual bool func(T var, T local)=0;
 public:
     //void iter(T var);
-    void iter(T var,T2 pt, T var2);
+    void iter(T var,T2 pt=T2(), T3 opt=T3(), T var2=T());
     FindElem();
     void clear(void);
     int getInd(void);
     T getVal(void);
     T2 getP(void);
+    T3 getOP(void);
     bool valid();
 };
 
-template <typename T, typename T2=T>
-class FindMax : public FindElem<T,T2>
+template <typename T, typename T2=T,typename T3=T>
+class FindMax : public FindElem<T,T2,T3>
 {
 protected:
     bool func(T var, T local);
@@ -39,8 +41,8 @@ public:
     FindMax(void);
 };
 
-template <typename T,typename T2=T>
-class FindMin : public FindElem<T,T2>
+template <typename T,typename T2=T,typename T3=T>
+class FindMin : public FindElem<T,T2,T3>
 {
 protected:
     bool func(T var, T local);
@@ -58,7 +60,7 @@ protected:
     std::vector<T2> p;
     virtual bool func(T var, T comp)=0;
 public:
-    unsigned int iter(T var,T2 pt);
+    unsigned int iter(T var,T2 pt=T2());
     OrderedVector();
     void clear(void);
     unsigned getSize(void);
@@ -100,13 +102,14 @@ public:
 //    n++;
 //}
 
-template <typename T, typename T2>
-void FindElem<T,T2>::iter(T var,T2 pt=T2(), T var2=T()) {
+template <typename T, typename T2, typename T3>
+void FindElem<T,T2,T3>::iter(T var,T2 pt, T3 opt, T var2) {
     if(n==0)
     {
         ind=0;
         fv=var;
         p=pt;
+        op=opt;
         fv2=var2;
     }
     else if(func(var, fv))
@@ -114,12 +117,14 @@ void FindElem<T,T2>::iter(T var,T2 pt=T2(), T var2=T()) {
         ind=n;
         fv=var;
         p=pt;
+        op=opt;
         fv2=var2;
     }
     else if(!func(-var, -fv)){
         if(func(var2, fv2)){
             ind=n;
             fv=var;
+            op=opt;
             p=pt;
             fv2=var2;
         }
@@ -127,48 +132,55 @@ void FindElem<T,T2>::iter(T var,T2 pt=T2(), T var2=T()) {
     n++;
 }
 
-template <typename T, typename T2>
-FindElem<T,T2>::FindElem()
+template <typename T, typename T2, typename T3>
+FindElem<T,T2,T3>::FindElem()
 {
     clear();
 }
 
-template <typename T, typename T2>
-void FindElem<T,T2>::clear(void)
+template <typename T, typename T2, typename T3>
+void FindElem<T,T2,T3>::clear(void)
 {
     n=0;
     ind=0;
     fv=T();
     p=T2();
+    op=T3();
     fv2=T();
 }
 
-template <typename T, typename T2>
-int FindElem<T,T2>::getInd(void)
+template <typename T, typename T2, typename T3>
+int FindElem<T,T2,T3>::getInd(void)
 {
     return ind;
 }
 
-template <typename T, typename T2>
-T FindElem<T,T2>::getVal(void)
+template <typename T, typename T2, typename T3>
+T FindElem<T,T2,T3>::getVal(void)
 {
     return fv;
 }
 
-template <typename T, typename T2>
-T2 FindElem<T,T2>::getP(void)
+template <typename T, typename T2, typename T3>
+T2 FindElem<T,T2,T3>::getP(void)
 {
     return p;
 }
 
-template <typename T, typename T2>
-bool FindElem<T,T2>::valid(void)
+template <typename T, typename T2, typename T3>
+T3 FindElem<T,T2,T3>::getOP(void)
+{
+    return op;
+}
+
+template <typename T, typename T2, typename T3>
+bool FindElem<T,T2,T3>::valid(void)
 {
     return (n!=0);
 }
 
-template <typename T, typename T2>
-bool FindMax<T,T2>::func(T var, T local)
+template <typename T, typename T2, typename T3>
+bool FindMax<T,T2,T3>::func(T var, T local)
 {
     if(var>local)
         return true;
@@ -176,8 +188,8 @@ bool FindMax<T,T2>::func(T var, T local)
         return false;
 }
 
-template <typename T, typename T2>
-FindMax<T,T2>::FindMax(std::vector<T> vars)
+template <typename T, typename T2, typename T3>
+FindMax<T,T2,T3>::FindMax(std::vector<T> vars)
 {
     this->clear();
     for(int i=0;i<vars.size();i++)
@@ -186,8 +198,8 @@ FindMax<T,T2>::FindMax(std::vector<T> vars)
     }
 }
 
-template <typename T, typename T2>
-FindMax<T,T2>::FindMax(std::vector<T> vars, std::vector<T2> pts)
+template <typename T, typename T2, typename T3>
+FindMax<T,T2,T3>::FindMax(std::vector<T> vars, std::vector<T2> pts)
 {
     this->clear();
     for(int i=0;i<vars.size();i++)
@@ -196,14 +208,14 @@ FindMax<T,T2>::FindMax(std::vector<T> vars, std::vector<T2> pts)
     }
 }
 
-template <typename T, typename T2>
-FindMax<T,T2>::FindMax(void)
+template <typename T, typename T2, typename T3>
+FindMax<T,T2,T3>::FindMax(void)
 {
     this->clear();
 }
 
-template <typename T, typename T2>
-bool FindMin<T,T2>::func(T var, T local)
+template <typename T, typename T2, typename T3>
+bool FindMin<T,T2,T3>::func(T var, T local)
 {
     if(var<local)
         return true;
@@ -211,8 +223,8 @@ bool FindMin<T,T2>::func(T var, T local)
         return false;
 }
 
-template <typename T, typename T2>
-FindMin<T,T2>::FindMin(std::vector<T> vars)
+template <typename T, typename T2, typename T3>
+FindMin<T,T2,T3>::FindMin(std::vector<T> vars)
 {
     this->clear();
     for(int i=0;i<vars.size();i++)
@@ -221,8 +233,8 @@ FindMin<T,T2>::FindMin(std::vector<T> vars)
     }
 }
 
-template <typename T, typename T2>
-FindMin<T,T2>::FindMin(std::vector<T> vars, std::vector<T2> pts)
+template <typename T, typename T2, typename T3>
+FindMin<T,T2,T3>::FindMin(std::vector<T> vars, std::vector<T2> pts)
 {
     this->clear();
     for(int i=0;i<vars.size();i++)
@@ -231,8 +243,8 @@ FindMin<T,T2>::FindMin(std::vector<T> vars, std::vector<T2> pts)
     }
 }
 
-template <typename T, typename T2>
-FindMin<T,T2>::FindMin(void)
+template <typename T, typename T2, typename T3>
+FindMin<T,T2,T3>::FindMin(void)
 {
     this->clear();
 }
@@ -254,7 +266,7 @@ FindMin<T,T2>::FindMin(void)
 //}
 
 template <typename T, typename T2>
-unsigned int OrderedVector<T,T2>::iter(T var,T2 pt=T2()) {
+unsigned int OrderedVector<T,T2>::iter(T var,T2 pt) {
     typename std::vector<T>::iterator it=fv.begin();
     typename std::vector<T2>::iterator itp=p.begin();
     for(unsigned int i=0; i<fv.size(); i++)
