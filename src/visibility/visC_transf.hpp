@@ -15,6 +15,8 @@ protected:
     ros::Publisher  graph_publisher, act_dist_pub;
     bool opt;
     cv::Mat_<int> act_dist;
+    std::vector<cv::Point2i> crit_pts;
+    cv::Mat vis_temp;
 
     bool reachability_map(cv::Point3i pos, cv::Mat & r_map);
     cv::Mat ext_vis(Unreachable, cv::Mat vis_map, cv::Mat r_map, bool _opt=true);
