@@ -374,6 +374,7 @@ void Multirobotplannersensing::plan(void){
 
 
     vector<int> count(4, 0);
+    critsPA.assign(2, vector<PointI>(0));
     for(int i=0; i<2; i++){
     //for(int i=0; i<1; i++){
         cout<<"Robot "<<i<<endl;
@@ -860,6 +861,8 @@ void Multirobotplannersensing::plan(void){
 
     float opt_dist=1.0/2.0/LAMBDA;
 
+    crits.assign(2, vector<PointI>(0));
+    critsVM.assign(2, vector<PointI>(0));
     for(unsigned int i=0; i<2; i++){
         vector<vector<int> > crit_goals;
         vector<PointI> crit_pts;
@@ -1132,17 +1135,19 @@ void Multirobotplannersensing::plan(void){
                                     float motion=(num==2)?1.41421356237:1;
                                     diff+=motion;
                                     //cout<<newP<<" sens; "<<(paresult.costP-newP)<<" loss; "<<motion<<" gain; "<<endl;
-                                    //if((motion+(paresult.costP-newP))>0){
-                                    if(raytracing(or_map, path.points[it].i, path.points[it].j, goals[goal].i, goals[goal].j, true)){
-                                        new_perc_pt.iter(paresult.costM-diff+newP,paresult.costM-diff, newP);
-                                        continue;
+                                    if( (-diff+newP-paresult.costP) < 0 ){
+                                        if(raytracing(or_map, path.points[it].i, path.points[it].j, goals[goal].i, goals[goal].j, true)){
+                                            new_perc_pt.iter(paresult.costM-diff+newP,paresult.costM-diff, newP);
+                                            continue;
+                                        }
+                                        else
+                                            break;
                                     }
-                                    else
-                                        break;
-                                    //}
-                                    //break;
+                                    else{
+                                        new_perc_pt.iter(-1,-1,-1);
+                                    }
                                 }
-                                if(new_perc_pt.valid()){
+                                if(new_perc_pt.valid() && (new_perc_pt.getVal()>=0) ){
                                     paresult.perc_pt=path.points[(int)path.points.size()-2-new_perc_pt.getInd()];
                                     paresult.costM=new_perc_pt.getP();
                                     paresult.costP=new_perc_pt.getOP();
@@ -1664,11 +1669,11 @@ void Multirobotplannersensing::publish(void){
 //        }
         for(uint32_t rob=0; rob<2; rob++){
             for (uint32_t i = 0; i < goals.size(); ++i){
-                if( !papositive[rob][i]){
+                //if( !papositive[rob][i]){
                     point.pose.position=convertI2W(goals[i], res);
                     point.id = i;
                     points.markers.push_back(point);
-                }
+                //}
             }
         }
         pub_markers.publish(points);

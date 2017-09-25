@@ -800,6 +800,14 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         filename = ros::package::getPath("map_transform").append("/images/sensor.png");
         cv::imwrite(filename, sens-sens3);
 
+        cv::Mat map_temp=map_or.clone();
+        for(unsigned int iii=0; iii<crit_pts.size(); iii++){
+            map_temp=printPoint(map_temp, crit_pts[iii], color);
+        }
+        cv::imshow("CP",map_temp);
+        cv::waitKey(3);
+
+
         cv::Mat map_debug1=color_print(map_erosionOp, map_or,  c1, c2, c3, c0);
 
         cv::imshow("CS",map_debug1);
@@ -828,6 +836,11 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         cv::Mat map_debug4=color_print3(map_vis, map_act, map_or, c20, c12, ctest, c23, c10, c20, c00, c00 );
 
         cv::imshow("VS",map_debug4);
+        cv::waitKey(3);
+
+        cv::Mat map_debug5=color_print3(vis_temp, map_act, map_or, c20, c12, ctest, c23, c10, c20, c00, c00 );
+
+        cv::imshow("VT",map_debug5);
         cv::waitKey(3);
 
         filename = ros::package::getPath("map_transform").append("/images/vis.png");
@@ -1013,6 +1026,8 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
     CritPoints critP(map_or, r_map, infl);
 
+    crit_pts.clear();
+
     //vis_.assign(vis_map.rows*vis_map.cols, map_transform::VisNode());
     //vis_.assign(vis_map.rows*vis_map.cols, -2);
     //vis_.vis.assign(vis_map.rows*vis_map.cols, -2);
@@ -1040,6 +1055,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                 }
                 else
                 {
+
                     tt=ros::Time::now();
                     critP.frontier_extremes();
                     //cout<<" - time Frontier Extremes: "<<ros::Time::now()-tt<<endl;
@@ -1051,6 +1067,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
 
                     while(n_w>=0 && unreach.pixel_count[k]!=countP)
                     {
+                        crit_pts.push_back(crit);
                         n_w++;
 
                         cv::Point2i crit_point=crit;
@@ -1256,6 +1273,9 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, cv::Mat r_map
                             vis_map_temp=bf_pt_v2(map_or, crit_point, defl, vis_map_temp, false, false, vis_map_temp_list);
                             //vis_map_temp=bf_pt_v2(map_or, crit_point, defl, vis_map_temp, false, false);
                             //cout<<" - time True Visibility: "<<ros::Time::now()-tt<<endl;
+
+                            if(k==2)
+                                vis_temp=vis_map_temp;
 
                             if(k==1)
                             {
