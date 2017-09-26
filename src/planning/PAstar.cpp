@@ -368,6 +368,14 @@ void PAstar::updateOrMap(cv::Mat map){
     or_map=map.clone();
 }
 
+void PAstar::resetExpansion(void){
+    expansion=cv::Mat::zeros(or_map.rows,or_map.cols, CV_8UC1);
+}
+
+cv::Mat PAstar::getExpansion(void){
+    return expansion;
+}
+
 PAstar::PAstar(int in, int de){
     infl=in;
     defl=de;
@@ -380,6 +388,8 @@ template <typename T>
 PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode * crit, std::vector<float> * dist_crit_goal, bool use_opt_sens, bool use_crit_sens, std::vector<float> * angle_crit_goal, std::vector<float> * angleD_crit_goal){
     PApath path; path.points.clear();path.cost=-1;
     const int n=map_.size();
+    resetExpansion();
+    //cout<<"TEST!!!!!!!!!!!!!"<<endl;
     if(n<=0){
         //path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
         //path.cost=-2;
@@ -496,7 +506,10 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             }
         }
         if(list2){
-            exp_nodes_r++;
+            exp_nodes_r++;           
+            //cout<<"ER1!!"<<endl;
+            expansion.at<uchar>(x,y)=255;
+            //cout<<"ER2!!"<<endl;
         }
         else
             exp_nodes++;
@@ -506,6 +519,9 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
 
         open_nodes_map[x][y]=0;
         if(stop){
+            //cout<<"STOP1!!"<<endl;
+            expansion.at<uchar>(x,y)=255;
+            //cout<<"STOP2!!"<<endl;
             while(!(x==p0.i && y==p0.j)){
                 j=dir_map[x][y];
                 path.points.insert(path.points.begin(),PointI(x,y));
@@ -559,12 +575,23 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
                         dir_map[xdx][ydy]=(i+dir/2)%dir;
                         pq[pqi].push(m0);
                     }
+                    //cout<<"OPEN1!!"<<endl;
+                    expansion.at<uchar>(xdx,ydy)=100;
+                    //cout<<"OPEN2!!"<<endl;
                 }
             }
         }
         if(n0.getSensing()>=0 && !tested){
             n0.S2P();
             pq[2].push(n0);
+            //cout<<"CLOSE1!!"<<endl;
+            expansion.at<uchar>(x,y)=200;
+            //cout<<"CLOSE2!!"<<endl;
+        }
+        else if(n0.getSensing()>=0){
+            //cout<<"SER1!!"<<endl;
+            expansion.at<uchar>(x,y)=255;
+            //cout<<"SER2!!"<<endl;
         }
     }
     path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
