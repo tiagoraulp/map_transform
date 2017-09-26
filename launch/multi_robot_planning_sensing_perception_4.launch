@@ -1,0 +1,75 @@
+<launch>
+  <arg name="x_0" default="2"/>
+  <arg name="y_0" default="7"/>
+  <arg name="x_1" default="2"/>
+  <arg name="y_1" default="11"/>
+
+  <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/perception_4.png 0.1" respawn="false" > 
+    <param name="frame_id" value="/map" />
+  </node>
+	
+  <group ns="robot_0">
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">   
+      <param name="defl" value="130" />
+      <param name="infl" value="13" />
+      <param name="debug" value="false" />
+      <param name="ground_truth" value="false" />
+      <param name="tf_prefix" value ="/robot_0" /> 
+      <remap from="~map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_0" args="$(arg x_0) $(arg y_0) 0 0 0 0 /map /robot_0/base_link 10"/>
+
+    <node name="planner" pkg="map_transform" type="planSensOpt" args="--server" output="screen">
+      <param name="tf_prefix" value ="/robot_0" /> 
+      <param name="defl" value="130" />
+      <param name="infl" value="13" />
+      <remap from="~v_map" to="/robot_0/visibility/v_map"/>
+      <remap from="~e_map" to="/robot_0/visibility/e_map"/>
+      <remap from="~map" to="/map"/>
+    </node>
+  </group>
+
+  <group ns="robot_1">
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">   
+      <param name="defl" value="130" />
+      <param name="infl" value="13" />
+      <param name="debug" value="false" />
+      <param name="ground_truth" value="false" />
+      <param name="tf_prefix" value ="/robot_1" /> 
+      <remap from="~map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_1" args="$(arg x_1) $(arg y_1) 0 0 0 0 /map /robot_1/base_link 10"/>
+
+    <node name="planner" pkg="map_transform" type="planSensOpt" args="--server" output="screen">
+      <param name="tf_prefix" value ="/robot_1" /> 
+      <param name="defl" value="130" />
+      <param name="infl" value="13" />
+      <remap from="~v_map" to="/robot_1/visibility/v_map"/>
+      <remap from="~e_map" to="/robot_1/visibility/e_map"/>
+      <remap from="~map" to="/map"/>
+    </node>
+  </group>
+
+  <node name="multiRobotPlanner" pkg="map_transform" type="multiPlannerSens" output="screen">
+    <remap from="~/robot_0/v_map" to="/robot_0/visibility/v_map"/>
+    <remap from="~/robot_1/v_map" to="/robot_1/visibility/v_map"/>
+    <remap from="~/robot_0/e_map" to="/robot_0/visibility/e_map"/>
+    <remap from="~/robot_1/e_map" to="/robot_1/visibility/e_map"/>
+    <remap from="~/robot_0/graph" to="/robot_0/visibility/graph"/>
+    <remap from="~/robot_1/graph" to="/robot_1/visibility/graph"/>
+    <remap from="~map" to="/map"/>
+    <param name="robot_0/infl" value="13" />
+    <param name="robot_1/infl" value="13" />
+    <param name="robot_0/defl" value="130" />
+    <param name="robot_1/defl" value="130" />
+    <param name="goalRegionsService" value="/regionsEditor/getRegions" />
+    <param name="PAstarService" value="/planner/plan_point" />
+  </node>
+
+  <node name="regionsEditor" pkg="map_transform" type="regions_editor.py" output="screen"/>
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/multi_robot_planning_sensing.rviz" />
+
+</launch>

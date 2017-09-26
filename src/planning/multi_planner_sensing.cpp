@@ -864,6 +864,7 @@ void Multirobotplannersensing::plan(void){
     crits.assign(2, vector<PointI>(0));
     critsVM.assign(2, vector<PointI>(0));
     for(unsigned int i=0; i<2; i++){
+    //for(unsigned int i=0; i<1; i++){
         vector<vector<int> > crit_goals;
         vector<PointI> crit_pts;
         vector<vector<int> > crit_map(or_map.rows, vector<int>(or_map.cols,-1));
@@ -1454,8 +1455,10 @@ void Multirobotplannersensing::plan(void){
     pathTest.assign(2, vector<int>(1, 0));
 
 
-    pathTest[0].push_back(1);
-    pathTest[1].push_back(3);
+    //pathTest[0].push_back(1);
+    //pathTest[1].push_back(3);
+    pathTest[0].push_back(2);
+    pathTest[0].push_back(4);
     for(unsigned int robb=0; robb<2; robb++){
         for(unsigned int p_i=1;p_i<pathTest[robb].size();p_i++){
             if(pathTest[robb][p_i-1]==0)
@@ -1547,7 +1550,7 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
                 ////NewSpecial
                 if(unfeas_gain.valid())
                     gained_cost+=unfeas_gain.getVal();
-                //cout<<"\nFinal: "<<gained_cost<<endl;
+                //cout<<"\n(level "<<level<<") Final (" <<pt<<"): "<<gained_cost<<endl;
                 //if(level==3)
                 //    cout<<"Level "<<level<<"; Robot "<<robot<<"; Point "<<pt<<"; Motion: "<<motion_cost<<"Sens: "<<sensing_cost<<"; Final: "<<gained_cost<<";"<<" Special: "<<(special?"True":"False")<<endl;
                 if(gained_cost<0 && !special){
@@ -1587,7 +1590,7 @@ FindMax<float, unsigned int> Multirobotplannersensing::iterate(vector<vector<vec
                         ns[robot].push_back(n_temp+1);
                     }
                     //gained_cost+=next.valid()?next.getVal():0;
-                    //cout<<"FinalwNext: "<<gained_cost<<endl;
+                    //cout<<"(level "<<level<<")FinalwNext (" <<pt<<"): "<<gained_cost<<endl;
                     //cout<<"Level "<<level<<"; Robot "<<robot<<"; Point "<<pt<<"; Next: "<<(next.valid()?next.getVal():-1)<<"; FinalComplete: "<<gained_cost<<";"<<endl;
                     best_point_temp[robot].iter(gained_cost, min_pos.getInd(), 0.0, mid_gained_cost);
                 }
@@ -1669,11 +1672,11 @@ void Multirobotplannersensing::publish(void){
 //        }
         for(uint32_t rob=0; rob<2; rob++){
             for (uint32_t i = 0; i < goals.size(); ++i){
-                //if( !papositive[rob][i]){
+                if( !papositive[rob][i]){
                     point.pose.position=convertI2W(goals[i], res);
                     point.id = i;
                     points.markers.push_back(point);
-                //}
+                }
             }
         }
         pub_markers.publish(points);
