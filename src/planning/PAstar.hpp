@@ -49,7 +49,7 @@ public:
 class PAstar{
 private:
     std::vector<std::vector<bool> > map_;
-    cv::Mat or_map;
+    cv::Mat or_map, expansion;
     int infl;
     int defl;
     bool isGoal(PointI p0, PointI p1);
@@ -58,6 +58,8 @@ public:
     PAstar();
     void updateNavMap(std::vector<std::vector<bool> > map);
     void updateOrMap(cv::Mat map);
+    void resetExpansion(void);
+    cv::Mat getExpansion(void);
     template <typename T=float>
     PApath run(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false, std::vector<float> * angle_crit_goal=NULL, std::vector<float> * angleD_crit_goal=NULL);
 };

@@ -15,6 +15,7 @@
 #include "PAstar.hpp"
 #include "points_conversions.hpp"
 #include <cmath>
+#include <opencv2/highgui/highgui.hpp>
 
 using namespace std;
 
@@ -309,6 +310,8 @@ void Planner::plan(void){
                 path=pastar.run(pi, g, LAMBDA, true, -3, true);
                 cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
             }
+            cv::imshow("BFS",pastar.getExpansion());
+            cv::waitKey(3);
             diff = ros::Time::now() - t01;
             //if(path.cost!=-2)
             //    myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
@@ -336,6 +339,8 @@ void Planner::plan(void){
                 path=pastar.run(pi, g, LAMBDA, true);
                 cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
             }
+            cv::imshow("PA",pastar.getExpansion());
+            cv::waitKey(3);
             diff = ros::Time::now() - t01;
             //if(path.cost>=0)
             //    myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
@@ -379,6 +384,8 @@ void Planner::plan(void){
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 }
+                cv::imshow("PA 1",pastar.getExpansion());
+                cv::waitKey(3);
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1): %f; Cost: %f",diff.toSec(),path.cost);
             }
@@ -407,6 +414,8 @@ void Planner::plan(void){
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, NULL, NULL, true);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 }
+                cv::imshow("PA 1-OS",pastar.getExpansion());
+                cv::waitKey(3);
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1-OS): %f; Cost: %f",diff.toSec(),path.cost);
             }
@@ -435,6 +444,8 @@ void Planner::plan(void){
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 }
+                cv::imshow("PA 1-OS 2",pastar.getExpansion());
+                cv::waitKey(3);
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1-OS+2): %f; Cost: %f",diff.toSec(),path.cost);
             }
@@ -463,6 +474,8 @@ void Planner::plan(void){
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true, true);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 }
+                cv::imshow("PA 1-OS 2-CS",pastar.getExpansion());
+                cv::waitKey(3);
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1-OS+2-CS): %f; Cost: %f",diff.toSec(),path.cost);
             }
@@ -503,6 +516,8 @@ void Planner::plan(void){
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 }
+                cv::imshow("PA 1-OS 2-CS-P",pastar.getExpansion());
+                cv::waitKey(3);
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1-OS+2-CS-PCOD): %f; Cost: %f",diff.toSec(),path.cost);
                 //if(path.cost>=0)
