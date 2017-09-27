@@ -16,6 +16,7 @@
 #include "points_conversions.hpp"
 #include <cmath>
 #include <opencv2/highgui/highgui.hpp>
+#include "color.hpp"
 
 using namespace std;
 
@@ -27,7 +28,8 @@ private:
     int infl;
     int defl;
     nav_msgs::Path path_0, path_1;
-    cv::Mat or_map;
+    cv::Mat or_map, nav_map, deb1, deb2, deb3, deb4, deb5, deb6, deb7;
+    cv::Point target;
     ros::NodeHandle nh_;
     ros::Publisher pub1, pub2;
     ros::Publisher pub_markers;
@@ -126,14 +128,17 @@ void Planner::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 
 void Planner::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg){
     msg_rcv[1].assign(msg->info.width, vector<bool>(msg->info.height,false));
+    nav_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
     for(unsigned int i=0;i<msg->info.height;i++){
         for(unsigned int j=0;j<msg->info.width;j++){
             if(*mapDataIterC == 0){
                 msg_rcv[1][j][i]=true;
+                nav_map.at<uchar>(j,i) = 255;
             }
             else{
                 msg_rcv[1][j][i]=false;
+                nav_map.at<uchar>(j,i) = 0;
             }
             mapDataIterC++;
         }
@@ -309,9 +314,9 @@ void Planner::plan(void){
                 }
                 path=pastar.run(pi, g, LAMBDA, true, -3, true);
                 cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                target=cv::Point(g.i,g.j);
             }
-            cv::imshow("BFS",pastar.getExpansion());
-            cv::waitKey(3);
+            deb1=pastar.getExpansion();
             diff = ros::Time::now() - t01;
             //if(path.cost!=-2)
             //    myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
@@ -339,8 +344,7 @@ void Planner::plan(void){
                 path=pastar.run(pi, g, LAMBDA, true);
                 cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
             }
-            cv::imshow("PA",pastar.getExpansion());
-            cv::waitKey(3);
+            deb2=pastar.getExpansion();
             diff = ros::Time::now() - t01;
             //if(path.cost>=0)
             //    myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
@@ -361,10 +365,12 @@ void Planner::plan(void){
             pub1.publish(path_0);
 
             //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
+            bool run=false;
             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
                 t01=ros::Time::now();
                 //for(unsigned int i=ii; i<ii+1;i++){
                 for(unsigned int i=ii; i<goals.size();i++){
+                    run=false;
                     PointI g=convertW2I(goals[i], res);
                     if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                         //clearG();
@@ -383,18 +389,23 @@ void Planner::plan(void){
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    run=true;
                 }
-                cv::imshow("PA 1",pastar.getExpansion());
-                cv::waitKey(3);
+                deb3=pastar.getExpansion();
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1): %f; Cost: %f",diff.toSec(),path.cost);
             }
+            if(!run){
+                deb3=cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1);
+            }
 
             //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
+            run=false;
             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
                 t01=ros::Time::now();
                 //for(unsigned int i=ii; i<ii+1;i++){
                 for(unsigned int i=ii; i<goals.size();i++){
+                    run=false;
                     PointI g=convertW2I(goals[i], res);
                     if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                         //clearG();
@@ -413,18 +424,23 @@ void Planner::plan(void){
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, NULL, NULL, true);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    run=true;
                 }
-                cv::imshow("PA 1-OS",pastar.getExpansion());
-                cv::waitKey(3);
+                deb4=pastar.getExpansion();
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1-OS): %f; Cost: %f",diff.toSec(),path.cost);
             }
+            if(!run){
+                deb4=cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1);
+            }
 
             //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
-            if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
+             run=false;
+             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
                 t01=ros::Time::now();
                 //for(unsigned int i=ii; i<ii+1;i++){
                 for(unsigned int i=ii; i<goals.size();i++){
+                    run=false;
                     PointI g=convertW2I(goals[i], res);
                     if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                         //clearG();
@@ -443,18 +459,23 @@ void Planner::plan(void){
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    run=true;
                 }
-                cv::imshow("PA 1-OS 2",pastar.getExpansion());
-                cv::waitKey(3);
+                deb5=pastar.getExpansion();
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1-OS+2): %f; Cost: %f",diff.toSec(),path.cost);
             }
+            if(!run){
+                deb5=cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1);
+            }
 
             //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
+            run=false;
             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
                 t01=ros::Time::now();
                 //for(unsigned int i=ii; i<ii+1;i++){
                 for(unsigned int i=ii; i<goals.size();i++){
+                    run=false;
                     PointI g=convertW2I(goals[i], res);
                     if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                         //clearG();
@@ -472,19 +493,24 @@ void Planner::plan(void){
                         continue;
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true, true);
-                    cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    //cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    run=true;
                 }
-                cv::imshow("PA 1-OS 2-CS",pastar.getExpansion());
-                cv::waitKey(3);
+                deb6=pastar.getExpansion();
                 diff = ros::Time::now() - t01;
-                ROS_INFO("Time PA-RDVM (1-OS+2-CS): %f; Cost: %f",diff.toSec(),path.cost);
+                //ROS_INFO("Time PA-RDVM (1-OS+2-CS): %f; Cost: %f",diff.toSec(),path.cost);
+            }
+            if(!run){
+                deb6=cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1);
             }
 
             //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
+            run=false;
             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
                 t01=ros::Time::now();
                 //for(unsigned int i=ii; i<ii+1;i++){
                 for(unsigned int i=ii; i<goals.size();i++){
+                    run=false;
                     PointI g=convertW2I(goals[i], res);
                     if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
                         //clearG();
@@ -515,9 +541,9 @@ void Planner::plan(void){
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    run=true;
                 }
-                cv::imshow("PA 1-OS 2-CS-P",pastar.getExpansion());
-                cv::waitKey(3);
+                deb7=pastar.getExpansion();
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1-OS+2-CS-PCOD): %f; Cost: %f",diff.toSec(),path.cost);
                 //if(path.cost>=0)
@@ -535,7 +561,34 @@ void Planner::plan(void){
                 }
                 pub2.publish(path_1);
             }
+            if(!run){
+                deb7=cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1);
+            }
         }
+    }
+    if(deb7.rows!=0){
+        unsigned char c_b[3]={0,0,0};
+        unsigned char c_w[3]={255,255,255};
+        unsigned char c_n[3]={100,100,100};
+        unsigned char c_o[3]={100,0,250};
+        unsigned char c_c[3]={180,0,250};
+        unsigned char c_g[3]={255,90,80};
+        unsigned char c_p[3]={255,0,0};
+        unsigned char c_t[3]={0,255,0};
+        cv::imshow("BFS",color_print_expansion(or_map,nav_map,deb1,target,c_b,c_w,c_n,c_o,c_c,c_g,c_p,c_t));
+        cv::waitKey(3);
+        cv::imshow("PA",color_print_expansion(or_map,nav_map,deb2,target,c_b,c_w,c_n,c_o,c_c,c_g,c_p,c_t));
+        cv::waitKey(3);
+        cv::imshow("PA 1",color_print_expansion(or_map,nav_map,deb3,target,c_b,c_w,c_n,c_o,c_c,c_g,c_p,c_t));
+        cv::waitKey(3);
+        cv::imshow("PA 1-OS",color_print_expansion(or_map,nav_map,deb4,target,c_b,c_w,c_n,c_o,c_c,c_g,c_p,c_t));
+        cv::waitKey(3);
+        cv::imshow("PA 1-OS 2",color_print_expansion(or_map,nav_map,deb5,target,c_b,c_w,c_n,c_o,c_c,c_g,c_p,c_t));
+        cv::waitKey(3);
+        //cv::imshow("PA 1-OS 2-CS",color_print_expansion(or_map,nav_map,deb6,target,c_b,c_w,c_n,c_o,c_c,c_g,c_p,c_t));
+        //cv::waitKey(3);
+        cv::imshow("PA 1-OS 2-CS-P",color_print_expansion(or_map,nav_map,deb7,target,c_b,c_w,c_n,c_o,c_c,c_g,c_p,c_t));
+        cv::waitKey(3);
     }
 }
 

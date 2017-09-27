@@ -5,6 +5,7 @@
 
 #include "ray.hpp"
 #include "vector_utils.hpp"
+#include "color.hpp"
 
 using namespace std;
 
@@ -373,7 +374,7 @@ void PAstar::resetExpansion(void){
 }
 
 cv::Mat PAstar::getExpansion(void){
-    return expansion;
+    return expansion.clone();
 }
 
 PAstar::PAstar(int in, int de){
@@ -436,6 +437,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
     n0.updatePriority(p1.i, p1.j);
     n0.updateSensing(p1.i, p1.j);
     pq[pqi].push(n0);
+    expansion.at<uchar>(p0.i, p0.j)=OPEN_COLOR;
 
     //static long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
     long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
@@ -508,7 +510,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
         if(list2){
             exp_nodes_r++;           
             //cout<<"ER1!!"<<endl;
-            expansion.at<uchar>(x,y)=255;
+            expansion.at<uchar>(x,y)=GOALS_COLOR;
             //cout<<"ER2!!"<<endl;
         }
         else
@@ -520,7 +522,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
         open_nodes_map[x][y]=0;
         if(stop){
             //cout<<"STOP1!!"<<endl;
-            expansion.at<uchar>(x,y)=255;
+            expansion.at<uchar>(x,y)=PERC_COLOR;
             //cout<<"STOP2!!"<<endl;
             while(!(x==p0.i && y==p0.j)){
                 j=dir_map[x][y];
@@ -576,7 +578,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
                         pq[pqi].push(m0);
                     }
                     //cout<<"OPEN1!!"<<endl;
-                    expansion.at<uchar>(xdx,ydy)=100;
+                    expansion.at<uchar>(xdx,ydy)=OPEN_COLOR;
                     //cout<<"OPEN2!!"<<endl;
                 }
             }
@@ -585,12 +587,12 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             n0.S2P();
             pq[2].push(n0);
             //cout<<"CLOSE1!!"<<endl;
-            expansion.at<uchar>(x,y)=200;
+            expansion.at<uchar>(x,y)=CLOSED_COLOR;
             //cout<<"CLOSE2!!"<<endl;
         }
         else if(n0.getSensing()>=0){
             //cout<<"SER1!!"<<endl;
-            expansion.at<uchar>(x,y)=255;
+            expansion.at<uchar>(x,y)=GOALS_COLOR;
             //cout<<"SER2!!"<<endl;
         }
     }

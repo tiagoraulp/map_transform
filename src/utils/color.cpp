@@ -79,3 +79,66 @@ cv::Mat color_print3(cv::Mat img1, cv::Mat img2, cv::Mat img3, unsigned char* c_
 
     return result;
 }
+
+cv::Mat color_print_expansion(cv::Mat img0, cv::Mat img1, cv::Mat img2, cv::Point target, unsigned char* c_b, unsigned char* c_w, unsigned char* c_n, unsigned char* c_o, unsigned char* c_c, unsigned char* c_g, unsigned char* c_p, unsigned char* c_t)
+{
+    cv::Mat result;
+
+    vector<cv::Mat> channels(3);
+    channels[0]=cv::Mat::zeros(img1.rows, img1.cols, CV_8UC1);
+    channels[1]=cv::Mat::zeros(img1.rows, img1.cols, CV_8UC1);
+    channels[2]=cv::Mat::zeros(img1.rows, img1.cols, CV_8UC1);
+
+    cv::Point perc(-1,-1);
+
+    for(unsigned int r=0; r<img1.rows; r++){
+        for(unsigned int c=0; c<img1.cols; c++){
+            if(img0.at<uchar>(r,c)!=0){
+                if(img1.at<uchar>(r,c)==0){
+                    channels[0].at<uchar>(r,c)=c_n[2];
+                    channels[1].at<uchar>(r,c)=c_n[1];
+                    channels[2].at<uchar>(r,c)=c_n[0];
+                }
+                else{
+                    if(img2.at<uchar>(r,c)==0){
+                        channels[0].at<uchar>(r,c)=c_w[2];
+                        channels[1].at<uchar>(r,c)=c_w[1];
+                        channels[2].at<uchar>(r,c)=c_w[0];
+                    }
+                    else if(img2.at<uchar>(r,c)==OPEN_COLOR){
+                        channels[0].at<uchar>(r,c)=c_o[2];
+                        channels[1].at<uchar>(r,c)=c_o[1];
+                        channels[2].at<uchar>(r,c)=c_o[0];
+                    }
+                    else if(img2.at<uchar>(r,c)==CLOSED_COLOR){
+                        channels[0].at<uchar>(r,c)=c_c[2];
+                        channels[1].at<uchar>(r,c)=c_c[1];
+                        channels[2].at<uchar>(r,c)=c_c[0];
+                    }
+                    else if(img2.at<uchar>(r,c)==GOALS_COLOR){
+                        channels[0].at<uchar>(r,c)=c_g[2];
+                        channels[1].at<uchar>(r,c)=c_g[1];
+                        channels[2].at<uchar>(r,c)=c_g[0];
+                    }
+                    else if(img2.at<uchar>(r,c)==PERC_COLOR){
+                        perc.x=r;
+                        perc.y=c;
+                    }
+                }
+            }
+            else{
+                channels[0].at<uchar>(r,c)=c_b[2];
+                channels[1].at<uchar>(r,c)=c_b[1];
+                channels[2].at<uchar>(r,c)=c_b[0];
+            }
+        }
+    }
+
+    cv::merge(channels, result);
+
+    result=printPoint(result,target,c_t);
+    if(perc.x>=0 && perc.y>=0)
+        result=printPoint(result,perc,c_p);
+
+    return result;
+}
