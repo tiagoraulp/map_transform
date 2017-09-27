@@ -80,7 +80,7 @@ cv::Mat color_print3(cv::Mat img1, cv::Mat img2, cv::Mat img3, unsigned char* c_
     return result;
 }
 
-cv::Mat color_print_expansion(cv::Mat img0, cv::Mat img1, cv::Mat img2, cv::Point target, unsigned char* c_b, unsigned char* c_w, unsigned char* c_n, unsigned char* c_o, unsigned char* c_c, unsigned char* c_g, unsigned char* c_p, unsigned char* c_t)
+cv::Mat color_print_expansion(cv::Mat img0, cv::Mat img1, cv::Mat img2, cv::Point target, unsigned char* c_b, unsigned char* c_w, unsigned char* c_n, unsigned char* c_o, unsigned char* c_c, unsigned char* c_cf, unsigned char* c_g, unsigned char* c_p, unsigned char* c_t)
 {
     cv::Mat result;
 
@@ -114,6 +114,11 @@ cv::Mat color_print_expansion(cv::Mat img0, cv::Mat img1, cv::Mat img2, cv::Poin
                         channels[0].at<uchar>(r,c)=c_c[2];
                         channels[1].at<uchar>(r,c)=c_c[1];
                         channels[2].at<uchar>(r,c)=c_c[0];
+                    }
+                    else if(img2.at<uchar>(r,c)==CLOSED_FEAS_COLOR){
+                        channels[0].at<uchar>(r,c)=c_cf[2];
+                        channels[1].at<uchar>(r,c)=c_cf[1];
+                        channels[2].at<uchar>(r,c)=c_cf[0];
                     }
                     else if(img2.at<uchar>(r,c)==GOALS_COLOR){
                         channels[0].at<uchar>(r,c)=c_g[2];
