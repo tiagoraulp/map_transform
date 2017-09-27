@@ -26,6 +26,7 @@
       <param name="infl" value="13" />
       <remap from="~v_map" to="/robot_0/visibility/v_map"/>
       <remap from="~e_map" to="/robot_0/visibility/e_map"/>
+      <remap from="~r_map" to="/robot_0/visibility/r_map"/>
       <remap from="~map" to="/map"/>
     </node>
   </group>
@@ -48,6 +49,7 @@
       <param name="infl" value="13" />
       <remap from="~v_map" to="/robot_1/visibility/v_map"/>
       <remap from="~e_map" to="/robot_1/visibility/e_map"/>
+      <remap from="~r_map" to="/robot_1/visibility/r_map"/>
       <remap from="~map" to="/map"/>
     </node>
   </group>
