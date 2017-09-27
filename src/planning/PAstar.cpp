@@ -371,10 +371,15 @@ void PAstar::updateOrMap(cv::Mat map){
 
 void PAstar::resetExpansion(void){
     expansion=cv::Mat::zeros(or_map.rows,or_map.cols, CV_8UC1);
+    expansions.clear();
 }
 
 cv::Mat PAstar::getExpansion(void){
     return expansion.clone();
+}
+
+vector<cv::Mat> PAstar::getExpansions(void){
+    return expansions;
 }
 
 PAstar::PAstar(int in, int de){
@@ -438,6 +443,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
     n0.updateSensing(p1.i, p1.j);
     pq[pqi].push(n0);
     expansion.at<uchar>(p0.i, p0.j)=OPEN_COLOR;
+    expansions.push_back(expansion.clone());
 
     //static long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
     long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
@@ -452,13 +458,13 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             pq[pqi].pop();
             if(closed_nodes_map[x][y]==1)
                 continue;
-            if(n0.getSensing()>=0)
-                if(n0.getPriority()>=n0.getSensing()){
-                    tested_goal++;
-                    tested=true;
-                    if(isGoal(PointI(x,y),p1))
-                        stop=true;
-                }
+//            if(n0.getSensing()>=0)
+//                if(n0.getPriority()>=n0.getSensing()){
+//                    tested_goal++;
+//                    tested=true;
+//                    if(isGoal(PointI(x,y),p1))
+//                        stop=true;
+//                }
         }
         else{
             if(pq[pqi].size()==0){
@@ -485,14 +491,14 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
                     pq[pqi].pop();
                     if(closed_nodes_map[x][y]==1)
                         continue;
-                    if(n0.getSensing()>=0)
-                        if(n0.getPriority()>=n0.getSensing())
-                        {
-                            tested_goal++;
-                            tested=true;
-                            if(isGoal(PointI(x,y),p1))
-                                stop=true;
-                        }
+//                    if(n0.getSensing()>=0)
+//                        if(n0.getPriority()>=n0.getSensing())
+//                        {
+//                            tested_goal++;
+//                            tested=true;
+//                            if(isGoal(PointI(x,y),p1))
+//                                stop=true;
+//                        }
                 }
                 else{
                     n0=pq[2].top();
@@ -511,6 +517,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             exp_nodes_r++;           
             //cout<<"ER1!!"<<endl;
             expansion.at<uchar>(x,y)=GOALS_COLOR;
+            expansions.push_back(expansion.clone());
             //cout<<"ER2!!"<<endl;
         }
         else
@@ -523,6 +530,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
         if(stop){
             //cout<<"STOP1!!"<<endl;
             expansion.at<uchar>(x,y)=PERC_COLOR;
+            expansions.push_back(expansion.clone());
             //cout<<"STOP2!!"<<endl;
             while(!(x==p0.i && y==p0.j)){
                 j=dir_map[x][y];
@@ -579,6 +587,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
                     }
                     //cout<<"OPEN1!!"<<endl;
                     expansion.at<uchar>(xdx,ydy)=OPEN_COLOR;
+                    expansions.push_back(expansion.clone());
                     //cout<<"OPEN2!!"<<endl;
                 }
             }
@@ -587,13 +596,19 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             n0.S2P();
             pq[2].push(n0);
             //cout<<"CLOSE1!!"<<endl;
-            expansion.at<uchar>(x,y)=CLOSED_COLOR;
+            expansion.at<uchar>(x,y)=CLOSED_FEAS_COLOR;
+            expansions.push_back(expansion.clone());
             //cout<<"CLOSE2!!"<<endl;
         }
         else if(n0.getSensing()>=0){
             //cout<<"SER1!!"<<endl;
             expansion.at<uchar>(x,y)=GOALS_COLOR;
+            expansions.push_back(expansion.clone());
             //cout<<"SER2!!"<<endl;
+        }
+        else{
+            expansion.at<uchar>(x,y)=CLOSED_COLOR;
+            expansions.push_back(expansion.clone());
         }
     }
     path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
