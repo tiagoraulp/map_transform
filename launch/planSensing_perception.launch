@@ -24,6 +24,7 @@
       <param name="infl" value="13" />
       <remap from="/robot_0/planner/v_map" to="/robot_0/visibility/v_map"/>
       <remap from="/robot_0/planner/e_map" to="/robot_0/visibility/e_map"/>
+      <remap from="/robot_0/planner/r_map" to="/robot_0/visibility/r_map"/>
       <remap from="/robot_0/planner/map" to="/map"/>
       <remap from="/robot_0/planner/graph" to="/robot_0/visibility/graph"/>
     </node>

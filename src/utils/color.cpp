@@ -80,7 +80,7 @@ cv::Mat color_print3(cv::Mat img1, cv::Mat img2, cv::Mat img3, unsigned char* c_
     return result;
 }
 
-cv::Mat color_print_expansion(cv::Mat img0, cv::Mat img1, cv::Mat img2, cv::Point target, unsigned char* c_b, unsigned char* c_w, unsigned char* c_n, unsigned char* c_o, unsigned char* c_c, unsigned char* c_cf, unsigned char* c_g, unsigned char* c_p, unsigned char* c_t)
+cv::Mat color_print_expansion(cv::Mat img0, cv::Mat img1, cv::Mat img3, cv::Mat img2, cv::Point target, unsigned char* c_b, unsigned char* c_w, unsigned char* c_n, unsigned char* c_v, unsigned char* c_o, unsigned char* c_c, unsigned char* c_cf, unsigned char* c_g, unsigned char* c_p, unsigned char* c_t)
 {
     cv::Mat result;
 
@@ -95,9 +95,16 @@ cv::Mat color_print_expansion(cv::Mat img0, cv::Mat img1, cv::Mat img2, cv::Poin
         for(unsigned int c=0; c<img1.cols; c++){
             if(img0.at<uchar>(r,c)!=0){
                 if(img1.at<uchar>(r,c)==0){
-                    channels[0].at<uchar>(r,c)=c_n[2];
-                    channels[1].at<uchar>(r,c)=c_n[1];
-                    channels[2].at<uchar>(r,c)=c_n[0];
+                    if(img3.at<uchar>(r,c)==0){
+                        channels[0].at<uchar>(r,c)=c_n[2];
+                        channels[1].at<uchar>(r,c)=c_n[1];
+                        channels[2].at<uchar>(r,c)=c_n[0];
+                    }
+                    else{
+                        channels[0].at<uchar>(r,c)=c_v[2];
+                        channels[1].at<uchar>(r,c)=c_v[1];
+                        channels[2].at<uchar>(r,c)=c_v[0];
+                    }
                 }
                 else{
                     if(img2.at<uchar>(r,c)==0){

@@ -30,7 +30,7 @@ private:
     int vvv;
     unsigned int clock;
     nav_msgs::Path path_0, path_1;
-    cv::Mat or_map, nav_map;
+    cv::Mat or_map, nav_map, vis_map, r_map;
     vector<cv::Mat> deb1, deb2, deb3, deb4, deb5, deb6, deb7;
     cv::Point target;
     ros::NodeHandle nh_;
@@ -38,7 +38,7 @@ private:
     ros::Publisher pub_markers;
     ros::Subscriber sub1;
     ros::Subscriber sub2;
-    ros::Subscriber sub3;
+    ros::Subscriber sub3, sub4;
     ros::Subscriber graph_subscriber;
     ros::Subscriber sub_goals;
     ros::ServiceServer service, service3;
@@ -59,6 +59,7 @@ private:
     void rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map4(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg);
     bool getMapValue(int n, int i, int j);
     float convertCostI2W(float cost);
@@ -76,6 +77,7 @@ public:
         sub1 = nh_.subscribe("v_map", 1, &Planner::rcv_map1, this);
         sub2 = nh_.subscribe("e_map", 1, &Planner::rcv_map2, this);
         sub3 = nh_.subscribe("map", 1, &Planner::rcv_map3, this);
+        sub4 = nh_.subscribe("r_map", 1, &Planner::rcv_map4, this);
         service3 = nh_.advertiseService("plan_point", &Planner::request_single_plan, this);
         service2 = nh_.advertiseService("clear", &Planner::clear, this);
         if(!server_mode){
@@ -87,9 +89,9 @@ public:
         nh_.param("tf_prefix", tf_pref, std::string("/robot_0"));
         nh_.param("infl", infl, 5);
         nh_.param("defl", defl, infl);
-        count.assign(3,0);
-        map_rcv.assign(3,false);
-        msg_rcv.resize(3);
+        count.assign(4,0);
+        map_rcv.assign(4,false);
+        msg_rcv.resize(4);
         graph_rcv=false;
         pl=false;
         goals.clear();
@@ -112,14 +114,17 @@ void Planner::graphCallback(const map_transform::VisCom::ConstPtr& graph){
 
 void Planner::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg){
     msg_rcv[0].assign(msg->info.width, vector<bool>(msg->info.height,false));
+    vis_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
     for(unsigned int i=0;i<msg->info.height;i++){
         for(unsigned int j=0;j<msg->info.width;j++){
             if(*mapDataIterC == 0){
                 msg_rcv[0][j][i]=true;
+                vis_map.at<uchar>(j,i) = 255;
             }
             else{
                 msg_rcv[0][j][i]=false;
+                vis_map.at<uchar>(j,i) = 0;
             }
             mapDataIterC++;
         }
@@ -177,6 +182,29 @@ void Planner::rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg){
     pastar.updateOrMap(or_map);
 }
 
+void Planner::rcv_map4(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    msg_rcv[3].assign(msg->info.width, vector<bool>(msg->info.height,false));
+    r_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
+    std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
+    for(unsigned int i=0;i<msg->info.height;i++){
+        for(unsigned int j=0;j<msg->info.width;j++){
+            if(*mapDataIterC == 0){
+                msg_rcv[3][j][i]=true;
+                r_map.at<uchar>(j,i) = 255;
+            }
+            else{
+                msg_rcv[3][j][i]=false;
+                r_map.at<uchar>(j,i) = 0;
+            }
+            mapDataIterC++;
+        }
+    }
+    map_rcv[3]=true;
+    count[3]=count[3]+1;
+
+    pastar.updateOrMap(or_map);
+}
+
 bool Planner::getMapValue(int n, int i, int j){
     return msg_rcv[n][i][j];
 }
@@ -228,7 +256,7 @@ float Planner::convertCostI2W(float cost){
 //ofstream myfile[14];
 
 void Planner::plan(void){
-    if(map_rcv[0] && map_rcv[1] && map_rcv[2] && graph_rcv && pl && (goals.size()>0) ){
+    if(map_rcv[0] && map_rcv[1] && map_rcv[2] && map_rcv[3] && graph_rcv && pl && (goals.size()>0) ){
         path_0.poses.clear();
         path_0.header.frame_id = "/map";
         path_0.header.stamp =  ros::Time::now();
@@ -588,6 +616,7 @@ void Planner::plan(void){
     unsigned char c_b[3]={0,0,0};
     unsigned char c_w[3]={255,255,255};
     unsigned char c_n[3]={100,100,100};
+    unsigned char c_v[3]={150,150,150};
     unsigned char c_o[3]={0,100,250};
     unsigned char c_c[3]={100,0,250};
     unsigned char c_cf[3]={180,0,250};
@@ -595,19 +624,19 @@ void Planner::plan(void){
     unsigned char c_p[3]={255,0,0};
     unsigned char c_t[3]={0,255,0};
     if(vvv>=0 && deb7.size()>0 && deb7[0].rows>0){
-        cv::imshow("BFS",color_print_expansion(or_map,nav_map,deb1[min(vvv*100,(int)deb1.size()-1)],target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
-        cv::waitKey(3);
-        cv::imshow("PA",color_print_expansion(or_map,nav_map,deb2[min(vvv*100,(int)deb2.size()-1)],target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
-        cv::waitKey(3);
-        cv::imshow("PA 1",color_print_expansion(or_map,nav_map,deb3[min(vvv*100,(int)deb3.size()-1)],target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
-        cv::waitKey(3);
-        cv::imshow("PA 1-OS",color_print_expansion(or_map,nav_map,deb4[min(vvv*100,(int)deb4.size()-1)],target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
-        cv::waitKey(3);
-        cv::imshow("PA 1-OS 2",color_print_expansion(or_map,nav_map,deb5[min(vvv*100,(int)deb5.size()-1)],target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
-        cv::waitKey(3);
-        //cv::imshow("PA 1-OS 2-CS",color_print_expansion(or_map,nav_map,deb6[min(vvv*100,(int)deb6.size()-1)],target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
+        //cv::imshow("BFS",color_print_expansion(or_map,nav_map,nav_map,deb1[min(vvv*100,(int)deb1.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         //cv::waitKey(3);
-        cv::imshow("PA 1-OS 2-CS-P",color_print_expansion(or_map,nav_map,deb7[min(vvv*100,(int)deb7.size()-1)],target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::imshow("PA",color_print_expansion(or_map,nav_map,nav_map,deb2[min(vvv*100,(int)deb2.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::waitKey(3);
+        cv::imshow("PA 1",color_print_expansion(or_map,r_map,vis_map,deb3[min(vvv*100,(int)deb3.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::waitKey(3);
+        cv::imshow("PA 1-OS",color_print_expansion(or_map,r_map,vis_map,deb4[min(vvv*100,(int)deb4.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::waitKey(3);
+        //cv::imshow("PA 1-OS 2",color_print_expansion(or_map,r_map,vis_map,deb5[min(vvv*100,(int)deb5.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        //cv::waitKey(3);
+        //cv::imshow("PA 1-OS 2-CS",color_print_expansion(or_map,r_map,vis_map,deb6[min(vvv*100,(int)deb6.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        //cv::waitKey(3);
+        cv::imshow("PA 1-OS 2-CS-P",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv*100,(int)deb7.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         cv::waitKey(3);
         clock++;
         if(clock==1){
@@ -619,17 +648,17 @@ void Planner::plan(void){
         //cout<<"Test "<<clock<<endl;
     }
 //    if(deb7.size()>0 && deb7[0].rows>0){
-//        cv::imshow("BFS",color_print_expansion(or_map,nav_map,deb1.back(),target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
+//        cv::imshow("BFS",color_print_expansion(or_map,nav_map,nav_map,deb1.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
 //        cv::waitKey(3);
-//        cv::imshow("PA",color_print_expansion(or_map,nav_map,deb2.back(),target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
+//        cv::imshow("PA",color_print_expansion(or_map,nav_map,nav_map,deb2.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
 //        cv::waitKey(3);
-//        cv::imshow("PA 1",color_print_expansion(or_map,nav_map,deb3.back(),target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
+//        cv::imshow("PA 1",color_print_expansion(or_map,r_map,vis_map,deb3.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
 //        cv::waitKey(3);
-//        cv::imshow("PA 1-OS",color_print_expansion(or_map,nav_map,deb4.back(),target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
+//        cv::imshow("PA 1-OS",color_print_expansion(or_map,r_map,vis_map,deb4.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
 //        cv::waitKey(3);
-//        cv::imshow("PA 1-OS 2",color_print_expansion(or_map,nav_map,deb5.back(),target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
+//        cv::imshow("PA 1-OS 2",color_print_expansion(or_map,r_map,vis_map,deb5.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
 //        cv::waitKey(3);
-//        cv::imshow("PA 1-OS 2-CS-P",color_print_expansion(or_map,nav_map,deb7.back(),target,c_b,c_w,c_n,c_o,c_c,c_cf,c_g,c_p,c_t));
+//        cv::imshow("PA 1-OS 2-CS-P",color_print_expansion(or_map,r_map,vis_map,deb7.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
 //        cv::waitKey(3);
 //    }
 }
