@@ -54,6 +54,7 @@ private:
     int infl;
     int defl;
     bool isGoal(PointI p0, PointI p1);
+    int save_rate;
 public:
     PAstar(int in, int de);
     PAstar();
@@ -63,7 +64,7 @@ public:
     cv::Mat getExpansion(void);
     std::vector<cv::Mat> getExpansions(void);
     template <typename T=float>
-    PApath run(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false, std::vector<float> * angle_crit_goal=NULL, std::vector<float> * angleD_crit_goal=NULL);
+    PApath run(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false, std::vector<float> * angle_crit_goal=NULL, std::vector<float> * angleD_crit_goal=NULL, int rate_save=-1);
 };
 
 #endif // PASTAR_HPP

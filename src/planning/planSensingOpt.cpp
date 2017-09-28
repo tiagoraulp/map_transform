@@ -350,8 +350,8 @@ void Planner::plan(void){
                 cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 target=cv::Point(g.i,g.j);
             }
-            //deb1=pastar.getExpansions();
-            deb1.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
+            deb1=pastar.getExpansions();
+            //deb1.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
             diff = ros::Time::now() - t01;
             //if(path.cost!=-2)
             //    myfile[index_file]<<diff<<"; "<<path.cost<<"; ";
@@ -377,7 +377,7 @@ void Planner::plan(void){
                     path.cost=-3;
                     continue;
                 }
-                path=pastar.run(pi, g, LAMBDA, true);
+                path=pastar.run(pi, g, LAMBDA, true,-3, false,NULL,NULL,false,false, NULL, NULL, 100);
                 cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
             }
             deb2=pastar.getExpansions();
@@ -424,7 +424,7 @@ void Planner::plan(void){
                         path.cost=-3;
                         continue;
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false,NULL,NULL,false,false, NULL, NULL, 100);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
@@ -461,7 +461,7 @@ void Planner::plan(void){
                         path.cost=-3;
                         continue;
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, NULL, NULL, true);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, NULL, NULL, true,false, NULL, NULL, 100);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
@@ -502,8 +502,8 @@ void Planner::plan(void){
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
-                //deb5=pastar.getExpansions();
-                deb5.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
+                deb5=pastar.getExpansions();
+                //deb5.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
                 diff = ros::Time::now() - t01;
                 ROS_INFO("Time PA-RDVM (1-OS+2): %f; Cost: %f",diff.toSec(),path.cost);
             }
@@ -539,8 +539,8 @@ void Planner::plan(void){
                     //cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
-                //deb6=pastar.getExpansions();
-                deb6.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
+                deb6=pastar.getExpansions();
+                //deb6.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
                 diff = ros::Time::now() - t01;
                 //ROS_INFO("Time PA-RDVM (1-OS+2-CS): %f; Cost: %f",diff.toSec(),path.cost);
             }
@@ -584,7 +584,7 @@ void Planner::plan(void){
                             crits_anglesDelta.push_back(atan2(infl,crits_dists.back()));
                         }
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta, 100);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
@@ -624,19 +624,19 @@ void Planner::plan(void){
     unsigned char c_p[3]={255,0,0};
     unsigned char c_t[3]={0,255,0};
     if(vvv>=0 && deb7.size()>0 && deb7[0].rows>0){
-        //cv::imshow("BFS",color_print_expansion(or_map,nav_map,nav_map,deb1[min(vvv*100,(int)deb1.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        //cv::imshow("BFS",color_print_expansion(or_map,nav_map,nav_map,deb1[min(vvv,(int)deb1.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         //cv::waitKey(3);
-        cv::imshow("PA",color_print_expansion(or_map,nav_map,nav_map,deb2[min(vvv*100,(int)deb2.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::imshow("PA",color_print_expansion(or_map,nav_map,nav_map,deb2[min(vvv,(int)deb2.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         cv::waitKey(3);
-        cv::imshow("PA 1",color_print_expansion(or_map,r_map,vis_map,deb3[min(vvv*100,(int)deb3.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::imshow("PA 1",color_print_expansion(or_map,r_map,vis_map,deb3[min(vvv,(int)deb3.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         cv::waitKey(3);
-        cv::imshow("PA 1-OS",color_print_expansion(or_map,r_map,vis_map,deb4[min(vvv*100,(int)deb4.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::imshow("PA 1-OS",color_print_expansion(or_map,r_map,vis_map,deb4[min(vvv,(int)deb4.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         cv::waitKey(3);
-        //cv::imshow("PA 1-OS 2",color_print_expansion(or_map,r_map,vis_map,deb5[min(vvv*100,(int)deb5.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        //cv::imshow("PA 1-OS 2",color_print_expansion(or_map,r_map,vis_map,deb5[min(vvv,(int)deb5.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         //cv::waitKey(3);
-        //cv::imshow("PA 1-OS 2-CS",color_print_expansion(or_map,r_map,vis_map,deb6[min(vvv*100,(int)deb6.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        //cv::imshow("PA 1-OS 2-CS",color_print_expansion(or_map,r_map,vis_map,deb6[min(vvv,(int)deb6.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         //cv::waitKey(3);
-        cv::imshow("PA 1-OS 2-CS-P",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv*100,(int)deb7.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::imshow("PA 1-OS 2-CS-P",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv,(int)deb7.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         cv::waitKey(3);
         clock++;
         if(clock==1){
