@@ -22,6 +22,7 @@ PApath::PApath(): Apath(){
     costP=-1;
     exp_nodes_r=0;
     tested_goal=0;
+    exp_unfiltered=0;
 }
 
 template<typename T>
@@ -451,16 +452,10 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
     //expansions.push_back(expansion.clone());
 
     //static long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
-    long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
+    long int exp_nodes=0, exp_nodes_r=0, tested_goal=0, exp_unfiltered=0;
 
     while(!pq[pqi].empty() || !pq[2].empty()){
-        if(save_rate>0){
-            count_save_rate++;
-            if(count_save_rate==save_rate){
-                count_save_rate=0;
-                expansions.push_back(expansion.clone());
-            }
-        }
+        exp_unfiltered++;
         bool stop=false;
         bool list2=false;
         bool tested=false;
@@ -535,6 +530,14 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
         else
             exp_nodes++;
 
+        if(save_rate>0){
+            count_save_rate++;
+            if(count_save_rate==save_rate){
+                count_save_rate=0;
+                expansions.push_back(expansion.clone());
+            }
+        }
+
         //if(!crit.points.empty())
         //    cout<<"Hmmm: "<<x<<"; "<<y<<endl;
 
@@ -557,11 +560,12 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             //cout<<"Solution M: "<<path.costM<<"; P: "<<path.costP<<endl;
             if(opt==-5)
             {
-                exp_nodes=0; exp_nodes_r=0, tested_goal=0;
+                exp_nodes=0; exp_nodes_r=0, tested_goal=0, exp_unfiltered=0;
             }
             path.exp_nodes=exp_nodes;
             path.exp_nodes_r=exp_nodes_r;
             path.tested_goal=tested_goal;
+            path.exp_unfiltered=exp_unfiltered;
             //myfile[index_file]<<exp_nodes<<"; "<<exp_nodes_r<<"; "<<tested_goal<<"; ";
             //cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
             //cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
@@ -629,11 +633,12 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
     path.costP=-2;
     if(opt==-5)
     {
-        exp_nodes=0; exp_nodes_r=0, tested_goal=0;
+        exp_nodes=0; exp_nodes_r=0; tested_goal=0; exp_unfiltered=0;
     }
     path.exp_nodes=exp_nodes;
     path.exp_nodes_r=exp_nodes_r;
     path.tested_goal=tested_goal;
+    path.exp_unfiltered=exp_unfiltered;
     //cout<<"Expanded normal nodes: "<<exp_nodes<<endl;
     //cout<<"Expanded backtrack nodes: "<<exp_nodes_r<<endl;
     //cout<<"Goal Tested nodes: "<<tested_goal<<endl;
