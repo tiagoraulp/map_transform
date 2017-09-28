@@ -385,14 +385,19 @@ vector<cv::Mat> PAstar::getExpansions(void){
 PAstar::PAstar(int in, int de){
     infl=in;
     defl=de;
+    save_rate=-1;
 }
 
 PAstar::PAstar(){
+    save_rate=-1;
 }
 
 template <typename T>
-PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode * crit, std::vector<float> * dist_crit_goal, bool use_opt_sens, bool use_crit_sens, std::vector<float> * angle_crit_goal, std::vector<float> * angleD_crit_goal){
+PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bfs, map_transform::VisNode * crit, std::vector<float> * dist_crit_goal, bool use_opt_sens, bool use_crit_sens, std::vector<float> * angle_crit_goal, std::vector<float> * angleD_crit_goal, int rate_save){
+    save_rate=rate_save;
     PApath path; path.points.clear();path.cost=-1;
+    int count_save_rate=0;
+    bool save=false;
     const int n=map_.size();
     resetExpansion();
     //cout<<"TEST!!!!!!!!!!!!!"<<endl;
@@ -443,12 +448,19 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
     n0.updateSensing(p1.i, p1.j);
     pq[pqi].push(n0);
     expansion.at<uchar>(p0.i, p0.j)=OPEN_COLOR;
-    expansions.push_back(expansion.clone());
+    //expansions.push_back(expansion.clone());
 
     //static long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
     long int exp_nodes=0, exp_nodes_r=0, tested_goal=0;
 
     while(!pq[pqi].empty() || !pq[2].empty()){
+        if(save_rate>0){
+            count_save_rate++;
+            if(count_save_rate==save_rate){
+                count_save_rate=0;
+                expansions.push_back(expansion.clone());
+            }
+        }
         bool stop=false;
         bool list2=false;
         bool tested=false;
@@ -517,7 +529,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             exp_nodes_r++;           
             //cout<<"ER1!!"<<endl;
             expansion.at<uchar>(x,y)=GOALS_COLOR;
-            expansions.push_back(expansion.clone());
+            //expansions.push_back(expansion.clone());
             //cout<<"ER2!!"<<endl;
         }
         else
@@ -587,7 +599,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
                     }
                     //cout<<"OPEN1!!"<<endl;
                     expansion.at<uchar>(xdx,ydy)=OPEN_COLOR;
-                    expansions.push_back(expansion.clone());
+                    //expansions.push_back(expansion.clone());
                     //cout<<"OPEN2!!"<<endl;
                 }
             }
@@ -640,5 +652,5 @@ bool PAstar::isGoal(PointI p0, PointI p1){
     }
 }
 
-template PApath PAstar::run<float>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false, std::vector<float> * angle_crit_goal=NULL, std::vector<float> * angleD_crit_goal=NULL);
-template PApath PAstar::run<int>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false, std::vector<float> * angle_crit_goal=NULL, std::vector<float> * angleD_crit_goal=NULL);
+template PApath PAstar::run<float>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false, std::vector<float> * angle_crit_goal=NULL, std::vector<float> * angleD_crit_goal=NULL, int rate_save=-1);
+template PApath PAstar::run<int>(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false, std::vector<float> * angle_crit_goal=NULL, std::vector<float> * angleD_crit_goal=NULL, int rate_save=-1);
