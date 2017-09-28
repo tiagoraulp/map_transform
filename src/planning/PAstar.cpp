@@ -609,18 +609,18 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
             pq[2].push(n0);
             //cout<<"CLOSE1!!"<<endl;
             expansion.at<uchar>(x,y)=CLOSED_FEAS_COLOR;
-            expansions.push_back(expansion.clone());
+            //expansions.push_back(expansion.clone());
             //cout<<"CLOSE2!!"<<endl;
         }
         else if(n0.getSensing()>=0){
             //cout<<"SER1!!"<<endl;
             expansion.at<uchar>(x,y)=GOALS_COLOR;
-            expansions.push_back(expansion.clone());
+            //expansions.push_back(expansion.clone());
             //cout<<"SER2!!"<<endl;
         }
         else{
             expansion.at<uchar>(x,y)=CLOSED_COLOR;
-            expansions.push_back(expansion.clone());
+            //expansions.push_back(expansion.clone());
         }
     }
     path.points.insert(path.points.begin(),PointI(p0.i,p0.j));
