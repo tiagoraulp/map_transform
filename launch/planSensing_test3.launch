@@ -1,6 +1,6 @@
 <launch>
-  <arg name="x_0" default="2"/>
-  <arg name="y_0" default="9.5"/>
+  <arg name="x_0" default="17"/>
+  <arg name="y_0" default="17"/>
 
   <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/empty.png 0.1" respawn="false" > 
     <param name="frame_id" value="/map" />

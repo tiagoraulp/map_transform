@@ -348,7 +348,7 @@ void Planner::plan(void){
                     continue;
                 }
                 path=pastar.run(pi, g, LAMBDA, true, -3, true);
-                cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 target=cv::Point(g.i,g.j);
             }
             deb1=pastar.getExpansions();
@@ -379,7 +379,7 @@ void Planner::plan(void){
                     continue;
                 }
                 path=pastar.run(pi, g, LAMBDA, true,-3, false,NULL,NULL,false,false, NULL, NULL, save_rate);
-                cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
             }
             deb2=pastar.getExpansions();
             diff = ros::Time::now() - t01;
@@ -426,7 +426,7 @@ void Planner::plan(void){
                         continue;
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false,NULL,NULL,false,false, NULL, NULL, save_rate);
-                    cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
                 deb3=pastar.getExpansions();
@@ -463,7 +463,7 @@ void Planner::plan(void){
                         continue;
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, NULL, NULL, true,false, NULL, NULL, save_rate);
-                    cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
                 deb4=pastar.getExpansions();
@@ -500,7 +500,7 @@ void Planner::plan(void){
                         continue;
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true);
-                    cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
                 deb5=pastar.getExpansions();
@@ -537,7 +537,7 @@ void Planner::plan(void){
                         continue;
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true, true);
-                    //cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    //cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
                 deb6=pastar.getExpansions();
@@ -586,7 +586,7 @@ void Planner::plan(void){
                         }
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta, save_rate);
-                    cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
                 deb7=pastar.getExpansions();
