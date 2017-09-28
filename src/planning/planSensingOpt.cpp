@@ -321,6 +321,7 @@ void Planner::plan(void){
 
         pi=convertWtf2I(p, res);
 
+        int save_rate=50;
         //for(unsigned int ii=max((int)(goals.size()-1), 0); ii<goals.size();ii++){
         //for(unsigned int ii=0; ii<goals.size();ii++){
         for(unsigned int ii=0; ii<1;ii++){
@@ -377,7 +378,7 @@ void Planner::plan(void){
                     path.cost=-3;
                     continue;
                 }
-                path=pastar.run(pi, g, LAMBDA, true,-3, false,NULL,NULL,false,false, NULL, NULL, 100);
+                path=pastar.run(pi, g, LAMBDA, true,-3, false,NULL,NULL,false,false, NULL, NULL, save_rate);
                 cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
             }
             deb2=pastar.getExpansions();
@@ -424,7 +425,7 @@ void Planner::plan(void){
                         path.cost=-3;
                         continue;
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false,NULL,NULL,false,false, NULL, NULL, 100);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false,NULL,NULL,false,false, NULL, NULL, save_rate);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
@@ -461,7 +462,7 @@ void Planner::plan(void){
                         path.cost=-3;
                         continue;
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, NULL, NULL, true,false, NULL, NULL, 100);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, NULL, NULL, true,false, NULL, NULL, save_rate);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
@@ -584,7 +585,7 @@ void Planner::plan(void){
                             crits_anglesDelta.push_back(atan2(infl,crits_dists.back()));
                         }
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta, 100);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta, save_rate);
                     cout<<"Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
