@@ -347,7 +347,7 @@ void Planner::plan(void){
                     path.cost=-3;
                     continue;
                 }
-                path=pastar.run(pi, g, LAMBDA, true, -3, true);
+                path=pastar.run(pi, g, LAMBDA, true, -3, true,NULL,NULL,false,false, NULL, NULL, save_rate);
                 cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 target=cv::Point(g.i,g.j);
             }
@@ -499,7 +499,7 @@ void Planner::plan(void){
                         path.cost=-3;
                         continue;
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true,false, NULL, NULL, save_rate );
                     cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
@@ -536,7 +536,7 @@ void Planner::plan(void){
                         path.cost=-3;
                         continue;
                     }
-                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true, true);
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true, true, NULL, NULL, save_rate);
                     //cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
@@ -580,9 +580,11 @@ void Planner::plan(void){
                         for(unsigned int cc=0; cc<crit_points[g.i*msg_rcv[0][0].size()+g.j].points.size(); cc++){
                             float xG=g.i-crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.x;
                             float yG=g.j-crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.y;
-                            crits_dists.push_back(sqrt(xG*xG+yG*yG));
+                            float distCG=sqrt(xG*xG+yG*yG);
+                            crits_dists.push_back(distCG);
                             crits_angles.push_back(atan2(yG,xG));
-                            crits_anglesDelta.push_back(atan2(infl,crits_dists.back()));
+                            //crits_anglesDelta.push_back(atan2(infl,crits_dists.back()));
+                            crits_anglesDelta.push_back(atan2(infl,sqrt(distCG*distCG-infl*infl)));
                         }
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta, save_rate);
@@ -633,8 +635,8 @@ void Planner::plan(void){
         cv::waitKey(3);
         cv::imshow("PA 1-OS",color_print_expansion(or_map,r_map,vis_map,deb4[min(vvv,(int)deb4.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         cv::waitKey(3);
-        //cv::imshow("PA 1-OS 2",color_print_expansion(or_map,r_map,vis_map,deb5[min(vvv,(int)deb5.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
-        //cv::waitKey(3);
+        cv::imshow("PA 1-OS 2",color_print_expansion(or_map,r_map,vis_map,deb5[min(vvv,(int)deb5.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::waitKey(3);
         //cv::imshow("PA 1-OS 2-CS",color_print_expansion(or_map,r_map,vis_map,deb6[min(vvv,(int)deb6.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
         //cv::waitKey(3);
         cv::imshow("PA 1-OS 2-CS-P",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv,(int)deb7.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));

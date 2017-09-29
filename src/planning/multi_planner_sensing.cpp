@@ -448,9 +448,11 @@ void Multirobotplannersensing::plan(void){
                                 for(unsigned int cc=0; cc<crit_points[i][goals[g].i*msg_rcv[V_MAP+i][0].size()+goals[g].j].points.size(); cc++){
                                     float xG=goals[g].i-crit_points[i][goals[g].i*msg_rcv[V_MAP+i][0].size()+goals[g].j].points[cc].position.x;
                                     float yG=goals[g].j-crit_points[i][goals[g].i*msg_rcv[V_MAP+i][0].size()+goals[g].j].points[cc].position.y;
-                                    crits_dists.push_back(sqrt(xG*xG+yG*yG));
+                                    float distCG=sqrt(xG*xG+yG*yG);
+                                    crits_dists.push_back(distCG);
                                     crits_angles.push_back(atan2(yG,xG));
-                                    crits_anglesDelta.push_back(atan2(infl[i],crits_dists.back()));
+                                    //crits_anglesDelta.push_back(atan2(infl[i],crits_dists.back()));
+                                    crits_anglesDelta.push_back(atan2(infl[i],sqrt(distCG*distCG-infl[i]*infl[i])));
                                 }
                             }
                             path=pastar.run(p0, goals[g], LAMBDA, true, vis_[i][goals[g].i*msg_rcv[V_MAP+i][0].size()+goals[g].j], false, &crit_points[i][goals[g].i*msg_rcv[V_MAP+i][0].size()+goals[g].j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta);
