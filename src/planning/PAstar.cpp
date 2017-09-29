@@ -75,7 +75,8 @@ bool nodePA<T>::validSensing(const int x, const int y, float dist) const{
                 else{
                     distCG=(*dist_c_g)[i];
                 }
-                angleDelta=atan2(infl, distCG);
+                //angleDelta=atan2(infl, distCG);
+                angleDelta=atan2(infl,sqrt(distCG*distCG-infl*infl));
             }
             else{
                 angleDelta=(*angleD_c_g)[i];
