@@ -253,8 +253,8 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                     float xG=crit->points[i].position.x-Gx;
                     float yG=crit->points[i].position.y-Gy;
                     float T2C_dist=sqrt(xG*xG+yG*yG)-1.5;
-                    if(this->xPos==180 && this->yPos==180)
-                        cout<<"T2C: "<<T2C_dist<<endl;
+                    //if(this->xPos==180 && this->yPos==180)
+                    //    cout<<"T2C: "<<T2C_dist<<endl;
                     float ext_dist=max(K-T2C_dist,(float)0.0);
                     //min_est.iter(1.0*(sqrt(xx*xx+yy*yy)-2*infl-ext_dist)+k2*(T2C_dist+ext_dist)*(T2C_dist+ext_dist));
                     // can only guarantee the sensing distance is T2C_dist...

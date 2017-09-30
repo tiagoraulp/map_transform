@@ -20,7 +20,7 @@
 
 using namespace std;
 
-//#define LAMBDA 0.001
+//#define LAMBDA 0.007
 #define LAMBDA 0.04
 
 class Planner{
@@ -32,10 +32,10 @@ private:
     nav_msgs::Path path_0, path_1;
     cv::Mat or_map, nav_map, vis_map, r_map;
     vector<cv::Mat> deb1, deb2, deb3, deb4, deb5, deb6, deb7;
-    cv::Point target;
+    cv::Point target, p0_ini;
     ros::NodeHandle nh_;
     ros::Publisher pub1, pub2;
-    ros::Publisher pub_markers;
+    ros::Publisher pub_markers,pub_rob_markers;
     ros::Subscriber sub1;
     ros::Subscriber sub2;
     ros::Subscriber sub3, sub4;
@@ -74,6 +74,7 @@ public:
     Planner(ros::NodeHandle nh, bool server_mode=false): nh_(nh){
         pub1 = nh_.advertise<nav_msgs::Path>("path0", 1,true);
         pub_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1,true);
+        pub_rob_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_robot_marker_array", 1,true);
         sub1 = nh_.subscribe("v_map", 1, &Planner::rcv_map1, this);
         sub2 = nh_.subscribe("e_map", 1, &Planner::rcv_map2, this);
         sub3 = nh_.subscribe("map", 1, &Planner::rcv_map3, this);
@@ -350,6 +351,7 @@ void Planner::plan(void){
                 path=pastar.run(pi, g, LAMBDA, true, -3, true,NULL,NULL,false,false, NULL, NULL, save_rate);
                 cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                 target=cv::Point(g.i,g.j);
+                p0_ini=cv::Point(pi.i,pi.j);
             }
             deb1=pastar.getExpansions();
             //deb1.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
@@ -469,7 +471,7 @@ void Planner::plan(void){
                 deb4=pastar.getExpansions();
                 //deb4.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
                 diff = ros::Time::now() - t01;
-                ROS_INFO("Time PA-RDVM (1-OS): %f; Cost: %f",diff.toSec(),path.cost);
+                ROS_INFO("Time PA-RDVM (1+CD): %f; Cost: %f",diff.toSec(),path.cost);
             }
             if(!run){
                 deb4.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
@@ -506,7 +508,7 @@ void Planner::plan(void){
                 deb5=pastar.getExpansions();
                 //deb5.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
                 diff = ros::Time::now() - t01;
-                ROS_INFO("Time PA-RDVM (1-OS+2): %f; Cost: %f",diff.toSec(),path.cost);
+                ROS_INFO("Time PA-RDVM (1+CD+2): %f; Cost: %f",diff.toSec(),path.cost);
             }
             if(!run){
                 deb5.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
@@ -593,7 +595,7 @@ void Planner::plan(void){
                 }
                 deb7=pastar.getExpansions();
                 diff = ros::Time::now() - t01;
-                ROS_INFO("Time PA-RDVM (1-OS+2-CS-PCOD): %f; Cost: %f",diff.toSec(),path.cost);
+                ROS_INFO("Time PA-RDVM (1+CD+2+CP): %f; Cost: %f",diff.toSec(),path.cost);
                 //if(path.cost>=0)
                 //    myfile[index_file]<<diff<<"; "<<path.cost<<"; "<<"\n";
                 if(path.cost>0){
@@ -626,20 +628,21 @@ void Planner::plan(void){
     unsigned char c_g[3]={255,90,80};
     unsigned char c_p[3]={255,0,0};
     unsigned char c_t[3]={0,255,0};
+    unsigned char c_i[3]={0,255,255};
     if(vvv>=0 && deb7.size()>0 && deb7[0].rows>0){
-        //cv::imshow("BFS",color_print_expansion(or_map,nav_map,nav_map,deb1[min(vvv,(int)deb1.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        //cv::imshow("BFS",color_print_expansion(or_map,nav_map,nav_map,deb1[min(vvv,(int)deb1.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
         //cv::waitKey(3);
-        cv::imshow("PA",color_print_expansion(or_map,nav_map,nav_map,deb2[min(vvv,(int)deb2.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::imshow("PA",color_print_expansion(or_map,nav_map,nav_map,deb2[min(vvv,(int)deb2.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
         cv::waitKey(3);
-        cv::imshow("PA 1",color_print_expansion(or_map,r_map,vis_map,deb3[min(vvv,(int)deb3.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::imshow("PA 1",color_print_expansion(or_map,r_map,vis_map,deb3[min(vvv,(int)deb3.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
         cv::waitKey(3);
-        cv::imshow("PA 1-OS",color_print_expansion(or_map,r_map,vis_map,deb4[min(vvv,(int)deb4.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::imshow("PA 1+CD",color_print_expansion(or_map,r_map,vis_map,deb4[min(vvv,(int)deb4.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
         cv::waitKey(3);
-        cv::imshow("PA 1-OS 2",color_print_expansion(or_map,r_map,vis_map,deb5[min(vvv,(int)deb5.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::imshow("PA 1+CD+2",color_print_expansion(or_map,r_map,vis_map,deb5[min(vvv,(int)deb5.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
         cv::waitKey(3);
-        //cv::imshow("PA 1-OS 2-CS",color_print_expansion(or_map,r_map,vis_map,deb6[min(vvv,(int)deb6.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        //cv::imshow("PA 1+CD+2+CP",color_print_expansion(or_map,r_map,vis_map,deb6[min(vvv,(int)deb6.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
         //cv::waitKey(3);
-        cv::imshow("PA 1-OS 2-CS-P",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv,(int)deb7.size()-1)],target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
+        cv::imshow("PA 1+CD+2+CP",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv,(int)deb7.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
         cv::waitKey(3);
         clock++;
         if(clock==1){
@@ -734,6 +737,24 @@ void Planner::publish(void){
         points.markers.push_back(point);
     }
     pub_markers.publish(points);
+
+    visualization_msgs::MarkerArray robots;
+    visualization_msgs::Marker robot;
+    robot.header.frame_id = "/robot_0/base_link";
+    robot.header.stamp =  ros::Time::now();
+    robot.ns = "robot0";
+    robot.id=0;
+    robot.action = visualization_msgs::Marker::ADD;
+    robot.pose.orientation.w = 1.0;
+    robot.type = visualization_msgs::Marker::SPHERE;
+    robot.scale.x = 2.0*(float)infl*res;
+    robot.scale.y = 2.0*(float)infl*res;
+    robot.scale.z = 0.01;
+    robot.color.r = 1.0;
+    robot.color.a = 1.0;
+    robot.lifetime = ros::Duration(1);
+    robots.markers.push_back(robot);
+    pub_rob_markers.publish(robots);
 }
 
 bool Planner::planFromRequest(geometry_msgs::Point goal, float & cost, geometry_msgs::Point & perc_pt){
