@@ -80,7 +80,7 @@ cv::Mat color_print3(cv::Mat img1, cv::Mat img2, cv::Mat img3, unsigned char* c_
     return result;
 }
 
-cv::Mat color_print_expansion(cv::Mat img0, cv::Mat img1, cv::Mat img3, cv::Mat img2, cv::Point target, unsigned char* c_b, unsigned char* c_w, unsigned char* c_n, unsigned char* c_v, unsigned char* c_o, unsigned char* c_c, unsigned char* c_cf, unsigned char* c_g, unsigned char* c_p, unsigned char* c_t)
+cv::Mat color_print_expansion(cv::Mat img0, cv::Mat img1, cv::Mat img3, cv::Mat img2, cv::Point target, cv::Point p0_ini, unsigned char* c_b, unsigned char* c_w, unsigned char* c_n, unsigned char* c_v, unsigned char* c_o, unsigned char* c_c, unsigned char* c_cf, unsigned char* c_g, unsigned char* c_p, unsigned char* c_t, unsigned char* c_i)
 {
     cv::Mat result;
 
@@ -149,6 +149,7 @@ cv::Mat color_print_expansion(cv::Mat img0, cv::Mat img1, cv::Mat img3, cv::Mat 
     cv::merge(channels, result);
 
     result=printPoint(result,target,c_t);
+    result=printPoint(result,p0_ini,c_i);
     if(perc.x>=0 && perc.y>=0)
         result=printPoint(result,perc,c_p);
 
