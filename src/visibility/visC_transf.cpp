@@ -841,16 +841,12 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         filename = ros::package::getPath("map_transform").append("/images/vis.png");
         cv::imwrite(filename, map_debug4);
 
-        cout<<"TEST66666666666!!!!"<<endl;
         if(vis_temp.rows!=0 && vis_temp.cols!=0){
             cv::Mat map_debug5=color_print3(vis_temp, map_act, map_or, c20, c12, ctest, c23, c10, c20, c00, c00 );
 
             cv::imshow("VT",map_debug5);
             cv::waitKey(3);
         }
-
-
-        cout<<"TEST777777777777!!!!"<<endl;
 
         if(gt)
         {
