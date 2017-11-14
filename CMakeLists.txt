@@ -123,6 +123,10 @@ SET(target pddl-gen)
 rosbuild_add_executable(${target} src/planning/pddl-generator.cpp)
 TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
 
+SET(target pddl-gen-NC)
+rosbuild_add_executable(${target} src/planning/pddl-generator_NC.cpp)
+TARGET_LINK_LIBRARIES(${target} planning_library conversions_library)
+
 SET(target map-gen)
 rosbuild_add_executable(${target} src/map/map-generator.cpp)
 TARGET_LINK_LIBRARIES(${target} utils_library conversions_library)
