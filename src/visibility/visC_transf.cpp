@@ -42,6 +42,8 @@ void VisC_transf::update_config(map_transform::ParametersConfig config, bool ch,
         defl=config.defl;
         _debug=config.debug;
         gt=config.ground_truth;
+        pub_once=config.pub_once;
+        frga=config.frga;
         rxr=config.x;
         ryr=config.y;
     }
@@ -579,9 +581,10 @@ cv::Mat_<int> create_robot_model(int size){
     return ret;
 }
 
-cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size, vector<vector<vector<cv::Point> > > & result_act){
+cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size, vector<vector<vector<cv::Point> > > & result_act, bool save_act_points=false){
     cv::Mat_<int> ret=cv::Mat_<int>::ones(r_map.rows, r_map.cols)*-1;
-    result_act=vector<vector<vector<cv::Point> > >(r_map.rows, vector<vector<cv::Point> >(r_map.cols, vector<cv::Point>(0)));
+    if(save_act_points)
+        result_act=vector<vector<vector<cv::Point> > >(r_map.rows, vector<vector<cv::Point> >(r_map.cols, vector<cv::Point>(0)));
     if(pos.x<0 || pos.x>=r_map.rows || pos.y<0 || pos.y>=r_map.cols)
         return ret;
     if(r_map.at<uchar>(pos.x,pos.y)==0)
@@ -591,35 +594,38 @@ cv::Mat_<int> actuation_transform(cv::Mat r_map, cv::Point pos, int size, vector
 
     cv::Mat_<int> robot=create_robot_model(size);
 
-    vector<cv::Point> vc;
+    deque<cv::Point> vc;
     vc.clear();
     vc.push_back(pos);
     reach(pos.x,pos.y)=0;
-    result_act[pos.x][pos.y].push_back(cv::Point(pos.x,pos.y));
+    if(save_act_points)
+        result_act[pos.x][pos.y].push_back(cv::Point(pos.x,pos.y));
 
     while(vc.size()!=0){
-        //cout<<vc[0].x<<" "<<vc[0].y<<" "<<ret(vc[0].x,vc[0].y)<<endl;
-        int lx=boundPos(vc[0].x-size,r_map.rows);
-        int ux=boundPos(vc[0].x+size,r_map.rows);
-        int ly=boundPos(vc[0].y-size,r_map.cols);
-        int uy=boundPos(vc[0].y+size,r_map.cols);
+        cv::Point vcpt=vc.front();
+        int lx=boundPos(vcpt.x-size,r_map.rows);
+        int ux=boundPos(vcpt.x+size,r_map.rows);
+        int ly=boundPos(vcpt.y-size,r_map.cols);
+        int uy=boundPos(vcpt.y+size,r_map.cols);
 
         for(int i=lx; i<=ux; i++){
             for(int j=ly; j<=uy; j++){
-                if(robot(i-vc[0].x+size,j-vc[0].y+size) && ret(i,j)==-1 ){
-                    ret(i,j)=reach(vc[0].x,vc[0].y)+1;
+                if(robot(i-vcpt.x+size,j-vcpt.y+size) && ret(i,j)==-1 ){
+                    ret(i,j)=reach(vcpt.x,vcpt.y)+1;
                 }
-                if( r_map.at<uchar>(i,j)!=0 && reach(i,j)==-1 && max(abs(i-vc[0].x),abs(j-vc[0].y))<=1 ){
+                if( r_map.at<uchar>(i,j)!=0 && reach(i,j)==-1 && max(abs(i-vcpt.x),abs(j-vcpt.y))<=1 ){
                     vc.push_back(cv::Point(i,j));
-                    reach(i,j)=reach(vc[0].x,vc[0].y)+1;
-                    result_act[i][j].push_back(cv::Point(i,j));
+                    reach(i,j)=reach(vcpt.x,vcpt.y)+1;
+                    if(save_act_points)
+                        result_act[i][j].push_back(cv::Point(i,j));
                 }
-                if( robot(i-vc[0].x+size,j-vc[0].y+size) && r_map.at<uchar>(i,j)==0 ){
-                    result_act[i][j].push_back(cv::Point(vc[0].x,vc[0].y));
+                if( robot(i-vcpt.x+size,j-vcpt.y+size) && r_map.at<uchar>(i,j)==0 ){
+                    if(save_act_points)
+                        result_act[i][j].push_back(cv::Point(vcpt.x,vcpt.y));
                 }
             }
         }
-        vc.erase(vc.begin());
+        vc.pop_front();
     }
     return ret;
 }
@@ -649,8 +655,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
     if( (new_v) || (prev.x<0) || (prev.y<0) || proc )  //if visibility is changed
     {
-        //cout<<"Time Reach: "<<diff_tt<<endl;
-
+        //cout<<tf_pref.c_str()<<"Time Reach: "<<diff_tt<<endl;
 
         int rad=min(infl,defl);  //if defl<infl, visibility is given by morphological closing
 
@@ -665,45 +670,42 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         tt=ros::Time::now();
         vector<vector<vector<cv::Point> > > result_act;
-        cv::Mat_<int> dist_transf=actuation_transform(r_map, cv::Point(pos.x,pos.y), rad, result_act);
-        //cout<<"Time Act_Transf: "<<ros::Time::now()-tt<<endl;
-        geometry_msgs::Pose ps;
-        for(auto i=0u; i<result_act.size(); i++){
-            for(auto j=0u; j<result_act[i].size(); j++){
-                if(result_act[i][j].size()==1){
-                    ps.position.x=result_act[i][j][0].x;
-                    ps.position.y=result_act[i][j][0].y;
-                    vis_.crit_points[i*map_or.cols+j].points.push_back(ps);
-                }
-                else if(result_act[i][j].size()>1){
-                    vector<vector<cv::Point> > results_act=cluster_points(result_act[i][j]);
-                    for(auto k=0u; k<results_act.size(); k++){
-                        FindMin<float> closest_pt;
-                        for(auto l=0u; l<results_act[k].size(); l++){
-                            float d1=(float)(i-results_act[k][l].x);
-                            float d2=(float)(j-results_act[k][l].y);
-                            closest_pt.iter( d1*d1+d2*d2 );
-                        }
-                        ps.position.x=results_act[k][closest_pt.getInd()].x;
-                        ps.position.y=results_act[k][closest_pt.getInd()].y;
+        cv::Mat_<int> dist_transf=actuation_transform(r_map, cv::Point(pos.x,pos.y), rad, result_act, frga);
+        //cout<<tf_pref.c_str()<<"Time Act_Transf: "<<ros::Time::now()-tt<<endl;
+
+        if(frga){
+            geometry_msgs::Pose ps;
+            for(auto i=0u; i<result_act.size(); i++){
+                for(auto j=0u; j<result_act[i].size(); j++){
+                    if(result_act[i][j].size()==1){
+                        ps.position.x=result_act[i][j][0].x;
+                        ps.position.y=result_act[i][j][0].y;
                         vis_.crit_points[i*map_or.cols+j].points.push_back(ps);
+                    }
+                    else if(result_act[i][j].size()>1){
+                        vector<vector<cv::Point> > results_act=cluster_points(result_act[i][j]);
+                        for(auto k=0u; k<results_act.size(); k++){
+                            FindMin<float> closest_pt;
+                            for(auto l=0u; l<results_act[k].size(); l++){
+                                float d1=(float)(i-results_act[k][l].x);
+                                float d2=(float)(j-results_act[k][l].y);
+                                closest_pt.iter( d1*d1+d2*d2 );
+                            }
+                            ps.position.x=results_act[k][closest_pt.getInd()].x;
+                            ps.position.y=results_act[k][closest_pt.getInd()].y;
+                            vis_.crit_points[i*map_or.cols+j].points.push_back(ps);
+                        }
                     }
                 }
             }
         }
 
-        tt=ros::Time::now();
         double min_, max_;
         cv::minMaxLoc(dist_transf, &min_, &max_);
         cv::Mat dist;
         dist_transf.convertTo(dist, CV_8U , 255 / max_);
-        cv::imshow("dist",dist);
-
-        string filename = ros::package::getPath("map_transform").append("/images/dist.png");
-        cv::imwrite(filename, dist);
 
         act_dist=dist_transf;
-        //cout<<"Time Act_Transf Post Processing: "<<ros::Time::now()-tt<<endl;
 
 
         tt=ros::Time::now();
@@ -715,8 +717,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         dilate( act_map, act_map, element);  //actuation space
 
-        //cout<<"Time Dilation: "<<ros::Time::now()-tt<<endl;
-
+        //cout<<tf_pref.c_str()<<"Time Dilation: "<<ros::Time::now()-tt<<endl;
 
         cv::Mat vis_map=act_map.clone();
 
@@ -724,7 +725,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         Unreachable unreach(map_or, act_map);
 
-        //cout<<"Time Unreach: "<<ros::Time::now()-tt<<endl;
+        //cout<<tf_pref.c_str()<<"Time Unreach: "<<ros::Time::now()-tt<<endl;
 
         map_debug=unreach.unreach_map;
 
@@ -733,7 +734,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         {
             vis_map=ext_vis(unreach, vis_map, r_map, opt);
         }
-        //cout<<"Time Ext_Vis: "<<ros::Time::now()-tt<<endl;
+        //cout<<tf_pref.c_str()<<"Time Ext_Vis: "<<ros::Time::now()-tt<<endl;
 
         map_label=r_map;
         map_act=act_map;
@@ -746,6 +747,11 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         ros::Duration diff = ros::Time::now() - t01;
 
         ROS_INFO("%s - Time for visibility: %f", tf_pref.c_str(), diff.toSec());
+
+        cv::imshow("dist",dist);
+
+        string filename = ros::package::getPath("map_transform").append("/images/dist.png");
+        cv::imwrite(filename, dist);
 
         unsigned char c123[3]={0,200,200};
         unsigned char c12[3]={255,255,0};
@@ -1009,7 +1015,8 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
             gt_c=true;
         }
 
-        publish();
+        if(pub_once)
+            publish();
     }
 }
 

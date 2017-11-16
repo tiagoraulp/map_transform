@@ -14,6 +14,7 @@
       <param name="infl" value="13" />
       <param name="debug" value="false" />
       <param name="ground_truth" value="false" />
+      <param name="frga" value="true" />
       <param name="tf_prefix" value ="/robot_0" /> 
       <remap from="~map" to="/map"/>
     </node>
@@ -37,6 +38,7 @@
       <param name="infl" value="13" />
       <param name="debug" value="false" />
       <param name="ground_truth" value="false" />
+      <param name="frga" value="true" />
       <param name="tf_prefix" value ="/robot_1" /> 
       <remap from="~map" to="/map"/>
     </node>

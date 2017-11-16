@@ -817,6 +817,8 @@ void VisNC_transf::update_config(map_transform::ParametersncConfig config, bool 
         sens_res=config.sens_res;
         this->_debug=config.debug;
         this->gt=config.ground_truth;
+        this->pub_once=config.pub_once;
+        this->frga=config.frga;
         angle_debug=config.debug_angle;
         this->rxr=config.x;
         this->ryr=config.y;
