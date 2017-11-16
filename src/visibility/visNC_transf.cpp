@@ -68,6 +68,8 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
 
     this->nh_.param("debug_angle", this->angle_debug, 0.0);
 
+    this->nh_.param("act", act, false);
+
     sens_area.assign(sens_res, 0);
 
     opt=true;
@@ -390,7 +392,7 @@ bool VisNC_transf::valid_pos(cv::Point3i pos)
 
 void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 {
-    ROS_INFO("I'm Here 1111111!!!");
+    //ROS_INFO("I'm Here 1111111!!!");
 
     multi_labl_map.resize(multi_er_map.size());
     for(int i=0; i<(int)multi_er_map.size(); i++){
@@ -412,7 +414,7 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         }
     }
 
-    ROS_INFO("I'm Here 22222222!!!");
+    //ROS_INFO("I'm Here 22222222!!!");
 
 
     if( labels || (prev.x<0) || (prev.y<0) || proc)
@@ -455,7 +457,8 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         map_debug_pos=unreach.unreach_map;
 
-        vis_map=ext_vis(unreach, vis_map, multi_labl_map, opt);
+        if(!act)
+            vis_map=ext_vis(unreach, vis_map, multi_labl_map, opt);
 
         this->map_vis=vis_map;
 
@@ -819,6 +822,7 @@ void VisNC_transf::update_config(map_transform::ParametersncConfig config, bool 
         this->_debug=config.debug;
         this->gt=config.ground_truth;
         this->pub_once=config.pub_once;
+        this->act=config.act;
         this->frga=config.frga;
         angle_debug=config.debug_angle;
         this->rxr=config.x;
