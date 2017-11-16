@@ -604,7 +604,8 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
             this->gt_c=true;
         }
-
+        if(pub_once)
+            publish();
     }
 
     prev=pos;
