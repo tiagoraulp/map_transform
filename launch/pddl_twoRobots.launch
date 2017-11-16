@@ -51,6 +51,8 @@
        	<remap from="/robot_1/v_map" to="/robot_1/visibility/v_map"/>
        	<remap from="/robot_0/r_map" to="/robot_0/visibility/r_map"/>
        	<remap from="/robot_1/r_map" to="/robot_1/visibility/r_map"/>
+       	<remap from="/robot_0/a_map" to="/robot_0/visibility/act_dist"/>
+       	<remap from="/robot_1/a_map" to="/robot_1/visibility/act_dist"/>
  </node>
 
 </launch>
