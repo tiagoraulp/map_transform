@@ -65,7 +65,7 @@
 
  </group>
 
- <node name="pddl_generator" pkg="map_transform" type="pddl-gen" cwd="node" output="screen">
+ <node name="pddl_generator" pkg="map_transform" type="pddl-gen-NC" cwd="node" output="screen">
        	<param name="jump" value="15" />
        	<remap from="/robot_0/c_map" to="/robot_0/visibility/c_map"/>
        	<remap from="/robot_1/c_map" to="/robot_1/visibility/c_map"/>

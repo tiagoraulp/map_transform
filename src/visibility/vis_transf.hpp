@@ -18,6 +18,7 @@ protected:
     ros::Publisher pub5;
     ros::Publisher pub6;
     ros::Subscriber sub;
+    ros::Publisher act_dist_pub;
     dynamic_reconfigure::Server<T> server;
     typename dynamic_reconfigure::Server<T>::CallbackType func;
     tf::TransformListener pos_listener;
@@ -37,8 +38,9 @@ protected:
     T _config;
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
     cv::Mat cv_map, cv_map_scaled, map_or, map_erosionOp, map_closeOp, map_label , map_act, map_vis, map_debug, map_truth, map_erosionOpPrintColor,
-            map_comp;
+            map_erosionOpSmall, map_labelSmall, map_comp;
     std::vector<cv::Point> small_frontiers;
+    cv::Mat_<int> act_dist;
 
     std::vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp, std::vector<cv::Point> &vis_map_temp_list);
     std::vector<cv::Point> getExtremeFromObstacles(std::vector<cv::Point> occ, cv::Point2i crit);

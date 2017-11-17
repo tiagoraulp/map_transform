@@ -261,6 +261,10 @@ bool VisNC_transf::conf_space(void)
 
     this->map_erosionOp=er_map;
 
+    rec=cv::Rect(robot_or.pl,robot_or.pu, or_map.cols, or_map.rows);
+
+    this->map_erosionOpSmall=er_map(rec);
+
     this->map_projEros=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
 
     for(int i=0; i<(int)mer_map.size(); i++){
@@ -271,6 +275,7 @@ bool VisNC_transf::conf_space(void)
             }
         }
     }
+    this->map_projErosSmall=this->map_projEros(rec);
 
     unsigned char color[3]={255,0,0};
     unsigned char color2[3]={0,255,0};
@@ -314,8 +319,6 @@ bool VisNC_transf::conf_space(void)
 
     this->map_debug=color_print3(er_map, cl_map, or_mapN, c123, c12, c13, c23, c1, c2, c3, c0 );
 
-
-    rec=cv::Rect(robot_or.pl,robot_or.pu, or_map.cols, or_map.rows);
     this->map_closeOp=cl_map(rec);
 
     this->map_projClose=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
@@ -385,6 +388,7 @@ bool VisNC_transf::valid_pos(cv::Point3i pos)
     {
         map_projAct=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
         map_projLabel=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
+        map_projLabelSmall=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
         map_debug_pos=cv::Mat::zeros(map_closeOp.rows, map_closeOp.cols, CV_8UC1);
     }
     return value;
@@ -442,10 +446,13 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
         int m_a=angleD2I(angle_debug, angle_res);
 
-        temp=multi_act_map[m_a].clone();
         this->map_label=multi_labl_map[m_a].clone();
-        this->map_act=temp(rec);
+        this->map_labelSmall=map_label(rec);
         this->map_projLabel=l_map;
+        this->map_projLabelSmall=l_map(rec);
+
+        temp=multi_act_map[m_a].clone();
+        this->map_act=temp(rec);
         this->map_projAct=act_map(rec);
 
         vis_map=map_projAct.clone();
@@ -840,9 +847,11 @@ void VisNC_transf::clearImgs(void)
     map_debug_pos=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
     map_label=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
     map_projLabel=map_label;
+    map_projLabelSmall=map_debug_pos;
     map_erosionOpPrintColor=map_label;
     map_act=map_debug_pos;
     map_projAct=map_debug_pos;
     map_vis=map_debug_pos;
     map_truth=map_debug_pos;
+    act_dist=cv::Mat_<int>::zeros(map_or.rows, map_or.cols);
 }
