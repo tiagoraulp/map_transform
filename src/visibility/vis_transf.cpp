@@ -8,6 +8,8 @@
 
 #include "opencv2/imgproc/imgproc.hpp"
 
+#include <std_msgs/Int16MultiArray.h>
+
 #include <map_transform/ParametersConfig.h>
 #include <map_transform/ParametersncConfig.h>
 
@@ -63,6 +65,8 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     pub4 = nh_.advertise<nav_msgs::OccupancyGrid>("a_map", 1,true);
     pub5 = nh_.advertise<nav_msgs::OccupancyGrid>("v_map", 1,true);
     pub6 = nh_.advertise<nav_msgs::OccupancyGrid>("g_map", 1,true);
+    act_dist_pub = nh_.advertise<std_msgs::Int16MultiArray>("act_dist", 10,true);
+
     sub = nh_.subscribe("map", 1, &Vis_transf::rcv_map, this);
     nh_.param("x", rxr, 50.0);
     nh_.param("y", ryr, 50.0);
@@ -466,6 +470,8 @@ void Vis_transf<T>::transf_pos(void)
             map_vis=map_act;
             map_truth=map_act;
 
+            act_dist=cv::Mat_<int>::zeros(map_or.rows, map_or.cols);
+
             bool print=true;
 
             if (prev.x>=0 && prev.y>=0 && prev.x<map_erosionOp.rows && prev.y<map_erosionOp.cols)
@@ -511,7 +517,7 @@ void Vis_transf<T>::publish(void)
     {
         nav_msgs::OccupancyGrid n_msg;
 
-        n_msg=Mat2RosMsg(map_erosionOp , msg_rcv_pub);
+        n_msg=Mat2RosMsg(map_erosionOpSmall , msg_rcv_pub);
         pub.publish(n_msg);
 
         n_msg=Mat2RosMsg(map_closeOp , msg_rcv_pub);
@@ -519,7 +525,7 @@ void Vis_transf<T>::publish(void)
 
         if(pos_rcv)
         {
-            n_msg=Mat2RosMsg( map_label , msg_rcv_pub);
+            n_msg=Mat2RosMsg( map_labelSmall , msg_rcv_pub);
             pub3.publish(n_msg);
 
             n_msg=Mat2RosMsg( map_act , msg_rcv_pub);
@@ -533,6 +539,26 @@ void Vis_transf<T>::publish(void)
                 n_msg=Mat2RosMsg( map_truth , msg_rcv_pub);
                 pub6.publish(n_msg);
             }
+
+            std_msgs::Int16MultiArray act_msg;
+            act_msg.layout.data_offset=0;
+            act_msg.layout.dim.clear();
+            std_msgs::MultiArrayDimension dim;
+            dim.label="x";
+            dim.size=act_dist.rows;
+            dim.stride=act_dist.rows*act_dist.cols;
+            act_msg.layout.dim.push_back(dim);
+            dim.label="y";
+            dim.size=act_dist.cols;
+            dim.stride=act_dist.cols;
+            act_msg.layout.dim.push_back(dim);
+            act_msg.data.resize(act_msg.layout.data_offset+act_msg.layout.dim[0].stride);
+            for(int i=0;i<act_dist.rows;i++){
+                for(int j=0;j<act_dist.cols;j++){
+                    act_msg.data[act_msg.layout.data_offset+act_msg.layout.dim[1].stride*i+j]=act_dist(i,j);
+                }
+            }
+            act_dist_pub.publish(act_msg);
         }
     }
 }

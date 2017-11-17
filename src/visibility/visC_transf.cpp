@@ -13,8 +13,6 @@
 
 #include <cmath>
 
-#include "std_msgs/Int16MultiArray.h"
-
 #include <ros/package.h>
 
 using namespace std;
@@ -58,7 +56,6 @@ VisC_transf::VisC_transf(ros::NodeHandle nh): Vis_transf(nh)
     nh_.param("infl", infl, 5);
     nh_.param("defl", defl, infl);
     graph_publisher = nh_.advertise<map_transform::VisCom>("graph", 10,true);
-    act_dist_pub = nh_.advertise<std_msgs::Int16MultiArray>("act_dist", 10,true);
     opt=true;
 }
 
@@ -73,28 +70,6 @@ void VisC_transf::publish(void)
     graphMsg.header.frame_id = "map";
 
     graph_publisher.publish(graphMsg);
-
-    if(count>0 && pos_rcv){
-        std_msgs::Int16MultiArray act_msg;
-        act_msg.layout.data_offset=0;
-        act_msg.layout.dim.clear();
-        std_msgs::MultiArrayDimension dim;
-        dim.label="x";
-        dim.size=act_dist.rows;
-        dim.stride=act_dist.rows*act_dist.cols;
-        act_msg.layout.dim.push_back(dim);
-        dim.label="y";
-        dim.size=act_dist.cols;
-        dim.stride=act_dist.cols;
-        act_msg.layout.dim.push_back(dim);
-        act_msg.data.resize(act_msg.layout.data_offset+act_msg.layout.dim[0].stride);
-        for(int i=0;i<act_dist.rows;i++){
-            for(int j=0;j<act_dist.cols;j++){
-                act_msg.data[act_msg.layout.data_offset+act_msg.layout.dim[1].stride*i+j]=act_dist(i,j);
-            }
-        }
-        act_dist_pub.publish(act_msg);
-    }
 }
 
 
@@ -479,6 +454,7 @@ bool VisC_transf::conf_space(void)
 
     map_or=or_map;
     map_erosionOp=er_map;
+    map_erosionOpSmall=map_erosionOp;
     map_closeOp=cr_map;
 
     return true;
@@ -530,7 +506,6 @@ bool VisC_transf::valid_pos(cv::Point3i pos)
     if(!value)
     {
         map_debug=cv::Mat::zeros(map_or.rows, map_or.cols, CV_8UC1);
-        act_dist=cv::Mat_<int>::zeros(map_or.rows, map_or.cols);
     }
     return value;
 }
@@ -737,6 +712,7 @@ void VisC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         //cout<<tf_pref.c_str()<<"Time Ext_Vis: "<<ros::Time::now()-tt<<endl;
 
         map_label=r_map;
+        map_labelSmall=map_label;
         map_act=act_map;
         map_vis=vis_map;
 

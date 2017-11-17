@@ -326,11 +326,17 @@ void PddlGen::rcv_map5_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
 
 
 bool PddlGen::getMapValue(int n, int i, int j){
-    return msg_rcv[n][i][j];
+    if( (n>=0) && (n<(int)msg_rcv.size()) && (i>=0) && (i<(int)msg_rcv[n].size()) && (j>=0) && (j<(int)msg_rcv[n][i].size()))
+        return msg_rcv[n][i][j];
+    else
+        return false;
 }
 
 int PddlGen::getActMapValue(int n, int i, int j){
-    return msg_rcv_act[n][i][j];
+    if( (n>=0) && (n<(int)msg_rcv_act.size()) && (i>=0) && (i<(int)msg_rcv_act[n].rows) && (j>=0) && (j<(int)msg_rcv_act[n].cols))
+        return msg_rcv_act[n](i,j);
+    else
+        return false;
 }
 
 string convertG2S(cv::Point2i pt){
@@ -581,7 +587,7 @@ bool PddlGen::connection_ray(int i, int j, int in, int jn, int r_e, int r_v, boo
 
 bool PddlGen::allMapsReceived(void){
     for(unsigned int i=0; i<map_rcv.size(); i++){
-        if(!map_rcv[i])
+        if(!map_rcv[i] || (msg_rcv[i].size()==0) || (msg_rcv[i][0].size()==0))
             return false;
     }
     return true;
@@ -589,7 +595,7 @@ bool PddlGen::allMapsReceived(void){
 
 bool PddlGen::allActMapsReceived(void){
     for(unsigned int i=0; i<map_rcv_act.size(); i++){
-        if(!map_rcv_act[i])
+        if(!map_rcv_act[i] || (msg_rcv_act[i].rows==0) || (msg_rcv_act[i].cols==0))
             return false;
     }
     return true;

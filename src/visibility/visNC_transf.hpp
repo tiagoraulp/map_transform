@@ -18,6 +18,7 @@ protected:
     Elem robot_or, robot_act, sensor_or, sensor_ev;
     cv::Rect rec;
     cv::Mat struct_elemR, struct_elemS, struct_elemA, struct_elemEV, map_projLabel, map_projAct, map_projEros, map_projClose,map_debug_pos;
+    cv::Mat map_projLabelSmall,map_projErosSmall;
     std::vector<cv::Mat> multi_er_map, multi_labl_map, multi_act_map;
     bool opt;
     bool act;

@@ -12,9 +12,8 @@ class VisC_transf: public Vis_transf<map_transform::ParametersConfig>{
 protected:
     int infl;
     int defl;
-    ros::Publisher  graph_publisher, act_dist_pub;
+    ros::Publisher  graph_publisher;
     bool opt;
-    cv::Mat_<int> act_dist;
     std::vector<cv::Point2i> crit_pts;
     cv::Mat vis_temp;
 
