@@ -11,6 +11,7 @@
     <param name="defl" value="$(arg d)" />
     <param name="infl" value="$(arg i)" />
     <param name="debug" value="true" />
+    <param name="show" value="true" />
     <param name="x" value="50" />
     <param name="y" value="50" />
     <param name="ground_truth" value="false" />

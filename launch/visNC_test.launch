@@ -13,6 +13,7 @@
     <param name="sdefl" value="$(arg d)" />
     <param name="rinfl" value="70" />
     <param name="debug" value="true" />
+    <param name="show" value="true" />
     <param name="rx" value="50" />
     <param name="ry" value="50" />
     <param name="rt" value="0" />

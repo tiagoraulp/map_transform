@@ -39,6 +39,7 @@ void VisC_transf::update_config(map_transform::ParametersConfig config, bool ch,
         infl=config.infl;
         defl=config.defl;
         _debug=config.debug;
+        _show=config.show;
         gt=config.ground_truth;
         pub_once=config.pub_once;
         frga=config.frga;
@@ -75,7 +76,7 @@ void VisC_transf::publish(void)
 
 VisC_transf::~VisC_transf()
 {
-    if(_debug){
+    if(_show){
        cv::destroyWindow(M_WINDOW);
        cv::destroyWindow(E_WINDOW);
        cv::destroyWindow(C_WINDOW);
@@ -92,7 +93,7 @@ VisC_transf::~VisC_transf()
 
 void VisC_transf::show(void)
 {
-    if(count>0 && _debug){
+    if(count>0 && _show){
         cv::imshow(M_WINDOW,map_or);
 
         string filename = ros::package::getPath("map_transform").append("/images/map.png");
@@ -175,7 +176,7 @@ void VisC_transf::show(void)
         cv::waitKey(3);
     }
 
-    if(!_debug)
+    if(!_show)
     {
        cv::waitKey(2);
        cv::destroyWindow(M_WINDOW);

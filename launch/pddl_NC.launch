@@ -27,6 +27,7 @@
        <param name="angle_res" value="64" />
        <param name="sens_res" value="1" />
        <param name="debug" value="false" />
+       <param name="show" value="true" />
        <param name="ground_truth" value="false" />
        <param name="act" value="true" />
        <param name="debug_angle" value="0" />
@@ -54,6 +55,7 @@
        <param name="angle_res" value="64" />
        <param name="sens_res" value="1" />
        <param name="debug" value="false" />
+       <param name="show" value="true" />
        <param name="ground_truth" value="false" />
        <param name="act" value="true" />
        <param name="debug_angle" value="0" />
