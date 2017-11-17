@@ -75,6 +75,7 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     nh_.param("tf_prefix", tf_pref, std::string(""));
     nh_.param("ground_truth", gt, false);
     nh_.param("debug", _debug, true);
+    nh_.param("show", _show, true);
     nh_.param("pub_once", pub_once, true);
     nh_.param("frga", frga, false);
     prev.x=-1; prev.y=-1; prev.z=-1;

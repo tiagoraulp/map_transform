@@ -77,7 +77,7 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
 
 VisNC_transf::~VisNC_transf()
 {
-    if(this->_debug){
+    if(this->_show){
        cv::destroyWindow(M_WINDOW);
        cv::destroyWindow(E_WINDOW);
        cv::destroyWindow(PE_WINDOW);
@@ -102,7 +102,7 @@ VisNC_transf::~VisNC_transf()
 
 void VisNC_transf::show(void)
 {
-    if(this->count>0 && this->_debug){
+    if(this->count>0 && this->_show){
         cv::imshow(M_WINDOW,this->map_or);
         cv::imshow(PE_WINDOW,this->map_projEros);
         cv::imshow(C_WINDOW,this->map_closeOp);
@@ -158,7 +158,7 @@ void VisNC_transf::show(void)
         cv::waitKey(3);
     }
 
-    if(!this->_debug)
+    if(!this->_show)
     {
        cv::waitKey(2);
        cv::destroyWindow(M_WINDOW);
@@ -827,6 +827,7 @@ void VisNC_transf::update_config(map_transform::ParametersncConfig config, bool 
         angle_res=config.angle_res;
         sens_res=config.sens_res;
         this->_debug=config.debug;
+        this->_show=config.show;
         this->gt=config.ground_truth;
         this->pub_once=config.pub_once;
         this->act=config.act;

@@ -30,7 +30,7 @@ protected:
     std::string tf_pref;
     int height, width;
     float res, or_x, or_y;
-    bool _debug, gt, gt_c, changed, changed2;
+    bool _debug, _show, gt, gt_c, changed, changed2;
     bool pub_once, frga;
     double rxr,ryr, rtr;
     bool changed_p;
