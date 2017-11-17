@@ -394,6 +394,82 @@ bool VisNC_transf::valid_pos(cv::Point3i pos)
     return value;
 }
 
+cv::Mat_<int> actuation_transform(std::vector<cv::Mat> r_map, cv::Point3i pos, Elem act){
+    if(r_map.size()==0)
+        return cv::Mat_<int>::zeros(0,0);
+    cv::Mat_<int> ret=cv::Mat_<int>::ones(r_map[0].rows, r_map[0].cols)*-1;
+    if(pos.z<0 || pos.z>=((int)(r_map.size())) || pos.x<0 || pos.x>=r_map[pos.z].rows || pos.y<0 || pos.y>=r_map[pos.z].cols)
+        return ret;
+    if(r_map[pos.z].at<uchar>(pos.x,pos.y)==0)
+        return ret;
+
+    std::vector<cv::Mat_<int> > reach(r_map.size());
+    for(unsigned int i=0; i<r_map.size();i++){
+        reach[i]=cv::Mat_<int>::ones(r_map[pos.z].rows, r_map[pos.z].cols)*-1;
+    }
+
+    deque<cv::Point3i> vc;
+    vc.clear();
+    vc.push_back(pos);
+    reach[pos.z](pos.x,pos.y)=0;
+
+    while(vc.size()!=0){
+        cv::Point3i vcpt=vc.front();
+        int lx=boundPos(vcpt.x-act.pt.x,r_map[vcpt.z].rows);
+        int ux=boundPos(vcpt.x+(act.elems[vcpt.z].rows-1-act.pt.x),r_map[vcpt.z].rows);
+        int ly=boundPos(vcpt.y-act.pt.y,r_map[vcpt.z].cols);
+        int uy=boundPos(vcpt.y+(act.elems[vcpt.z].cols-1-act.pt.y),r_map[vcpt.z].cols);
+        for(int i=lx; i<=ux; i++){
+            for(int j=ly; j<=uy; j++){
+                if(act.elems[vcpt.z].at<uchar>(i-vcpt.x+act.pt.x,j-vcpt.y+act.pt.y)!=0 && ret(i,j)==-1 ){
+                    ret(i,j)=reach[vcpt.z](vcpt.x,vcpt.y)+1;
+                }
+            }
+        }
+        lx=boundPos(vcpt.x-1,r_map[vcpt.z].rows);
+        ux=boundPos(vcpt.x+1,r_map[vcpt.z].rows);
+        ly=boundPos(vcpt.y-1,r_map[vcpt.z].cols);
+        uy=boundPos(vcpt.y+1,r_map[vcpt.z].cols);
+        int la=decAngle(vcpt.z,r_map.size());
+        int ua=incAngle(vcpt.z,r_map.size());
+//        for(int i=lx; i<=ux; i++){
+//            for(int j=ly; j<=uy; j++){
+//                if( r_map[vcpt.z].at<uchar>(i,j)!=0 && reach[vcpt.z](i,j)==-1 && max(abs(i-vcpt.x),abs(j-vcpt.y))<=1 ){
+//                    vc.push_back(cv::Point3i(i,j,vcpt.z));
+//                    reach[vcpt.z](i,j)=reach[vcpt.z](vcpt.x,vcpt.y)+1;
+//                }
+//            }
+//        }
+//        if( r_map[la].at<uchar>(vcpt.x,vcpt.y)!=0 && reach[la](vcpt.x,vcpt.y)==-1 ){
+//            vc.push_back(cv::Point3i(vcpt.x,vcpt.y,la));
+//            reach[la](vcpt.x,vcpt.y)=reach[vcpt.z](vcpt.x,vcpt.y)+1;
+//        }
+//        if( r_map[ua].at<uchar>(vcpt.x,vcpt.y)!=0 && reach[ua](vcpt.x,vcpt.y)==-1 ){
+//            vc.push_back(cv::Point3i(vcpt.x,vcpt.y,ua));
+//            reach[ua](vcpt.x,vcpt.y)=reach[vcpt.z](vcpt.x,vcpt.y)+1;
+//        }
+
+        for(int i=lx; i<=ux; i++){
+            for(int j=ly; j<=uy; j++){
+                if( r_map[vcpt.z].at<uchar>(i,j)!=0 && reach[vcpt.z](i,j)==-1 && max(abs(i-vcpt.x),abs(j-vcpt.y))<=1 ){
+                    vc.push_back(cv::Point3i(i,j,vcpt.z));
+                    reach[vcpt.z](i,j)=reach[vcpt.z](vcpt.x,vcpt.y)+1;
+                }
+                if( r_map[la].at<uchar>(i,j)!=0 && reach[la](i,j)==-1 && max(abs(i-vcpt.x),abs(j-vcpt.y))<=1 ){
+                    vc.push_back(cv::Point3i(i,j,la));
+                    reach[la](i,j)=reach[vcpt.z](vcpt.x,vcpt.y)+1;
+                }
+                if( r_map[ua].at<uchar>(i,j)!=0 && reach[ua](i,j)==-1 && max(abs(i-vcpt.x),abs(j-vcpt.y))<=1 ){
+                    vc.push_back(cv::Point3i(i,j,ua));
+                    reach[ua](i,j)=reach[vcpt.z](vcpt.x,vcpt.y)+1;
+                }
+            }
+        }
+        vc.pop_front();
+    }
+    return ret;
+}
+
 void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 {
     //ROS_INFO("I'm Here 1111111!!!");
@@ -423,6 +499,14 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
 
     if( labels || (prev.x<0) || (prev.y<0) || proc)
     {
+        act_dist=actuation_transform(multi_labl_map, pos, robot_act);
+        act_dist=act_dist(rec);
+
+        double min_, max_;
+        cv::minMaxLoc(act_dist, &min_, &max_);
+        cv::Mat dist;
+        act_dist.convertTo(dist, CV_8U , 255 / max_);
+
         cv::Mat vis_map, temp;//=this->map_or.clone(), temp;
 
         cv::Mat l_map=cv::Mat::zeros(map_erosionOp.rows, map_erosionOp.cols, CV_8UC1);
@@ -476,6 +560,8 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         ros::Duration diff = ros::Time::now() - t01;
 
         ROS_INFO("%s - Time for visibility: %f", this->tf_pref.c_str(), diff.toSec());
+
+        cv::imshow("dist",dist);
 
         if(this->gt)
         {
