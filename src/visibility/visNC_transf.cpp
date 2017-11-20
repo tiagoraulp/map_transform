@@ -73,6 +73,11 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
     sens_area.assign(sens_res, 0);
 
     opt=true;
+
+    projErosionPub = nh_.advertise<nav_msgs::OccupancyGrid>("pe_map", 1,true);
+    projClosePub   = nh_.advertise<nav_msgs::OccupancyGrid>("pc_map", 1,true);
+    projLabelPub   = nh_.advertise<nav_msgs::OccupancyGrid>("pr_map", 1,true);
+    projActPub     = nh_.advertise<nav_msgs::OccupancyGrid>("pa_map", 1,true);
 }
 
 VisNC_transf::~VisNC_transf()
@@ -928,6 +933,30 @@ void VisNC_transf::update_config(map_transform::ParametersncConfig config, bool 
         opt=_opt;
 }
 
+void VisNC_transf::publish(void)
+{
+    Vis_transf::publish();
+
+    if(count>0)
+    {
+        nav_msgs::OccupancyGrid n_msg;
+
+        n_msg=Mat2RosMsg(map_projErosSmall , msg_rcv_pub);
+        projErosionPub.publish(n_msg);
+
+        n_msg=Mat2RosMsg(map_projClose , msg_rcv_pub);
+        projClosePub.publish(n_msg);
+
+        if(pos_rcv)
+        {
+            n_msg=Mat2RosMsg( map_projLabelSmall , msg_rcv_pub);
+            projLabelPub.publish(n_msg);
+
+            n_msg=Mat2RosMsg( map_projAct , msg_rcv_pub);
+            projActPub.publish(n_msg);
+        }
+    }
+}
 
 void VisNC_transf::clearImgs(void)
 {
