@@ -13,6 +13,8 @@
 #include "CritPoints.hpp"
 #include "brute_force.hpp"
 
+#include <std_msgs/UInt8MultiArray.h>
+
 using namespace std;
 
 static const double PI = 3.141592653589793;
@@ -78,6 +80,11 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
     projClosePub   = nh_.advertise<nav_msgs::OccupancyGrid>("pc_map", 1,true);
     projLabelPub   = nh_.advertise<nav_msgs::OccupancyGrid>("pr_map", 1,true);
     projActPub     = nh_.advertise<nav_msgs::OccupancyGrid>("pa_map", 1,true);
+
+    act_graph_publisher     = nh_.advertise<std_msgs::UInt8MultiArray>("act_multi_level", 1,true);
+    reach_graph_publisher   = nh_.advertise<std_msgs::UInt8MultiArray>("reach_multi_level", 1,true);
+    close_graph_publisher   = nh_.advertise<std_msgs::UInt8MultiArray>("close_multi_level", 1,true);
+    erosion_graph_publisher = nh_.advertise<std_msgs::UInt8MultiArray>("erosion_multi_level", 1,true);
 }
 
 VisNC_transf::~VisNC_transf()
@@ -309,6 +316,8 @@ bool VisNC_transf::conf_space(void)
     struct_elemEV=printPoint(struct_elemEV,sensor_or.pt2[m_a], color2);
 
     vector<cv::Mat> mcl_map=multiDilation(mer_map, robot_act);
+
+    this->multi_cl_map=mcl_map;
 
     cl_map=mcl_map[m_a].clone();
 
@@ -947,6 +956,61 @@ void VisNC_transf::publish(void)
         n_msg=Mat2RosMsg(map_projClose , msg_rcv_pub);
         projClosePub.publish(n_msg);
 
+        cv::Mat map_small;
+        std_msgs::UInt8MultiArray array_msg;
+        std_msgs::MultiArrayDimension dim;
+        array_msg.layout.data_offset=0;
+
+        array_msg.data.clear();
+        array_msg.layout.dim.clear();
+        dim.label="l";
+        dim.size=multi_er_map.size();
+        dim.stride=multi_er_map.size()*map_or.rows*map_or.cols;
+        array_msg.layout.dim.push_back(dim);
+        dim.label="x";
+        dim.size=map_or.rows;
+        dim.stride=map_or.rows*map_or.cols;
+        array_msg.layout.dim.push_back(dim);
+        dim.label="y";
+        dim.size=map_or.cols;
+        dim.stride=map_or.cols;
+        array_msg.layout.dim.push_back(dim);
+        array_msg.data.resize(array_msg.layout.data_offset+array_msg.layout.dim[0].stride);
+        for(unsigned int l=0;l<multi_er_map.size();l++){
+            map_small=multi_er_map[l](rec);
+            for(int i=0;i<map_or.rows;i++){
+                for(int j=0;j<map_or.cols;j++){
+                    array_msg.data[array_msg.layout.data_offset+array_msg.layout.dim[1].stride*l+array_msg.layout.dim[2].stride*i+j]=map_small.at<uchar>(i,j);
+                }
+            }
+        }
+        erosion_graph_publisher.publish(array_msg);
+
+        array_msg.data.clear();
+        array_msg.layout.dim.clear();
+        dim.label="l";
+        dim.size=multi_cl_map.size();
+        dim.stride=multi_cl_map.size()*map_or.rows*map_or.cols;
+        array_msg.layout.dim.push_back(dim);
+        dim.label="x";
+        dim.size=map_or.rows;
+        dim.stride=map_or.rows*map_or.cols;
+        array_msg.layout.dim.push_back(dim);
+        dim.label="y";
+        dim.size=map_or.cols;
+        dim.stride=map_or.cols;
+        array_msg.layout.dim.push_back(dim);
+        array_msg.data.resize(array_msg.layout.data_offset+array_msg.layout.dim[0].stride);
+        for(unsigned int l=0;l<multi_cl_map.size();l++){
+            map_small=multi_cl_map[l](rec);
+            for(int i=0;i<map_or.rows;i++){
+                for(int j=0;j<map_or.cols;j++){
+                    array_msg.data[array_msg.layout.data_offset+array_msg.layout.dim[1].stride*l+array_msg.layout.dim[2].stride*i+j]=map_small.at<uchar>(i,j);
+                }
+            }
+        }
+        close_graph_publisher.publish(array_msg);
+
         if(pos_rcv)
         {
             n_msg=Mat2RosMsg( map_projLabelSmall , msg_rcv_pub);
@@ -954,6 +1018,56 @@ void VisNC_transf::publish(void)
 
             n_msg=Mat2RosMsg( map_projAct , msg_rcv_pub);
             projActPub.publish(n_msg);
+
+            array_msg.data.clear();
+            array_msg.layout.dim.clear();
+            dim.label="l";
+            dim.size=multi_labl_map.size();
+            dim.stride=multi_labl_map.size()*map_or.rows*map_or.cols;
+            array_msg.layout.dim.push_back(dim);
+            dim.label="x";
+            dim.size=map_or.rows;
+            dim.stride=map_or.rows*map_or.cols;
+            array_msg.layout.dim.push_back(dim);
+            dim.label="y";
+            dim.size=map_or.cols;
+            dim.stride=map_or.cols;
+            array_msg.layout.dim.push_back(dim);
+            array_msg.data.resize(array_msg.layout.data_offset+array_msg.layout.dim[0].stride);
+            for(unsigned int l=0;l<multi_labl_map.size();l++){
+                map_small=multi_labl_map[l](rec);
+                for(int i=0;i<map_or.rows;i++){
+                    for(int j=0;j<map_or.cols;j++){
+                        array_msg.data[array_msg.layout.data_offset+array_msg.layout.dim[1].stride*l+array_msg.layout.dim[2].stride*i+j]=map_small.at<uchar>(i,j);
+                    }
+                }
+            }
+            reach_graph_publisher.publish(array_msg);
+
+            array_msg.data.clear();
+            array_msg.layout.dim.clear();
+            dim.label="l";
+            dim.size=multi_act_map.size();
+            dim.stride=multi_act_map.size()*map_or.rows*map_or.cols;
+            array_msg.layout.dim.push_back(dim);
+            dim.label="x";
+            dim.size=map_or.rows;
+            dim.stride=map_or.rows*map_or.cols;
+            array_msg.layout.dim.push_back(dim);
+            dim.label="y";
+            dim.size=map_or.cols;
+            dim.stride=map_or.cols;
+            array_msg.layout.dim.push_back(dim);
+            array_msg.data.resize(array_msg.layout.data_offset+array_msg.layout.dim[0].stride);
+            for(unsigned int l=0;l<multi_act_map.size();l++){
+                map_small=multi_act_map[l](rec);
+                for(int i=0;i<map_or.rows;i++){
+                    for(int j=0;j<map_or.cols;j++){
+                        array_msg.data[array_msg.layout.data_offset+array_msg.layout.dim[1].stride*l+array_msg.layout.dim[2].stride*i+j]=map_small.at<uchar>(i,j);
+                    }
+                }
+            }
+            act_graph_publisher.publish(array_msg);
         }
     }
 }
