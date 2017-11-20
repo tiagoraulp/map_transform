@@ -95,6 +95,12 @@
        	<remap from="/robot_1/a_multi" to="/robot_1/visibility/a_multi_level"/>
        	<remap from="/robot_0/r_multi" to="/robot_0/visibility/r_multi_level"/>
        	<remap from="/robot_1/r_multi" to="/robot_1/visibility/r_multi_level"/>
+       	<remap from="/robot_0/rob_struct" to="/robot_0/visibility/rob_struct"/>
+       	<remap from="/robot_1/rob_struct" to="/robot_1/visibility/rob_struct"/>
+       	<remap from="/robot_0/act_struct" to="/robot_0/visibility/act_struct"/>
+       	<remap from="/robot_1/act_struct" to="/robot_1/visibility/act_struct"/>
+       	<remap from="/robot_0/rob_center" to="/robot_0/visibility/rob_center"/>
+       	<remap from="/robot_1/rob_center" to="/robot_1/visibility/rob_center"/>
  </node>
 
 </launch>

@@ -14,6 +14,7 @@
 #include "brute_force.hpp"
 
 #include <std_msgs/UInt8MultiArray.h>
+#include <std_msgs/Int16MultiArray.h>
 
 using namespace std;
 
@@ -85,6 +86,10 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
     reach_graph_publisher   = nh_.advertise<std_msgs::UInt8MultiArray>("r_multi_level", 1,true);
     close_graph_publisher   = nh_.advertise<std_msgs::UInt8MultiArray>("c_multi_level", 1,true);
     erosion_graph_publisher = nh_.advertise<std_msgs::UInt8MultiArray>("e_multi_level", 1,true);
+
+    struct_rob_pub = nh_.advertise<std_msgs::UInt8MultiArray>("rob_struct",1,true);
+    struct_act_pub = nh_.advertise<std_msgs::UInt8MultiArray>("act_struct",1,true);
+    rob_center_pub = nh_.advertise<std_msgs::Int16MultiArray>("rob_center",1,true);
 }
 
 VisNC_transf::~VisNC_transf()
@@ -1010,6 +1015,69 @@ void VisNC_transf::publish(void)
             }
         }
         close_graph_publisher.publish(array_msg);
+
+        array_msg.data.clear();
+        array_msg.layout.dim.clear();
+        dim.label="l";
+        dim.size=robot_or.elems.size();
+        dim.stride=robot_or.elems.size()*robot_or.elems[0].rows*robot_or.elems[0].cols;
+        array_msg.layout.dim.push_back(dim);
+        dim.label="x";
+        dim.size=robot_or.elems[0].rows;
+        dim.stride=robot_or.elems[0].rows*robot_or.elems[0].cols;
+        array_msg.layout.dim.push_back(dim);
+        dim.label="y";
+        dim.size=robot_or.elems[0].cols;
+        dim.stride=robot_or.elems[0].cols;
+        array_msg.layout.dim.push_back(dim);
+        array_msg.data.resize(array_msg.layout.data_offset+array_msg.layout.dim[0].stride);
+        for(unsigned int l=0;l<robot_or.elems.size();l++){
+            for(int i=0;i<robot_or.elems[0].rows;i++){
+                for(int j=0;j<robot_or.elems[0].cols;j++){
+                    array_msg.data[array_msg.layout.data_offset+array_msg.layout.dim[1].stride*l+array_msg.layout.dim[2].stride*i+j]=robot_or.elems[l].at<uchar>(i,j);
+                }
+            }
+        }
+        struct_rob_pub.publish(array_msg);
+
+        array_msg.data.clear();
+        array_msg.layout.dim.clear();
+        dim.label="l";
+        dim.size=robot_act.elems.size();
+        dim.stride=robot_act.elems.size()*robot_act.elems[0].rows*robot_act.elems[0].cols;
+        array_msg.layout.dim.push_back(dim);
+        dim.label="x";
+        dim.size=robot_act.elems[0].rows;
+        dim.stride=robot_act.elems[0].rows*robot_act.elems[0].cols;
+        array_msg.layout.dim.push_back(dim);
+        dim.label="y";
+        dim.size=robot_act.elems[0].cols;
+        dim.stride=robot_act.elems[0].cols;
+        array_msg.layout.dim.push_back(dim);
+        array_msg.data.resize(array_msg.layout.data_offset+array_msg.layout.dim[0].stride);
+        for(unsigned int l=0;l<robot_act.elems.size();l++){
+            for(int i=0;i<robot_act.elems[0].rows;i++){
+                for(int j=0;j<robot_act.elems[0].cols;j++){
+                    array_msg.data[array_msg.layout.data_offset+array_msg.layout.dim[1].stride*l+array_msg.layout.dim[2].stride*i+j]=robot_act.elems[l].at<uchar>(i,j);
+                }
+            }
+        }
+        struct_act_pub.publish(array_msg);
+
+        std_msgs::Int16MultiArray array_msg16;
+        array_msg16.layout.data_offset=0;
+
+        array_msg16.data.clear();
+        array_msg16.layout.dim.clear();
+        dim.label="pos";
+        dim.size=2;
+        dim.stride=2;
+        array_msg16.layout.dim.push_back(dim);
+        array_msg16.data.resize(array_msg.layout.data_offset+array_msg.layout.dim[0].stride);
+        array_msg16.data[0]=robot_or.pt.x;
+        array_msg16.data[0]=robot_or.pt.y;
+        rob_center_pub.publish(array_msg16);
+
 
         if(pos_rcv)
         {
