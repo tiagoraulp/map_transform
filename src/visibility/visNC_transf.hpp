@@ -22,6 +22,7 @@ protected:
     std::vector<cv::Mat> multi_er_map, multi_labl_map, multi_act_map;
     bool opt;
     bool act;
+    ros::Publisher reach_graph_publisher, act_graph_publisher, erosion_graph_publisher, projLabelPub, projErosionPub, projActPub, projClosePub;
 
     cv::Mat ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<cv::Mat> r_map, bool optRay=true);
     std::vector<cv::Point> expVisibility_obs(cv::Point3i crit, Elem defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp);
@@ -35,6 +36,7 @@ protected:
     void clearImgs();
     bool testConf();
     void calcSensArea(Elem sens);
+    void publish(void);
 public:
     VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens);
     ~VisNC_transf();
