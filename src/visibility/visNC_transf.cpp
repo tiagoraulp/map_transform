@@ -81,10 +81,10 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
     projLabelPub   = nh_.advertise<nav_msgs::OccupancyGrid>("pr_map", 1,true);
     projActPub     = nh_.advertise<nav_msgs::OccupancyGrid>("pa_map", 1,true);
 
-    act_graph_publisher     = nh_.advertise<std_msgs::UInt8MultiArray>("act_multi_level", 1,true);
-    reach_graph_publisher   = nh_.advertise<std_msgs::UInt8MultiArray>("reach_multi_level", 1,true);
-    close_graph_publisher   = nh_.advertise<std_msgs::UInt8MultiArray>("close_multi_level", 1,true);
-    erosion_graph_publisher = nh_.advertise<std_msgs::UInt8MultiArray>("erosion_multi_level", 1,true);
+    act_graph_publisher     = nh_.advertise<std_msgs::UInt8MultiArray>("a_multi_level", 1,true);
+    reach_graph_publisher   = nh_.advertise<std_msgs::UInt8MultiArray>("r_multi_level", 1,true);
+    close_graph_publisher   = nh_.advertise<std_msgs::UInt8MultiArray>("c_multi_level", 1,true);
+    erosion_graph_publisher = nh_.advertise<std_msgs::UInt8MultiArray>("e_multi_level", 1,true);
 }
 
 VisNC_transf::~VisNC_transf()
