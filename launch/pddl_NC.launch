@@ -27,7 +27,7 @@
        <param name="angle_res" value="64" />
        <param name="sens_res" value="1" />
        <param name="debug" value="false" />
-       <param name="show" value="true" />
+       <param name="show" value="false" />
        <param name="ground_truth" value="false" />
        <param name="act" value="true" />
        <param name="debug_angle" value="0" />
@@ -55,7 +55,7 @@
        <param name="angle_res" value="64" />
        <param name="sens_res" value="1" />
        <param name="debug" value="false" />
-       <param name="show" value="true" />
+       <param name="show" value="false" />
        <param name="ground_truth" value="false" />
        <param name="act" value="true" />
        <param name="debug_angle" value="0" />
@@ -73,12 +73,28 @@
        	<remap from="/robot_1/c_map" to="/robot_1/visibility/c_map"/>
        	<remap from="/robot_0/e_map" to="/robot_0/visibility/e_map"/>
        	<remap from="/robot_1/e_map" to="/robot_1/visibility/e_map"/>
-       	<remap from="/robot_0/v_map" to="/robot_0/visibility/v_map"/>
-       	<remap from="/robot_1/v_map" to="/robot_1/visibility/v_map"/>
+       	<remap from="/robot_0/a_map" to="/robot_0/visibility/a_map"/>
+       	<remap from="/robot_1/a_map" to="/robot_1/visibility/a_map"/>
        	<remap from="/robot_0/r_map" to="/robot_0/visibility/r_map"/>
        	<remap from="/robot_1/r_map" to="/robot_1/visibility/r_map"/>
-       	<remap from="/robot_0/a_map" to="/robot_0/visibility/act_dist"/>
-       	<remap from="/robot_1/a_map" to="/robot_1/visibility/act_dist"/>
+       	<remap from="/robot_0/pc_map" to="/robot_0/visibility/pc_map"/>
+       	<remap from="/robot_1/pc_map" to="/robot_1/visibility/pc_map"/>
+       	<remap from="/robot_0/pe_map" to="/robot_0/visibility/pe_map"/>
+       	<remap from="/robot_1/pe_map" to="/robot_1/visibility/pe_map"/>
+       	<remap from="/robot_0/pa_map" to="/robot_0/visibility/pa_map"/>
+       	<remap from="/robot_1/pa_map" to="/robot_1/visibility/pa_map"/>
+       	<remap from="/robot_0/pr_map" to="/robot_0/visibility/pr_map"/>
+       	<remap from="/robot_1/pr_map" to="/robot_1/visibility/pr_map"/>
+       	<remap from="/robot_0/act_map" to="/robot_0/visibility/act_dist"/>
+       	<remap from="/robot_1/act_map" to="/robot_1/visibility/act_dist"/>
+       	<remap from="/robot_0/c_multi" to="/robot_0/visibility/c_multi_level"/>
+       	<remap from="/robot_1/c_multi" to="/robot_1/visibility/c_multi_level"/>
+       	<remap from="/robot_0/e_multi" to="/robot_0/visibility/e_multi_level"/>
+       	<remap from="/robot_1/e_multi" to="/robot_1/visibility/e_multi_level"/>
+       	<remap from="/robot_0/a_multi" to="/robot_0/visibility/a_multi_level"/>
+       	<remap from="/robot_1/a_multi" to="/robot_1/visibility/a_multi_level"/>
+       	<remap from="/robot_0/r_multi" to="/robot_0/visibility/r_multi_level"/>
+       	<remap from="/robot_1/r_multi" to="/robot_1/visibility/r_multi_level"/>
  </node>
 
 </launch>

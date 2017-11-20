@@ -15,161 +15,120 @@
 #include "Astar.hpp"
 #include "ray.hpp"
 #include "std_msgs/Int16MultiArray.h"
+#include "std_msgs/UInt8MultiArray.h"
 #include "points_conversions.hpp"
 
-using namespace std;
+#define C_MAP 0
+#define E_MAP 1
+#define A_MAP 2
+#define R_MAP 3
+#define PC_MAP 4
+#define PE_MAP 5
+#define PA_MAP 6
+#define PR_MAP 7
+#define O_MAP 8
 
-class PddlGen{
+#define MC_MAP 0
+#define ME_MAP 1
+#define MA_MAP 2
+#define MR_MAP 3
+#define M_MAP 4
+
+class PddlGenNC{
 private:
     ros::NodeHandle nh_;
-    vector<ros::Subscriber> subs;
-    vector<ros::Subscriber> subs_act;
-    vector<ros::Publisher> pub_mar;
-    vector<ros::Publisher> pubs;
-    vector<nav_msgs::Path> paths;
+    std::vector<ros::Subscriber> subs;
+    std::vector<ros::Subscriber> subs_act;
+    std::vector<ros::Subscriber> subs_multi;
+    std::vector<ros::Publisher> pub_mar;
+    std::vector<ros::Publisher> pubs;
+    std::vector<nav_msgs::Path> paths;
     bool output;
-    vector<vector<vector<bool> > >  msg_rcv;
-    vector<cv::Mat_<int> >  msg_rcv_act;
-    vector<int> countM;
-    vector<bool> map_rcv;
-    vector<bool> map_rcv_act;
+    std::vector<std::vector<std::vector<bool> > >  msg_rcv;
+    std::vector<cv::Mat_<int> >  msg_rcv_act;
+    std::vector<std::vector<std::vector<std::vector<bool> > > > msg_rcv_multi;
+    std::vector<int> countM;
+    std::vector<bool> map_rcv;
+    std::vector<bool> map_rcv_act;
+    std::vector<bool> map_rcv_multi;
     float res;
     int width,height;
     cv::Mat or_map;
     int jump, nrobots;
-    vector<int> rs;
+    std::vector<int> rs;
     tf::TransformListener pos_listener;
-    vector<cv::Point2i> wps;
-    vector<vector<vector<bool> > > graph;
-    vector<vector<vector<bool> > > visible;
-    vector<vector<long int> > wp_n2i;
+    std::vector<cv::Point2i> wps;
+    std::vector<std::vector<std::vector<bool> > > graph;
+    std::vector<std::vector<std::vector<bool> > > visible;
+    std::vector<std::vector<long int> > wp_n2i;
+    std::string index2string(int index);
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index);
-    void rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map4(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map5(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map6(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map7(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map8(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map9(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map10(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map11(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map12(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map13(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map14(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map15(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map16(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map17(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map18(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map19(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map20(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-    void rcv_map21(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map_act(const std_msgs::Int16MultiArray::ConstPtr& msg, int index);
-    void rcv_map1_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
-    void rcv_map2_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
-    void rcv_map3_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
-    void rcv_map4_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
-    void rcv_map5_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
+    void rcv_map_multi(const std_msgs::UInt8MultiArray::ConstPtr& msg, int index);
     bool getMapValue(int n, int i, int j);
     int getActMapValue(int n, int i, int j);
     bool valid(int i, int j, int r);
     bool connection(int i, int j, int in, int jn, int r);
     bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict=true);
-    bool procPaths(vector<string> file);
+    bool procPaths(std::vector<std::string> file);
     bool allMapsReceived(void);
     bool allActMapsReceived(void);
     bool validWaypoint(unsigned int i, unsigned int j);
     bool feasibleWaypoint(unsigned int i, unsigned int j);
 public:
-    PddlGen(ros::NodeHandle nh): nh_(nh){
+    PddlGenNC(ros::NodeHandle nh): nh_(nh){
         nh_.param("nrobots", nrobots, 2);
-        countM.assign(4*nrobots+1,0);
-        map_rcv.assign(4*nrobots+1,false);
-        msg_rcv.resize(4*nrobots+1);
+        countM.assign(O_MAP*nrobots+1,0);
+        map_rcv.assign(O_MAP*nrobots+1,false);
+        msg_rcv.resize(O_MAP*nrobots+1);
         map_rcv_act.assign(nrobots,false);
         msg_rcv_act.resize(nrobots);
+        map_rcv_multi.assign(M_MAP*nrobots,false);
+        msg_rcv_multi.resize(M_MAP*nrobots);
         wps.clear();
         graph.clear();
         visible.clear();
-        vector<void (PddlGen::*)(const nav_msgs::OccupancyGrid::ConstPtr& msg)> v_f;
-        v_f.push_back(&PddlGen::rcv_map1);
-        v_f.push_back(&PddlGen::rcv_map2);
-        v_f.push_back(&PddlGen::rcv_map3);
-        v_f.push_back(&PddlGen::rcv_map4);
-        v_f.push_back(&PddlGen::rcv_map5);
-        v_f.push_back(&PddlGen::rcv_map6);
-        v_f.push_back(&PddlGen::rcv_map7);
-        v_f.push_back(&PddlGen::rcv_map8);
-        v_f.push_back(&PddlGen::rcv_map9);
-        v_f.push_back(&PddlGen::rcv_map10);
-        v_f.push_back(&PddlGen::rcv_map11);
-        v_f.push_back(&PddlGen::rcv_map12);
-        v_f.push_back(&PddlGen::rcv_map13);
-        v_f.push_back(&PddlGen::rcv_map14);
-        v_f.push_back(&PddlGen::rcv_map15);
-        v_f.push_back(&PddlGen::rcv_map16);
-        v_f.push_back(&PddlGen::rcv_map17);
-        v_f.push_back(&PddlGen::rcv_map18);
-        v_f.push_back(&PddlGen::rcv_map19);
-        v_f.push_back(&PddlGen::rcv_map20);
-        subs.resize(nrobots*4+1);
-        for(unsigned int i=0;i<4;i++){
-            char top;
-            switch (i) {
-            case 0:
-                top='c';
-                break;
-            case 1:
-                top='e';
-                break;
-            case 2:
-                top='v';
-                break;
-            case 3:
-                top='r';
-                break;
-            default:
-                top='c';
-                break;
-            }
+
+        subs.resize(O_MAP*nrobots+1);
+        for(int i=0;i<O_MAP;i++){
             for(int j=0;j<nrobots;j++){
-                string topic="/robot_"+to_string(j)+"/"+top+"_map";
-                subs[i*nrobots+j]=nh_.subscribe(topic, 1, v_f[i*nrobots+j], this);
+                std::string topic="/robot_"+std::to_string(j)+"/"+index2string(i)+"_map";
+                subs[i*nrobots+j]=nh_.subscribe<nav_msgs::OccupancyGrid>(topic, 1, boost::bind(&PddlGenNC::rcv_map,this,_1,i*nrobots+j));
             }
         }
-        subs[subs.size()-1] = nh_.subscribe("/map", 1, &PddlGen::rcv_map21, this);
+        subs[subs.size()-1] = nh_.subscribe<nav_msgs::OccupancyGrid>("/map", 1, boost::bind(&PddlGenNC::rcv_map,this,_1,O_MAP*nrobots));
 
-
-        vector<void (PddlGen::*)(const std_msgs::Int16MultiArray::ConstPtr& msg)> v_f_act;
-        v_f_act.push_back(&PddlGen::rcv_map1_act);
-        v_f_act.push_back(&PddlGen::rcv_map2_act);
-        v_f_act.push_back(&PddlGen::rcv_map3_act);
-        v_f_act.push_back(&PddlGen::rcv_map4_act);
-        v_f_act.push_back(&PddlGen::rcv_map5_act);
         subs_act.resize(nrobots);
         for(int j=0;j<nrobots;j++){
-            string topic="/robot_"+to_string(j)+"/"+"a_map";
-            subs_act[j]=nh_.subscribe(topic, 1, v_f_act[j], this);
+            std::string topic="/robot_"+std::to_string(j)+"/"+"act_map";
+            subs_act[j]=nh_.subscribe<std_msgs::Int16MultiArray>(topic, 1,  boost::bind(&PddlGenNC::rcv_map_act,this,_1,j));
+        }
+
+        subs_multi.resize(M_MAP*nrobots);
+        for(int i=0;i<M_MAP;i++){
+            for(int j=0;j<nrobots;j++){
+                std::string topic="/robot_"+std::to_string(j)+"/"+index2string(i)+"_multi";
+                subs_multi[i*nrobots+j]=nh_.subscribe<std_msgs::UInt8MultiArray>(topic, 1, boost::bind(&PddlGenNC::rcv_map_multi,this,_1,i*nrobots+j));
+            }
         }
 
         output=false;
         pubs.resize(nrobots);
         for(int j=0;j<nrobots;j++){
-            string topic="path"+to_string(j);
+            std::string topic="path"+std::to_string(j);
             pubs[j]=nh_.advertise<nav_msgs::Path>(topic, 1,true);
         }
         pub_mar.resize(nrobots*2+1);
         pub_mar[0] = nh_.advertise<visualization_msgs::MarkerArray>("waypoints", 1,true);
         for(int j=0;j<nrobots;j++){
-            string topic="connected_"+to_string(j);
+            std::string topic="connected_"+std::to_string(j);
             pub_mar[1+2*j]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
-            topic="visible_"+to_string(j);
+            topic="visible_"+std::to_string(j);
             pub_mar[1+2*j+1]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
         }
         rs.resize(nrobots);
         for(int j=0;j<nrobots;j++){
-            string param="/robot_"+to_string(j)+"/visibility/infl";
+            std::string param="/robot_"+std::to_string(j)+"/visibility/infl";
             nh_.param(param, rs[j], 5);
         }
         paths.resize(nrobots);
@@ -180,11 +139,34 @@ public:
     void publish(void);
 };
 
-void PddlGen::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index){
-    if(index==(nrobots*4))
+std::string PddlGenNC::index2string(int index){
+    switch (index) {
+        case C_MAP:
+            return "c";
+        case E_MAP:
+            return "e";
+        case A_MAP:
+            return "a";
+        case R_MAP:
+            return "r";
+        case PC_MAP:
+            return "pc";
+        case PE_MAP:
+            return "pe";
+        case PA_MAP:
+            return "pa";
+        case PR_MAP:
+            return "pr";
+        default:
+            return "c";
+    }
+}
+
+void PddlGenNC::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index){
+    if(index==(nrobots*O_MAP))
         or_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
 
-    msg_rcv[index].assign(msg->info.width, vector<bool>(msg->info.height,false));
+    msg_rcv[index].assign(msg->info.width, std::vector<bool>(msg->info.height,false));
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
     for(unsigned int i=0;i<msg->info.height;i++){
@@ -209,91 +191,7 @@ void PddlGen::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index){
     height=msg->info.height;
 }
 
-void PddlGen::rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 0);
-}
-
-void PddlGen::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 1);
-}
-
-void PddlGen::rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 2);
-}
-
-void PddlGen::rcv_map4(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 3);
-}
-
-void PddlGen::rcv_map5(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 4);
-}
-
-void PddlGen::rcv_map6(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 5);
-}
-
-void PddlGen::rcv_map7(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 6);
-}
-
-void PddlGen::rcv_map8(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 7);
-}
-
-void PddlGen::rcv_map9(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 8);
-}
-
-void PddlGen::rcv_map10(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 9);
-}
-
-void PddlGen::rcv_map11(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 10);
-}
-
-void PddlGen::rcv_map12(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 11);
-}
-
-void PddlGen::rcv_map13(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 12);
-}
-
-void PddlGen::rcv_map14(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 13);
-}
-
-void PddlGen::rcv_map15(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 14);
-}
-
-void PddlGen::rcv_map16(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 15);
-}
-
-void PddlGen::rcv_map17(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 16);
-}
-
-void PddlGen::rcv_map18(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 17);
-}
-
-void PddlGen::rcv_map19(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 18);
-}
-
-void PddlGen::rcv_map20(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, 19);
-}
-
-void PddlGen::rcv_map21(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-    rcv_map(msg, nrobots*4);
-}
-
-void PddlGen::rcv_map_act(const std_msgs::Int16MultiArray::ConstPtr& msg, int index){
+void PddlGenNC::rcv_map_act(const std_msgs::Int16MultiArray::ConstPtr& msg, int index){
     msg_rcv_act[index]=cv::Mat_<int>::ones(msg->layout.dim[0].size, msg->layout.dim[1].size)*-1;
 
     for(unsigned int i=0;i<msg->layout.dim[0].size;i++){
@@ -304,121 +202,118 @@ void PddlGen::rcv_map_act(const std_msgs::Int16MultiArray::ConstPtr& msg, int in
     map_rcv_act[index]=true;
 }
 
-void PddlGen::rcv_map1_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
-    rcv_map_act(msg, 0);
+void PddlGenNC::rcv_map_multi(const std_msgs::UInt8MultiArray::ConstPtr& msg, int index){
+    msg_rcv_multi[index].assign(msg->layout.dim[0].size, std::vector<std::vector<bool> >(msg->layout.dim[1].size,std::vector<bool>(msg->layout.dim[2].size,false)));
+    for(unsigned int l=0;l<msg->layout.dim[0].size;l++){
+        for(unsigned int i=0;i<msg->layout.dim[1].size;i++){
+            for(unsigned int j=0;j<msg->layout.dim[2].size;j++){
+                unsigned char value=msg->data[msg->layout.data_offset+msg->layout.dim[1].stride*l+msg->layout.dim[2].stride*i+j];
+                if(value!=0){
+                    msg_rcv_multi[index][l][i][j]=true;
+                }
+                else{
+                    msg_rcv_multi[index][l][i][j]=false;
+                }
+            }
+        }
+    }
+    map_rcv_multi[index]=true;
 }
 
-void PddlGen::rcv_map2_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
-    rcv_map_act(msg, 1);
-}
-
-void PddlGen::rcv_map3_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
-    rcv_map_act(msg, 2);
-}
-
-void PddlGen::rcv_map4_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
-    rcv_map_act(msg, 3);
-}
-
-void PddlGen::rcv_map5_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
-    rcv_map_act(msg, 4);
-}
-
-
-bool PddlGen::getMapValue(int n, int i, int j){
+bool PddlGenNC::getMapValue(int n, int i, int j){
     if( (n>=0) && (n<(int)msg_rcv.size()) && (i>=0) && (i<(int)msg_rcv[n].size()) && (j>=0) && (j<(int)msg_rcv[n][i].size()))
         return msg_rcv[n][i][j];
     else
         return false;
 }
 
-int PddlGen::getActMapValue(int n, int i, int j){
+int PddlGenNC::getActMapValue(int n, int i, int j){
     if( (n>=0) && (n<(int)msg_rcv_act.size()) && (i>=0) && (i<(int)msg_rcv_act[n].rows) && (j>=0) && (j<(int)msg_rcv_act[n].cols))
         return msg_rcv_act[n](i,j);
     else
         return false;
 }
 
-string convertG2S(cv::Point2i pt){
-    string str;
-    str.append(to_string(pt.x)).append("_").append(to_string(pt.y));
+std::string convertG2S(cv::Point2i pt){
+    std::string str;
+    str.append(std::to_string(pt.x)).append("_").append(std::to_string(pt.y));
     return str;
 }
 
-void write_preamble(stringstream & str, int nr, int nw, vector<cv::Point2i> names){
-    str<<"(define (problem robotprob1) (:domain robot-building)"<<endl<<endl;
+void write_preamble(std::stringstream & str, int nr, int nw, std::vector<cv::Point2i> names){
+    str<<"(define (problem robotprob1) (:domain robot-building)"<<std::endl<<std::endl;
     str<<"(:objects\n\t";
     for(int i=0;i<nr;i++){
      str<<"robot"<<i+1<<" ";
     }
-    str<<"- robot"<<endl<<"\t";
+    str<<"- robot"<<std::endl<<"\t";
     for(int i=0;i<nw;i++){
         str<<"waypoint"<<convertG2S(names[i])<<" ";
     }
-    str<<"- waypoint"<<endl<<")"<<endl<<endl;
+    str<<"- waypoint"<<std::endl<<")"<<std::endl<<std::endl;
 }
 
-void write_graph(stringstream & str, vector<vector<vector<bool> > > graph, vector<cv::Point2i> names){
+void write_graph(std::stringstream & str, std::vector<std::vector<std::vector<bool> > > graph, std::vector<cv::Point2i> names){
     str<<"(:init\n";
     for(unsigned int i=0; i<graph.size(); i++)
         for(unsigned int j=0; j<graph[i].size(); j++)
             for(unsigned int k=0; k<graph[i][j].size(); k++)
                 if(graph[i][j][k])
-                    str<<"\t(connected robot"<<i+1<<" waypoint"<<convertG2S(names[j])<<" waypoint"<<convertG2S(names[k])<<")"<<endl;
-    str<<endl;
+                    str<<"\t(connected robot"<<i+1<<" waypoint"<<convertG2S(names[j])<<" waypoint"<<convertG2S(names[k])<<")"<<std::endl;
+    str<<std::endl;
 }
 
-void write_visible(stringstream & str, vector<vector<vector<bool> > > visible, vector<cv::Point> names){
+void write_visible(std::stringstream & str, std::vector<std::vector<std::vector<bool> > > visible, std::vector<cv::Point> names){
     for(unsigned int i=0; i<visible.size(); i++)
         for(unsigned int j=0; j<visible[i].size(); j++)
             for(unsigned int k=0; k<visible[i][j].size(); k++)
                 if(visible[i][j][k])
-                    str<<"\t(visible robot"<<i+1<<" waypoint"<<convertG2S(names[j])<<" waypoint"<<convertG2S(names[k])<<")"<<endl;
-    str<<endl;
+                    str<<"\t(visible robot"<<i+1<<" waypoint"<<convertG2S(names[j])<<" waypoint"<<convertG2S(names[k])<<")"<<std::endl;
+    str<<std::endl;
 }
 
-void write_initRobots(stringstream & str, int nr, vector<long int> initials, vector<cv::Point2i> names){
+void write_initRobots(std::stringstream & str, int nr, std::vector<long int> initials, std::vector<cv::Point2i> names){
     for(int i=0; i<nr; i++){
         if(initials[i]>=0 && (initials[i]<((long int)names.size()))){
-            str<<"\t(at robot"<<i+1<< " waypoint"<<convertG2S(names[initials[i]])<<")"<<endl;
+            str<<"\t(at robot"<<i+1<< " waypoint"<<convertG2S(names[initials[i]])<<")"<<std::endl;
         }
         else{
-            str<<"\t(at robot"<<i+1<< " waypoint"<<")"<<endl;
+            str<<"\t(at robot"<<i+1<< " waypoint"<<")"<<std::endl;
         }
     }
-    str<<endl;
+    str<<std::endl;
 
     for(int i=0; i<nr; i++)
-        str<<"\t(available robot"<<i+1<<")"<<endl;
-    str<<")"<<endl<<endl;
+        str<<"\t(available robot"<<i+1<<")"<<std::endl;
+    str<<")"<<std::endl<<std::endl;
 }
 
-void write_goals(stringstream & str, vector<long int> goals, vector<cv::Point2i> names){
-    str<<"(:goal (and"<<endl;
+void write_goals(std::stringstream & str, std::vector<long int> goals, std::vector<cv::Point2i> names){
+    str<<"(:goal (and"<<std::endl;
     for(unsigned int i=0;i<goals.size();i++){
-        str<<"\t(visited waypoint"<<convertG2S(names[goals[i]])<<")"<<endl;
+        str<<"\t(visited waypoint"<<convertG2S(names[goals[i]])<<")"<<std::endl;
     }
     str<<"\t)\n)\n)";
 }
 
-void write_goals(stringstream & str, int goals, vector<cv::Point2i> names){
-    str<<"(:goal (and"<<endl;
+void write_goals(std::stringstream & str, int goals, std::vector<cv::Point2i> names){
+    str<<"(:goal (and"<<std::endl;
     for(int i=0;i<goals;i++){
-        str<<"\t(visited waypoint"<<convertG2S(names[i])<<")"<<endl;
+        str<<"\t(visited waypoint"<<convertG2S(names[i])<<")"<<std::endl;
     }
     str<<"\t)\n)\n)";
 }
 
-void write_goals_UT(stringstream & str, vector<long int> goalsUT, vector<cv::Point2i> names){
-    str<<"(:notgoal (and"<<endl;
+void write_goals_UT(std::stringstream & str, std::vector<long int> goalsUT, std::vector<cv::Point2i> names){
+    str<<"(:notgoal (and"<<std::endl;
     for(unsigned int i=0;i<goalsUT.size();i++){
-        str<<"\t(visited waypoint"<<convertG2S(names[goalsUT[i]])<<")"<<endl;
+        str<<"\t(visited waypoint"<<convertG2S(names[goalsUT[i]])<<")"<<std::endl;
     }
     str<<"\t)\n)";
 }
 
-void write_goals_GA(stringstream & str, vector<vector<long int> > goalsR, vector<cv::Point2i> names){
-    str<<"("<<endl;
+void write_goals_GA(std::stringstream & str, std::vector<std::vector<long int> > goalsR, std::vector<cv::Point2i> names){
+    str<<"("<<std::endl;
     unsigned int nr=goalsR.size();
     for(unsigned int r=0; r<nr; r++){
         if(goalsR[r].size()>0){
@@ -429,14 +324,14 @@ void write_goals_GA(stringstream & str, vector<vector<long int> > goalsR, vector
             str<<")";
             if(r!=(nr-1))
                 str<<";;";
-            str<<endl;
+            str<<std::endl;
         }
     }
     str<<")";
 }
 
-void write_goals_GAP(stringstream & str, vector<vector<long int> > goalsRP, vector<cv::Point2i> names){
-    str<<"("<<endl;
+void write_goals_GAP(std::stringstream & str, std::vector<std::vector<long int> > goalsRP, std::vector<cv::Point2i> names){
+    str<<"("<<std::endl;
     unsigned int nr=goalsRP.size();
     for(unsigned int r=0; r<nr; r++){
         if(goalsRP[r].size()>0){
@@ -447,14 +342,14 @@ void write_goals_GAP(stringstream & str, vector<vector<long int> > goalsRP, vect
             str<<")";
             if(r!=(nr-1))
                 str<<";;";
-            str<<endl;
+            str<<std::endl;
         }
     }
     str<<")";
 }
 
-void write_goals_GAP_Heur(stringstream & str, vector<vector<long int> > goalsRPH){
-    str<<"("<<endl;
+void write_goals_GAP_Heur(std::stringstream & str, std::vector<std::vector<long int> > goalsRPH){
+    str<<"("<<std::endl;
     unsigned int nr=goalsRPH.size();
     for(unsigned int r=0; r<nr; r++){
         if(goalsRPH[r].size()>0){
@@ -465,20 +360,20 @@ void write_goals_GAP_Heur(stringstream & str, vector<vector<long int> > goalsRPH
             str<<")";
             if(r!=(nr-1))
                 str<<";;";
-            str<<endl;
+            str<<std::endl;
         }
     }
     str<<")";
 }
 
-void write_goals_GA_P_Heur(stringstream & str, vector<vector<long int> > goalsRP, vector<cv::Point2i> names, vector<vector<long int> > goalsRPH){
+void write_goals_GA_P_Heur(std::stringstream & str, std::vector<std::vector<long int> > goalsRP, std::vector<cv::Point2i> names, std::vector<std::vector<long int> > goalsRPH){
     if( (goalsRP.size() != goalsRPH.size()) || (goalsRP.size()==0) )
         return;
     for(unsigned int r=0; r<goalsRP.size(); r++){
         if(goalsRP[r].size()!= goalsRPH[r].size())
                 return;
     }
-    str<<"("<<endl;
+    str<<"("<<std::endl;
     unsigned int nr=goalsRP.size();
     for(unsigned int r=0; r<nr; r++){
         if(goalsRP[r].size()>0){
@@ -487,7 +382,7 @@ void write_goals_GA_P_Heur(stringstream & str, vector<vector<long int> > goalsRP
                 str<<"((visited waypoint"<<convertG2S(names[goalsRP[r][i]])<<") "<<goalsRPH[r][i]<<") ";
             }
             str<<")";
-            str<<endl;
+            str<<std::endl;
         }
     }
     str<<")";
@@ -497,11 +392,11 @@ int win=4;
 float adj=1.2;
 
 
-bool PddlGen::valid(int i, int j, int r){
+bool PddlGenNC::valid(int i, int j, int r){
     if(!getMapValue(r,i,j)){
         bool stop=false;
-        for(int ii=max(i-win,0); ii<=min(i+win,(int)msg_rcv[r].size()-1); ii++){
-            for(int jj=max(j-win,0); jj<=min(j+win,(int)msg_rcv[r][ii].size()-1); jj++){
+        for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv[r].size()-1); ii++){
+            for(int jj=std::max(j-win,0); jj<=std::min(j+win,(int)msg_rcv[r][ii].size()-1); jj++){
                 if(getMapValue(r,ii,jj)){
                     stop=true;
                     break;
@@ -516,11 +411,11 @@ bool PddlGen::valid(int i, int j, int r){
     return true;
 }
 
-bool PddlGen::connection(int i, int j, int in, int jn, int r){
+bool PddlGenNC::connection(int i, int j, int in, int jn, int r){
     if(!getMapValue(r,i,j)){
         bool stop=false;
-        for(int ii=max(i-win,0); ii<=min(i+win,(int)msg_rcv[r].size()-1); ii++){
-            for(int jj=max(j-win,0); jj<=min(j+win,(int)msg_rcv[r][ii].size()-1); jj++){
+        for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv[r].size()-1); ii++){
+            for(int jj=std::max(j-win,0); jj<=std::min(j+win,(int)msg_rcv[r][ii].size()-1); jj++){
                 if(getMapValue(r,ii,jj)){
                     stop=true;
                     i=ii; j=jj;
@@ -535,8 +430,8 @@ bool PddlGen::connection(int i, int j, int in, int jn, int r){
     }
     if(!getMapValue(r,in,jn)){
         bool stop=false;
-        for(int ii=max(in-win,0); ii<=min(in+win,(int)msg_rcv[r].size()-1); ii++){
-            for(int jj=max(jn-win,0); jj<=min(jn+win,(int)msg_rcv[r][ii].size()-1); jj++){
+        for(int ii=std::max(in-win,0); ii<=std::min(in+win,(int)msg_rcv[r].size()-1); ii++){
+            for(int jj=std::max(jn-win,0); jj<=std::min(jn+win,(int)msg_rcv[r][ii].size()-1); jj++){
                 if(getMapValue(r,ii,jj)){
                     stop=true;
                     in=ii; jn=jj;
@@ -556,11 +451,11 @@ bool PddlGen::connection(int i, int j, int in, int jn, int r){
         return false;
 }
 
-bool PddlGen::connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict){
+bool PddlGenNC::connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict){
     if(!getMapValue(r_e,i,j)){
         bool stop=false;
-        for(int ii=max(i-win,0); ii<=min(i+win,(int)msg_rcv[r_e].size()-1); ii++){
-            for(int jj=max(j-win,0); jj<=min(j+win,(int)msg_rcv[r_e][ii].size()-1); jj++){
+        for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv[r_e].size()-1); ii++){
+            for(int jj=std::max(j-win,0); jj<=std::min(j+win,(int)msg_rcv[r_e][ii].size()-1); jj++){
                 if(getMapValue(r_e,ii,jj)){
                     stop=true;
                     i=ii; j=jj;
@@ -585,7 +480,7 @@ bool PddlGen::connection_ray(int i, int j, int in, int jn, int r_e, int r_v, boo
         return false;
 }
 
-bool PddlGen::allMapsReceived(void){
+bool PddlGenNC::allMapsReceived(void){
     for(unsigned int i=0; i<map_rcv.size(); i++){
         if(!map_rcv[i] || (msg_rcv[i].size()==0) || (msg_rcv[i][0].size()==0))
             return false;
@@ -593,7 +488,7 @@ bool PddlGen::allMapsReceived(void){
     return true;
 }
 
-bool PddlGen::allActMapsReceived(void){
+bool PddlGenNC::allActMapsReceived(void){
     for(unsigned int i=0; i<map_rcv_act.size(); i++){
         if(!map_rcv_act[i] || (msg_rcv_act[i].rows==0) || (msg_rcv_act[i].cols==0))
             return false;
@@ -601,7 +496,7 @@ bool PddlGen::allActMapsReceived(void){
     return true;
 }
 
-bool PddlGen::validWaypoint(unsigned int i, unsigned int j){
+bool PddlGenNC::validWaypoint(unsigned int i, unsigned int j){
     for(int rr=0; rr<nrobots; rr++){
         //if(getMapValue(rr,i,j))
         if(getMapValue(nrobots*4,i,j))
@@ -610,7 +505,7 @@ bool PddlGen::validWaypoint(unsigned int i, unsigned int j){
     return false;
 }
 
-bool PddlGen::feasibleWaypoint(unsigned int i, unsigned int j){
+bool PddlGenNC::feasibleWaypoint(unsigned int i, unsigned int j){
     for(int rr=0; rr<nrobots; rr++){
         if(getMapValue(2*nrobots+rr,i,j))
             return true;
@@ -618,12 +513,12 @@ bool PddlGen::feasibleWaypoint(unsigned int i, unsigned int j){
     return false;
 }
 
-bool PddlGen::run(void){
+bool PddlGenNC::run(void){
     if( allMapsReceived() && allActMapsReceived()){
-        vector<cv::Point2i> pos(nrobots);
+        std::vector<cv::Point2i> pos(nrobots);
         for(int i=0;i<nrobots;i++){
             tf::StampedTransform transform;
-            string frame= "/robot_"+to_string(i)+"/base_link";
+            std::string frame= "/robot_"+std::to_string(i)+"/base_link";
             try{
                 pos_listener.lookupTransform("/map",frame, ros::Time(0), transform);
             }
@@ -640,9 +535,9 @@ bool PddlGen::run(void){
             if(!getMapValue(nrobots+rr,pos[rr].x,pos[rr].y))
                 return false;
         }
-        vector<vector<long int> > waypoints(msg_rcv[0].size(), vector<long int>(msg_rcv[0][0].size(),-1));
-        vector<cv::Point2i> names(0);
-        wp_n2i.assign(waypoints.size()/jump+1, vector<long int>(waypoints[0].size()/jump+1,-1));
+        std::vector<std::vector<long int> > waypoints(msg_rcv[0].size(), std::vector<long int>(msg_rcv[0][0].size(),-1));
+        std::vector<cv::Point2i> names(0);
+        wp_n2i.assign(waypoints.size()/jump+1, std::vector<long int>(waypoints[0].size()/jump+1,-1));
         long int count=0;
         //int jump=min(r0s,r1s)/2;
         for(unsigned int i=0;i<waypoints.size();i=i+jump){
@@ -658,23 +553,23 @@ bool PddlGen::run(void){
                 }
             }
         }
-        graph.assign(nrobots, vector<vector<bool> >(count, vector<bool>(count,false)));
-        visible.assign(nrobots, vector<vector<bool> >(count, vector<bool>(count,false)));
-        vector<vector<bool> > visibleT(nrobots, vector<bool>(count, false));
-        vector<vector<bool> > visibleTR(nrobots, vector<bool>(count, false));
-        vector<vector<bool> > connectTR(nrobots, vector<bool>(count, false));
+        graph.assign(nrobots, std::vector<std::vector<bool> >(count, std::vector<bool>(count,false)));
+        visible.assign(nrobots, std::vector<std::vector<bool> >(count, std::vector<bool>(count,false)));
+        std::vector<std::vector<bool> > visibleT(nrobots, std::vector<bool>(count, false));
+        std::vector<std::vector<bool> > visibleTR(nrobots, std::vector<bool>(count, false));
+        std::vector<std::vector<bool> > connectTR(nrobots, std::vector<bool>(count, false));
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
                 if(waypoints[i][j]>=0){
-                    int imin=(int)round(max((float)i-(1.5*((float)jump)),0.0));
-                    int jmin=(int)round(max((float)j-(1.5*((float)jump)),0.0));
-                    int imax=(int)round(min((float)i+(1.5*((float)jump)),(double)waypoints.size()-1));
-                    int jmax=(int)round(min((float)j+(1.5*((float)jump)),(double)waypoints[i].size()-1));
+                    int imin=(int)round(std::max((float)i-(1.5*((float)jump)),0.0));
+                    int jmin=(int)round(std::max((float)j-(1.5*((float)jump)),0.0));
+                    int imax=(int)round(std::min((float)i+(1.5*((float)jump)),(double)waypoints.size()-1));
+                    int jmax=(int)round(std::min((float)j+(1.5*((float)jump)),(double)waypoints[i].size()-1));
                     for(int in=imin;in<=imax;in++){
                         for(int jn=jmin;jn<=jmax;jn++){
                             if(waypoints[in][jn]>=0){
                                 //if((in==(int)i || jn==(int)j) && (in!=(int)i || jn!=(int)j) ){
-                                if( max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j) ){
+                                if( std::max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j) ){
                                     for(int rr=0;rr<nrobots;rr++){
                                         if(connection((int)i,(int)j,in,jn,nrobots+rr)){
                                             graph[rr][waypoints[in][jn]][waypoints[i][j]]=true;
@@ -688,8 +583,8 @@ bool PddlGen::run(void){
                         }
                     }
                     for(int rr=0;rr<nrobots;rr++){
-                        for(int m=max((int)i-rs[rr]-1,0);m<=min((int)i+rs[rr]+1,(int)waypoints.size()-1);m++){
-                            for(int n=max((int)j-rs[rr]-1,0);n<=min((int)j+rs[rr]+1,(int)waypoints[i].size()-1);n++){
+                        for(int m=std::max((int)i-rs[rr]-1,0);m<=std::min((int)i+rs[rr]+1,(int)waypoints.size()-1);m++){
+                            for(int n=std::max((int)j-rs[rr]-1,0);n<=std::min((int)j+rs[rr]+1,(int)waypoints[i].size()-1);n++){
                                 if( ((m-(int)i)*(m-(int)i)+(n-(int)j)*(n-(int)j))<=(rs[rr]*rs[rr]) ){
                                     //if( getMapValue(2,i,j) && getMapValue(0,m,n) ){
                                     if(connection_ray(i,j,m,n,nrobots+rr,rr)){
@@ -711,18 +606,18 @@ bool PddlGen::run(void){
                 }
             }
         }
-        vector<vector<bool> > visibleTRF=visibleTR;
-        vector<vector<bool> > visibleTF=visibleT;
+        std::vector<std::vector<bool> > visibleTRF=visibleTR;
+        std::vector<std::vector<bool> > visibleTF=visibleT;
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
                 if(waypoints[i][j]>=0){
                     for(int rr=0;rr<nrobots;rr++){
                         if( !visibleT[rr][waypoints[i][j]] || !visibleTR[rr][waypoints[i][j]] ){
                             float searchwin=1.0*((float)jump)+((float)rs[rr]);
-                            int imin=(int)round(max((float)i-searchwin,(float)0.0));
-                            int jmin=(int)round(max((float)j-searchwin,(float)0.0));
-                            int imax=(int)round(min((float)i+searchwin,(float)waypoints.size()-1));
-                            int jmax=(int)round(min((float)j+searchwin,(float)waypoints[i].size()-1));
+                            int imin=(int)round(std::max((float)i-searchwin,(float)0.0));
+                            int jmin=(int)round(std::max((float)j-searchwin,(float)0.0));
+                            int imax=(int)round(std::min((float)i+searchwin,(float)waypoints.size()-1));
+                            int jmax=(int)round(std::min((float)j+searchwin,(float)waypoints[i].size()-1));
                             FindMin<long int, long int> wp_v, wp_vr;
                             for(int in=imin;in<=imax;in++){
                                 for(int jn=jmin;jn<=jmax;jn++){
@@ -753,18 +648,18 @@ bool PddlGen::run(void){
                 }
             }
         }
-        vector<long int> goals(0);
-        vector<vector<long int> > goalsR(nrobots, vector<long int>(0));
-        vector<vector<long int> > goalsRP(nrobots, vector<long int>(0));
-        vector<vector<long int> > goalsRPH(nrobots, vector<long int>(0));
+        std::vector<long int> goals(0);
+        std::vector<std::vector<long int> > goalsR(nrobots, std::vector<long int>(0));
+        std::vector<std::vector<long int> > goalsRP(nrobots, std::vector<long int>(0));
+        std::vector<std::vector<long int> > goalsRPH(nrobots, std::vector<long int>(0));
         for(int rr=0;rr<nrobots;rr++){
             goalsR[rr].clear();
             goalsRP[rr].clear();
             goalsRPH[rr].clear();
         }
-        vector<long int> goalsUT(0);
+        std::vector<long int> goalsUT(0);
         goalsUT.clear();
-        vector<int> unfeasible_waypoints(count, 0);
+        std::vector<int> unfeasible_waypoints(count, 0);
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
                 //if( feasibleWaypoint(i,j) ){
@@ -796,10 +691,10 @@ bool PddlGen::run(void){
                 //}
             }
         }
-        vector<long int> initials(nrobots,-1);
+        std::vector<long int> initials(nrobots,-1);
         //initials[0]=waypoints[pos_r0.x][pos_r0.y];
         //initials[1]=waypoints[pos_r1.x][pos_r1.y];
-        vector<cv::Point> hlx=bf_hlx(jump+1);
+        std::vector<cv::Point> hlx=bf_hlx(jump+1);
         for(int rr=0;rr<nrobots;rr++){
             for(unsigned int h=0;h<hlx.size();h++){
                 int px=pos[rr].x+hlx[h].x;
@@ -814,7 +709,7 @@ bool PddlGen::run(void){
                 }
             }
         }
-        stringstream strstream(""), strstreamGA(""), strstreamGAP(""), strstreamGAP_Heur(""), strstreamGA_P_Heur(""), strstreamUT("");
+        std::stringstream strstream(""), strstreamGA(""), strstreamGAP(""), strstreamGAP_Heur(""), strstreamGA_P_Heur(""), strstreamUT("");
         write_preamble(strstream, nrobots,count, names);
         write_graph(strstream, graph, names);
         write_visible(strstream, visible, names);
@@ -831,8 +726,8 @@ bool PddlGen::run(void){
 //        {
 //            cout<<count-goalsR[i].size()<<" "<<((float)(goalsR[i].size()))/((float)count)<<endl;
 //        }
-        ofstream myfile;
-        string pddlFolder = ros::package::getPath("map_transform").append("/pddl/problem.pddl");
+        std::ofstream myfile;
+        std::string pddlFolder = ros::package::getPath("map_transform").append("/pddl/problem.pddl");
         myfile.open(pddlFolder);
         if (myfile.is_open()){
             myfile << strstream.str();
@@ -842,7 +737,7 @@ bool PddlGen::run(void){
             ROS_INFO("Failed to open PDDL file.");
         }
         myfile.close();
-        ofstream myfileGA;
+        std::ofstream myfileGA;
         pddlFolder = ros::package::getPath("map_transform").append("/pddl/GA.pddl");
         myfileGA.open(pddlFolder);
         if (myfileGA.is_open()){
@@ -854,7 +749,7 @@ bool PddlGen::run(void){
         }
         myfileGA.close();
 
-        ofstream myfileGAP;
+        std::ofstream myfileGAP;
         pddlFolder = ros::package::getPath("map_transform").append("/pddl/GAP.pddl");
         myfileGAP.open(pddlFolder);
         if (myfileGAP.is_open()){
@@ -866,7 +761,7 @@ bool PddlGen::run(void){
         }
         myfileGAP.close();
 
-        ofstream myfileGAP_Heur;
+        std::ofstream myfileGAP_Heur;
         pddlFolder = ros::package::getPath("map_transform").append("/pddl/Heur.pddl");
         myfileGAP_Heur.open(pddlFolder);
         if (myfileGAP_Heur.is_open()){
@@ -878,7 +773,7 @@ bool PddlGen::run(void){
         }
         myfileGAP_Heur.close();
 
-        ofstream myfileGA_P_Heur;
+        std::ofstream myfileGA_P_Heur;
         pddlFolder = ros::package::getPath("map_transform").append("/pddl/input.lisp");
         myfileGA_P_Heur.open(pddlFolder);
         if (myfileGA_P_Heur.is_open()){
@@ -890,7 +785,7 @@ bool PddlGen::run(void){
         }
         myfileGA_P_Heur.close();
 
-        ofstream myfileUT;
+        std::ofstream myfileUT;
         pddlFolder = ros::package::getPath("map_transform").append("/pddl/unfeasible.lisp");
         myfileUT.open(pddlFolder);
         if (myfileUT.is_open()){
@@ -912,7 +807,7 @@ enum ActionID {navigate, look, null};
 struct Action{
     ActionID actID;
     int robID;
-    vector<cv::Point2i> wp;
+    std::vector<cv::Point2i> wp;
     int size_x, size_y, rob_max;
     Action(int sx,int sy, int rm): actID(null), robID(-1), size_x(sx), size_y(sy), rob_max(rm){
         wp.assign(2,cv::Point2i(-1,-1));
@@ -926,7 +821,7 @@ struct Action{
     }
 };
 
-bool procAct(string elem, Action& act){
+bool procAct(std::string elem, Action& act){
     transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
     if (elem.find("navigate") != std::string::npos) {
         act.actID=navigate;
@@ -939,25 +834,25 @@ bool procAct(string elem, Action& act){
     return false;
 }
 
-bool procRob(string elem, Action& act){
+bool procRob(std::string elem, Action& act){
     transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
     size_t pos=elem.find("robot");
-    if (pos!= string::npos) {
+    if (pos!= std::string::npos) {
         act.robID=stoi(elem.substr(pos+5));
         return true;
     }
     return false;
 }
 
-bool procWP(string elem, Action& act, unsigned int ind){
+bool procWP(std::string elem, Action& act, unsigned int ind){
     if(ind==0 || ind==1)
     {
         transform(elem.begin(), elem.end(), elem.begin(), ::tolower);
         size_t pos=elem.find("waypoint");
-        if (pos!= string::npos) {
+        if (pos!= std::string::npos) {
             act.wp[ind].x=stoi(elem.substr(pos+8));
             size_t pos=elem.find("_");
-            if (pos!= string::npos) {
+            if (pos!= std::string::npos) {
                 act.wp[ind].y=stoi(elem.substr(pos+1));
                 return true;
             }
@@ -966,7 +861,7 @@ bool procWP(string elem, Action& act, unsigned int ind){
     return false;
 }
 
-bool PddlGen::procPaths(vector<string> input){
+bool PddlGenNC::procPaths(std::vector<std::string> input){
     for(int rr=0;rr<nrobots;rr++){
         paths[rr].poses.clear();
     }
@@ -975,10 +870,10 @@ bool PddlGen::procPaths(vector<string> input){
     pw.header.stamp =  ros::Time::now();
     pw.pose.orientation.w=1;
 
-    vector<vector<long int> > paths_robots(nrobots);
+    std::vector<std::vector<long int> > paths_robots(nrobots);
     for(unsigned int i=0; i<input.size(); i++){
-        istringstream iss(input[i]);
-        string elem;
+        std::istringstream iss(input[i]);
+        std::string elem;
         Action act(wp_n2i.size(), wp_n2i[0].size(), nrobots);
         while(iss>>elem){
             if( procAct(elem, act) ){
@@ -1022,14 +917,14 @@ bool PddlGen::procPaths(vector<string> input){
 
 bool suc=false;
 
-void PddlGen::readOutput(void){
+void PddlGenNC::readOutput(void){
     if(!output && suc){
-        ifstream myfile;
-        string pddlFolder = ros::package::getPath("map_transform").append("/pddl/paths.txt");
+        std::ifstream myfile;
+        std::string pddlFolder = ros::package::getPath("map_transform").append("/pddl/paths.txt");
         myfile.open(pddlFolder);
         if (myfile.is_open()){
-            string line;
-            vector<string> input;
+            std::string line;
+            std::vector<std::string> input;
             while (getline(myfile, line)) {
                 input.push_back(line);
             }
@@ -1044,7 +939,7 @@ void PddlGen::readOutput(void){
     }
 }
 
-void PddlGen::publish(void){
+void PddlGenNC::publish(void){
     if(output){
         for(int rr=0;rr<nrobots;rr++){
             paths[rr].header.frame_id = "/map";
@@ -1153,7 +1048,7 @@ int main(int argc, char **argv){
   ros::init(argc, argv, "pddl", ros::init_options::NoSigintHandler);
   signal(SIGINT, HandlerStop);
   ros::NodeHandle nh("~");
-  PddlGen pddl(nh);
+  PddlGenNC pddl(nh);
   ros::Rate loop_rate(10);
   while (ros::ok()){
     ros::spinOnce();
