@@ -80,6 +80,9 @@ private:
     int getActMapValue(int n, int i, int j);
     bool getMultiMapValue(int n, int l, int i, int j);
     bool getStructValue(int n, int l, int i, int j);
+    bool getStructCenteredValue(int n, int l, int i, int j);
+    cv::Point2i getStructLower(int n);
+    cv::Point2i getStructUpper(int n);
     bool valid(int i, int j, int r);
     bool connection(int i, int j, int in, int jn, int r);
     bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict=true);
@@ -309,6 +312,24 @@ bool PddlGenNC::getStructValue(int n, int l, int i, int j){
         return msg_rcv_multi_str[n][l][i][j];
     else
         return false;
+}
+
+bool PddlGenNC::getStructCenteredValue(int n, int l, int i, int j){
+    if(n<0 || n>=(int)rob_center.size())
+        return false;
+    return getStructValue(n,l,i-rob_center[n].x,j-rob_center[n].y);
+}
+
+cv::Point2i PddlGenNC::getStructLower(int n){
+    if(n<0 || n>=(int)rob_center.size())
+        return cv::Point2i(0,0);
+    return cv::Point2i(rob_center[n].x,rob_center[n].y);
+}
+
+cv::Point2i PddlGenNC::getStructUpper(int n){
+    if(n<0 || n>=(int)rob_center.size() || msg_rcv_multi_str[n].size()==0 || msg_rcv_multi_str[n][0].size()==0 || msg_rcv_multi_str[n][0][0].size()==0)
+        return cv::Point2i(0,0);
+    return cv::Point2i(msg_rcv_multi_str[n][0].size()-1-rob_center[n].x,msg_rcv_multi_str[n][0][0].size()-1-rob_center[n].y);
 }
 
 std::string convertG2S(cv::Point2i pt){
