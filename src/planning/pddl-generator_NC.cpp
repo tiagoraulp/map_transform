@@ -34,12 +34,18 @@
 #define MR_MAP 3
 #define M_MAP 4
 
+#define ROB_STR 0
+#define ACT_STR 1
+#define STRUCTS 2
+
 class PddlGenNC{
 private:
     ros::NodeHandle nh_;
     std::vector<ros::Subscriber> subs;
     std::vector<ros::Subscriber> subs_act;
     std::vector<ros::Subscriber> subs_multi;
+    std::vector<ros::Subscriber> subs_multi_str;
+    std::vector<ros::Subscriber> subs_rob_center;
     std::vector<ros::Publisher> pub_mar;
     std::vector<ros::Publisher> pubs;
     std::vector<nav_msgs::Path> paths;
@@ -47,10 +53,13 @@ private:
     std::vector<std::vector<std::vector<bool> > >  msg_rcv;
     std::vector<cv::Mat_<int> >  msg_rcv_act;
     std::vector<std::vector<std::vector<std::vector<bool> > > > msg_rcv_multi;
+    std::vector<std::vector<std::vector<std::vector<bool> > > > msg_rcv_multi_str;
     std::vector<int> countM;
     std::vector<bool> map_rcv;
     std::vector<bool> map_rcv_act;
     std::vector<bool> map_rcv_multi;
+    std::vector<bool> map_rcv_multi_str;
+    std::vector<cv::Point2i> rob_center;
     float res;
     int width,height;
     cv::Mat or_map;
@@ -65,14 +74,21 @@ private:
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index);
     void rcv_map_act(const std_msgs::Int16MultiArray::ConstPtr& msg, int index);
     void rcv_map_multi(const std_msgs::UInt8MultiArray::ConstPtr& msg, int index);
+    void rcv_map_multi_str(const std_msgs::UInt8MultiArray::ConstPtr& msg, int index);
+    void rcv_rob_center(const std_msgs::Int16MultiArray::ConstPtr& msg, int index);
     bool getMapValue(int n, int i, int j);
     int getActMapValue(int n, int i, int j);
+    bool getMultiMapValue(int n, int l, int i, int j);
+    bool getStructValue(int n, int l, int i, int j);
     bool valid(int i, int j, int r);
     bool connection(int i, int j, int in, int jn, int r);
     bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict=true);
     bool procPaths(std::vector<std::string> file);
     bool allMapsReceived(void);
     bool allActMapsReceived(void);
+    bool allMultiMapsReceived(void);
+    bool allMultiStrMapsReceived(void);
+    bool allRobCenterReceived(void);
     bool validWaypoint(unsigned int i, unsigned int j);
     bool feasibleWaypoint(unsigned int i, unsigned int j);
 public:
@@ -85,6 +101,9 @@ public:
         msg_rcv_act.resize(nrobots);
         map_rcv_multi.assign(M_MAP*nrobots,false);
         msg_rcv_multi.resize(M_MAP*nrobots);
+        map_rcv_multi_str.assign(STRUCTS*nrobots,false);
+        msg_rcv_multi_str.resize(STRUCTS*nrobots);
+        rob_center.assign(nrobots,cv::Point2i(-1,-1));
         wps.clear();
         graph.clear();
         visible.clear();
@@ -110,6 +129,26 @@ public:
                 std::string topic="/robot_"+std::to_string(j)+"/"+index2string(i)+"_multi";
                 subs_multi[i*nrobots+j]=nh_.subscribe<std_msgs::UInt8MultiArray>(topic, 1, boost::bind(&PddlGenNC::rcv_map_multi,this,_1,i*nrobots+j));
             }
+        }
+
+        subs_multi_str.resize(STRUCTS*nrobots);
+        for(int i=0;i<STRUCTS;i++){
+            for(int j=0;j<nrobots;j++){
+                if(i==0){
+                    std::string topic="/robot_"+std::to_string(j)+"/"+"rob_struct";
+                    subs_multi_str[i*nrobots+j]=nh_.subscribe<std_msgs::UInt8MultiArray>(topic, 1, boost::bind(&PddlGenNC::rcv_map_multi_str,this,_1,i*nrobots+j));
+                }
+                else{
+                    std::string topic="/robot_"+std::to_string(j)+"/"+"act_struct";
+                    subs_multi_str[i*nrobots+j]=nh_.subscribe<std_msgs::UInt8MultiArray>(topic, 1, boost::bind(&PddlGenNC::rcv_map_multi_str,this,_1,i*nrobots+j));
+                }
+            }
+        }
+
+        subs_rob_center.resize(nrobots);
+        for(int j=0;j<nrobots;j++){
+            std::string topic="/robot_"+std::to_string(j)+"/"+"rob_center";
+            subs_rob_center[j]=nh_.subscribe<std_msgs::Int16MultiArray>(topic, 1, boost::bind(&PddlGenNC::rcv_rob_center,this,_1,j));
         }
 
         output=false;
@@ -220,6 +259,30 @@ void PddlGenNC::rcv_map_multi(const std_msgs::UInt8MultiArray::ConstPtr& msg, in
     map_rcv_multi[index]=true;
 }
 
+void PddlGenNC::rcv_map_multi_str(const std_msgs::UInt8MultiArray::ConstPtr& msg, int index){
+    msg_rcv_multi_str[index].assign(msg->layout.dim[0].size, std::vector<std::vector<bool> >(msg->layout.dim[1].size,std::vector<bool>(msg->layout.dim[2].size,false)));
+    for(unsigned int l=0;l<msg->layout.dim[0].size;l++){
+        for(unsigned int i=0;i<msg->layout.dim[1].size;i++){
+            for(unsigned int j=0;j<msg->layout.dim[2].size;j++){
+                unsigned char value=msg->data[msg->layout.data_offset+msg->layout.dim[1].stride*l+msg->layout.dim[2].stride*i+j];
+                if(value!=0){
+                    msg_rcv_multi_str[index][l][i][j]=true;
+                }
+                else{
+                    msg_rcv_multi_str[index][l][i][j]=false;
+                }
+            }
+        }
+    }
+    map_rcv_multi_str[index]=true;
+}
+
+void PddlGenNC::rcv_rob_center(const std_msgs::Int16MultiArray::ConstPtr& msg, int index){
+    if(((msg->layout.dim.size())!=1) || ((msg->layout.dim[0].size)!=2))
+        return;
+    rob_center[index]=cv::Point2i(msg->data[msg->layout.data_offset+0],msg->data[msg->layout.data_offset+1]);
+}
+
 bool PddlGenNC::getMapValue(int n, int i, int j){
     if( (n>=0) && (n<(int)msg_rcv.size()) && (i>=0) && (i<(int)msg_rcv[n].size()) && (j>=0) && (j<(int)msg_rcv[n][i].size()))
         return msg_rcv[n][i][j];
@@ -230,6 +293,20 @@ bool PddlGenNC::getMapValue(int n, int i, int j){
 int PddlGenNC::getActMapValue(int n, int i, int j){
     if( (n>=0) && (n<(int)msg_rcv_act.size()) && (i>=0) && (i<(int)msg_rcv_act[n].rows) && (j>=0) && (j<(int)msg_rcv_act[n].cols))
         return msg_rcv_act[n](i,j);
+    else
+        return -1;
+}
+
+bool PddlGenNC::getMultiMapValue(int n, int l, int i, int j){
+    if( (n>=0) && (n<(int)msg_rcv_multi.size()) && (l>=0) && (l<(int)msg_rcv_multi[n].size()) && (i>=0) && (i<(int)msg_rcv_multi[n][l].size()) && (j>=0) && (j<(int)msg_rcv_multi[n][l][i].size()))
+        return msg_rcv_multi[n][l][i][j];
+    else
+        return false;
+}
+
+bool PddlGenNC::getStructValue(int n, int l, int i, int j){
+    if( (n>=0) && (n<(int)msg_rcv_multi_str.size()) && (l>=0) && (l<(int)msg_rcv_multi_str[n].size()) && (i>=0) && (i<(int)msg_rcv_multi_str[n][l].size()) && (j>=0) && (j<(int)msg_rcv_multi_str[n][l][i].size()))
+        return msg_rcv_multi_str[n][l][i][j];
     else
         return false;
 }
@@ -496,6 +573,32 @@ bool PddlGenNC::allActMapsReceived(void){
     return true;
 }
 
+bool PddlGenNC::allMultiMapsReceived(void){
+    for(unsigned int i=0; i<map_rcv_multi.size(); i++){
+        if(!map_rcv_multi[i] || (msg_rcv_multi[i].size()==0) || (msg_rcv_multi[i][0].size()==0) || (msg_rcv_multi[i][0][0].size()==0))
+            return false;
+    }
+    return true;
+}
+
+
+bool PddlGenNC::allMultiStrMapsReceived(void){
+    for(unsigned int i=0; i<map_rcv_multi_str.size(); i++){
+        if(!map_rcv_multi_str[i] || (msg_rcv_multi_str[i].size()==0) || (msg_rcv_multi_str[i][0].size()==0) || (msg_rcv_multi_str[i][0][0].size()==0))
+            return false;
+    }
+    return true;
+}
+
+
+bool PddlGenNC::allRobCenterReceived(void){
+    for(unsigned int i=0; i<rob_center.size(); i++){
+        if((rob_center[i].x<0) || (rob_center[i].y<0))
+            return false;
+    }
+    return true;
+}
+
 bool PddlGenNC::validWaypoint(unsigned int i, unsigned int j){
     for(int rr=0; rr<nrobots; rr++){
         //if(getMapValue(rr,i,j))
@@ -514,7 +617,7 @@ bool PddlGenNC::feasibleWaypoint(unsigned int i, unsigned int j){
 }
 
 bool PddlGenNC::run(void){
-    if( allMapsReceived() && allActMapsReceived()){
+    if( allMapsReceived() && allActMapsReceived() && allMultiMapsReceived() && allMultiStrMapsReceived() && allRobCenterReceived()){
         std::vector<cv::Point2i> pos(nrobots);
         for(int i=0;i<nrobots;i++){
             tf::StampedTransform transform;
