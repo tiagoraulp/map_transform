@@ -18,6 +18,8 @@
 #include "std_msgs/UInt8MultiArray.h"
 #include "points_conversions.hpp"
 
+static const double PI = 3.141592653589793;
+
 #define C_MAP 0
 #define E_MAP 1
 #define A_MAP 2
@@ -67,9 +69,11 @@ private:
     std::vector<int> rs;
     tf::TransformListener pos_listener;
     std::vector<cv::Point2i> wps;
+    std::vector<cv::Point3i> wps3D;
     std::vector<std::vector<std::vector<bool> > > graph;
-    std::vector<std::vector<std::vector<bool> > > visible;
+    std::vector<std::vector<std::vector<bool> > > actuable;
     std::vector<std::vector<long int> > wp_n2i;
+    std::vector<std::vector<std::vector<long int> > > wp_n2i3D;
     std::string index2string(int index);
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index);
     void rcv_map_act(const std_msgs::Int16MultiArray::ConstPtr& msg, int index);
@@ -83,9 +87,9 @@ private:
     bool getStructCenteredValue(int n, int l, int i, int j);
     cv::Point2i getStructLower(int n);
     cv::Point2i getStructUpper(int n);
-    bool valid(int i, int j, int r);
-    bool connection(int i, int j, int in, int jn, int r);
-    bool connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict=true);
+    bool valid(int i, int j, int l,int r);
+    bool connection(int i, int j, int l, int in, int jn, int ln, int r);
+    bool connection_ray(int i, int j, int l, int in, int jn, int r_e, int r_v, bool strict=true);
     bool procPaths(std::vector<std::string> file);
     bool allMapsReceived(void);
     bool allActMapsReceived(void);
@@ -108,8 +112,9 @@ public:
         msg_rcv_multi_str.resize(STRUCTS*nrobots);
         rob_center.assign(nrobots,cv::Point2i(-1,-1));
         wps.clear();
+        wps3D.clear();
         graph.clear();
-        visible.clear();
+        actuable.clear();
 
         subs.resize(O_MAP*nrobots+1);
         for(int i=0;i<O_MAP;i++){
@@ -338,7 +343,13 @@ std::string convertG2S(cv::Point2i pt){
     return str;
 }
 
-void write_preamble(std::stringstream & str, int nr, int nw, std::vector<cv::Point2i> names){
+std::string convertG2S(cv::Point3i pt){
+    std::string str;
+    str.append(std::to_string(pt.x)).append("_").append(std::to_string(pt.y)).append("_").append(std::to_string(pt.z));
+    return str;
+}
+
+void write_preamble(std::stringstream & str, int nr, int nw, std::vector<cv::Point2i> names,int nw3D, std::vector<cv::Point3i> names3D){
     str<<"(define (problem robotprob1) (:domain robot-building)"<<std::endl<<std::endl;
     str<<"(:objects\n\t";
     for(int i=0;i<nr;i++){
@@ -348,10 +359,13 @@ void write_preamble(std::stringstream & str, int nr, int nw, std::vector<cv::Poi
     for(int i=0;i<nw;i++){
         str<<"waypoint"<<convertG2S(names[i])<<" ";
     }
+    for(int i=0;i<nw3D;i++){
+        str<<"waypoint"<<convertG2S(names3D[i])<<" ";
+    }
     str<<"- waypoint"<<std::endl<<")"<<std::endl<<std::endl;
 }
 
-void write_graph(std::stringstream & str, std::vector<std::vector<std::vector<bool> > > graph, std::vector<cv::Point2i> names){
+void write_graph(std::stringstream & str, std::vector<std::vector<std::vector<bool> > > graph, std::vector<cv::Point3i> names){
     str<<"(:init\n";
     for(unsigned int i=0; i<graph.size(); i++)
         for(unsigned int j=0; j<graph[i].size(); j++)
@@ -361,16 +375,16 @@ void write_graph(std::stringstream & str, std::vector<std::vector<std::vector<bo
     str<<std::endl;
 }
 
-void write_visible(std::stringstream & str, std::vector<std::vector<std::vector<bool> > > visible, std::vector<cv::Point> names){
+void write_visible(std::stringstream & str, std::vector<std::vector<std::vector<bool> > > visible, std::vector<cv::Point> names, std::vector<cv::Point3i> names3D){
     for(unsigned int i=0; i<visible.size(); i++)
         for(unsigned int j=0; j<visible[i].size(); j++)
             for(unsigned int k=0; k<visible[i][j].size(); k++)
                 if(visible[i][j][k])
-                    str<<"\t(visible robot"<<i+1<<" waypoint"<<convertG2S(names[j])<<" waypoint"<<convertG2S(names[k])<<")"<<std::endl;
+                    str<<"\t(visible robot"<<i+1<<" waypoint"<<convertG2S(names3D[j])<<" waypoint"<<convertG2S(names[k])<<")"<<std::endl;
     str<<std::endl;
 }
 
-void write_initRobots(std::stringstream & str, int nr, std::vector<long int> initials, std::vector<cv::Point2i> names){
+void write_initRobots(std::stringstream & str, int nr, std::vector<long int> initials, std::vector<cv::Point3i> names){
     for(int i=0; i<nr; i++){
         if(initials[i]>=0 && (initials[i]<((long int)names.size()))){
             str<<"\t(at robot"<<i+1<< " waypoint"<<convertG2S(names[initials[i]])<<")"<<std::endl;
@@ -490,12 +504,12 @@ int win=4;
 float adj=1.2;
 
 
-bool PddlGenNC::valid(int i, int j, int r){
-    if(!getMapValue(r,i,j)){
+bool PddlGenNC::valid(int i, int j,int l, int r){
+    if(!getMultiMapValue(r,l,i,j)){
         bool stop=false;
-        for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv[r].size()-1); ii++){
-            for(int jj=std::max(j-win,0); jj<=std::min(j+win,(int)msg_rcv[r][ii].size()-1); jj++){
-                if(getMapValue(r,ii,jj)){
+        for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv_multi[r][l].size()-1); ii++){
+            for(int jj=std::max(j-win,0); jj<=std::min(j+win,(int)msg_rcv_multi[r][l][ii].size()-1); jj++){
+                if(getMultiMapValue(r,l,ii,jj)){
                     stop=true;
                     break;
                 }
@@ -509,12 +523,12 @@ bool PddlGenNC::valid(int i, int j, int r){
     return true;
 }
 
-bool PddlGenNC::connection(int i, int j, int in, int jn, int r){
-    if(!getMapValue(r,i,j)){
+bool PddlGenNC::connection(int i, int j, int l, int in, int jn, int ln, int r){
+    if(!getMultiMapValue(r,l,i,j)){
         bool stop=false;
-        for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv[r].size()-1); ii++){
-            for(int jj=std::max(j-win,0); jj<=std::min(j+win,(int)msg_rcv[r][ii].size()-1); jj++){
-                if(getMapValue(r,ii,jj)){
+        for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv_multi[r][l].size()-1); ii++){
+            for(int jj=std::max(j-win,0); jj<=std::min(j+win,(int)msg_rcv_multi[r][l][ii].size()-1); jj++){
+                if(getMultiMapValue(r,l,ii,jj)){
                     stop=true;
                     i=ii; j=jj;
                     break;
@@ -526,11 +540,11 @@ bool PddlGenNC::connection(int i, int j, int in, int jn, int r){
         if(!stop)
             return false;
     }
-    if(!getMapValue(r,in,jn)){
+    if(!getMultiMapValue(r,ln,in,jn)){
         bool stop=false;
-        for(int ii=std::max(in-win,0); ii<=std::min(in+win,(int)msg_rcv[r].size()-1); ii++){
-            for(int jj=std::max(jn-win,0); jj<=std::min(jn+win,(int)msg_rcv[r][ii].size()-1); jj++){
-                if(getMapValue(r,ii,jj)){
+        for(int ii=std::max(in-win,0); ii<=std::min(in+win,(int)msg_rcv_multi[r][ln].size()-1); ii++){
+            for(int jj=std::max(jn-win,0); jj<=std::min(jn+win,(int)msg_rcv_multi[r][ln][ii].size()-1); jj++){
+                if(getMultiMapValue(r,ln,ii,jj)){
                     stop=true;
                     in=ii; jn=jj;
                     break;
@@ -542,19 +556,29 @@ bool PddlGenNC::connection(int i, int j, int in, int jn, int r){
         if(!stop)
             return false;
     }
-    Apath path=Astar<float>(PointI(i,j), PointI(in,jn), msg_rcv[r]);
+    std::vector<std::vector<bool> > temp=msg_rcv_multi[r][l];
+    for(int row=std::max(i-3*win,0);row<=std::min(i+3*win,(int)temp.size());row++){
+        for(int col=std::max(j-3*win,0);col<=std::min(j+3*win,(int)temp[row].size());col++){
+            if( msg_rcv_multi[r][ln][row][col] )
+                temp[row][col]=true;
+        }
+    }
+    Apath path=Astar<float>(PointI(i,j), PointI(in,jn), temp);
     if( path.cost<=(adj*sqrt((i-in)*(i-in)+(j-jn)*(j-jn))) && path.cost>0)
         return true;
     else
         return false;
 }
 
-bool PddlGenNC::connection_ray(int i, int j, int in, int jn, int r_e, int r_v, bool strict){
-    if(!getMapValue(r_e,i,j)){
+bool PddlGenNC::connection_ray(int i, int j, int l, int in, int jn, int r_e, int r_v, bool strict){
+    if(!getMultiMapValue(r_v,l,in,jn)){
+        return false;
+    }
+    if(!getMultiMapValue(r_e,l,i,j)){
         bool stop=false;
-        for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv[r_e].size()-1); ii++){
-            for(int jj=std::max(j-win,0); jj<=std::min(j+win,(int)msg_rcv[r_e][ii].size()-1); jj++){
-                if(getMapValue(r_e,ii,jj)){
+        for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv_multi[r_e][l].size()-1); ii++){
+            for(int jj=std::max(j-win,0); jj<=std::min(j+win,(int)msg_rcv_multi[r_e][l][ii].size()-1); jj++){
+                if(getMultiMapValue(r_e,l,ii,jj)){
                     stop=true;
                     i=ii; j=jj;
                     break;
@@ -566,11 +590,8 @@ bool PddlGenNC::connection_ray(int i, int j, int in, int jn, int r_e, int r_v, b
         if(!stop)
             return false;
     }
-    if(!getMapValue(r_v,in,jn)){
-        return false;
-    }
     int rr=r_e%nrobots;
-    if( ((in-i)*(in-i)+(jn-j)*(jn-j))>(rs[rr]*rs[rr]) && strict)
+    if(strict && !getStructCenteredValue(rr,l,(in-i),(jn-j)))
         return false;
     if(raytracing(or_map, i, j, in, jn, true))
         return true;
@@ -623,7 +644,7 @@ bool PddlGenNC::allRobCenterReceived(void){
 bool PddlGenNC::validWaypoint(unsigned int i, unsigned int j){
     for(int rr=0; rr<nrobots; rr++){
         //if(getMapValue(rr,i,j))
-        if(getMapValue(nrobots*4,i,j))
+        if(getMapValue(nrobots*O_MAP,i,j))
             return true;
     }
     return false;
@@ -631,7 +652,7 @@ bool PddlGenNC::validWaypoint(unsigned int i, unsigned int j){
 
 bool PddlGenNC::feasibleWaypoint(unsigned int i, unsigned int j){
     for(int rr=0; rr<nrobots; rr++){
-        if(getMapValue(2*nrobots+rr,i,j))
+        if(getMapValue(PA_MAP*nrobots+rr,i,j))
             return true;
     }
     return false;
@@ -639,7 +660,8 @@ bool PddlGenNC::feasibleWaypoint(unsigned int i, unsigned int j){
 
 bool PddlGenNC::run(void){
     if( allMapsReceived() && allActMapsReceived() && allMultiMapsReceived() && allMultiStrMapsReceived() && allRobCenterReceived()){
-        std::vector<cv::Point2i> pos(nrobots);
+        std::vector<cv::Point3i> pos(nrobots);
+        std::vector<cv::Point2i> pos2(nrobots);
         for(int i=0;i<nrobots;i++){
             tf::StampedTransform transform;
             std::string frame= "/robot_"+std::to_string(i)+"/base_link";
@@ -653,12 +675,20 @@ bool PddlGenNC::run(void){
             geometry_msgs::Point pt;
             pt.x=transform.getOrigin().x();
             pt.y=transform.getOrigin().y();
-            convertWtf2I( pt, res, pos[i] );
+            convertWtf2I( pt, res, pos2[i] );
+            pos[i].x=pos2[i].x;
+            pos[i].y=pos2[i].y;
+
+            pt.z=tf::getYaw(transform.getRotation())/2/PI*360;
+            pt.z=boundAngleD(pt.z);
+            pos[i].z=angleD2I(pt.z, msg_rcv_multi[i].size());
+            //std::cout<<pos[i].x<<" "<<pos[i].y<<" "<<pos[i].z<<std::endl;
         }
         for(int rr=0;rr<nrobots;rr++){
-            if(!getMapValue(nrobots+rr,pos[rr].x,pos[rr].y))
+            if(!getMultiMapValue(ME_MAP*nrobots+rr,pos[rr].z,pos[rr].x,pos[rr].y))
                 return false;
         }
+        unsigned int number_layers=msg_rcv_multi[0].size();
         std::vector<std::vector<long int> > waypoints(msg_rcv[0].size(), std::vector<long int>(msg_rcv[0][0].size(),-1));
         std::vector<cv::Point2i> names(0);
         wp_n2i.assign(waypoints.size()/jump+1, std::vector<long int>(waypoints[0].size()/jump+1,-1));
@@ -677,51 +707,89 @@ bool PddlGenNC::run(void){
                 }
             }
         }
-        graph.assign(nrobots, std::vector<std::vector<bool> >(count, std::vector<bool>(count,false)));
-        visible.assign(nrobots, std::vector<std::vector<bool> >(count, std::vector<bool>(count,false)));
+        std::vector<std::vector<std::vector<long int> > > waypoints3D(number_layers,std::vector<std::vector<long int> >(msg_rcv[0].size(), std::vector<long int>(msg_rcv[0][0].size(),-1)));
+        std::vector<cv::Point3i> names3D(0);
+        wp_n2i3D.assign(number_layers,std::vector<std::vector<long int> >(waypoints.size()/jump+1, std::vector<long int>(waypoints[0].size()/jump+1,-1)));
+        long int count3D=0;
+        for(unsigned int ll=0; ll<number_layers;ll++){
+            for(unsigned int i=0;i<waypoints.size();i=i+jump){
+                unsigned int in=i/jump;
+                for(unsigned int j=0;j<waypoints[i].size();j=j+jump){
+                    unsigned int jn=j/jump;
+                    if( validWaypoint(i,j) ){
+                        waypoints3D[ll][i][j]=count3D;
+                        names3D.push_back(cv::Point3i(in,jn,ll));
+                        wp_n2i3D[ll][in][jn]=count3D;
+                        wps3D.push_back(cv::Point3i(i,j,ll));
+                        count3D++;
+                    }
+                }
+            }
+        }
+        graph.assign(nrobots, std::vector<std::vector<bool> >(count3D, std::vector<bool>(count3D,false)));
+        actuable.assign(nrobots, std::vector<std::vector<bool> >(count3D, std::vector<bool>(count,false)));
         std::vector<std::vector<bool> > visibleT(nrobots, std::vector<bool>(count, false));
         std::vector<std::vector<bool> > visibleTR(nrobots, std::vector<bool>(count, false));
-        std::vector<std::vector<bool> > connectTR(nrobots, std::vector<bool>(count, false));
-        for(unsigned int i=0;i<waypoints.size();i++){
-            for(unsigned int j=0;j<waypoints[i].size();j++){
-                if(waypoints[i][j]>=0){
-                    int imin=(int)round(std::max((float)i-(1.5*((float)jump)),0.0));
-                    int jmin=(int)round(std::max((float)j-(1.5*((float)jump)),0.0));
-                    int imax=(int)round(std::min((float)i+(1.5*((float)jump)),(double)waypoints.size()-1));
-                    int jmax=(int)round(std::min((float)j+(1.5*((float)jump)),(double)waypoints[i].size()-1));
-                    for(int in=imin;in<=imax;in++){
-                        for(int jn=jmin;jn<=jmax;jn++){
-                            if(waypoints[in][jn]>=0){
-                                //if((in==(int)i || jn==(int)j) && (in!=(int)i || jn!=(int)j) ){
-                                if( std::max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j) ){
-                                    for(int rr=0;rr<nrobots;rr++){
-                                        if(connection((int)i,(int)j,in,jn,nrobots+rr)){
-                                            graph[rr][waypoints[in][jn]][waypoints[i][j]]=true;
-                                            graph[rr][waypoints[i][j]][waypoints[in][jn]]=true;
-                                            connectTR[rr][waypoints[i][j]]=true;
-                                            connectTR[rr][waypoints[in][jn]]=true;
+        std::vector<std::vector<bool> > connectTR(nrobots, std::vector<bool>(count3D, false));
+        for(unsigned int ll=0; ll<waypoints3D.size();ll++){
+            for(unsigned int i=0;i<waypoints3D[ll].size();i++){
+                for(unsigned int j=0;j<waypoints3D[ll][i].size();j++){
+                    if(waypoints3D[ll][i][j]>=0){
+                        int imin=(int)round(std::max((float)i-(1.5*((float)jump)),0.0));
+                        int jmin=(int)round(std::max((float)j-(1.5*((float)jump)),0.0));
+                        int imax=(int)round(std::min((float)i+(1.5*((float)jump)),(double)waypoints3D[ll].size()-1));
+                        int jmax=(int)round(std::min((float)j+(1.5*((float)jump)),(double)waypoints3D[ll][i].size()-1));
+                        int la=decAngle(ll,number_layers);
+                        int ua=incAngle(ll,number_layers);
+                        for(unsigned int run=0; run<3; run++){
+                            int angle;
+                            if(run==0)
+                                angle=ll;
+                            if(run==1)
+                                angle=la;
+                            if(run==2)
+                                angle=ua;
+                            else
+                                angle=ll;
+                            for(int in=imin;in<=imax;in++){
+                                for(int jn=jmin;jn<=jmax;jn++){
+                                    if(waypoints3D[angle][in][jn]>=0){
+                                        //if((in==(int)i || jn==(int)j) && (in!=(int)i || jn!=(int)j) ){
+                                        if( std::max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j || angle!=(int)ll) ){
+                                            for(int rr=0;rr<nrobots;rr++){
+                                                if(connection((int)i,(int)j,(int)ll,in,jn,angle,ME_MAP*nrobots+rr)){
+                                                    graph[rr][waypoints3D[angle][in][jn]][waypoints3D[ll][i][j]]=true;
+                                                    graph[rr][waypoints3D[ll][i][j]][waypoints3D[angle][in][jn]]=true;
+                                                    connectTR[rr][waypoints3D[ll][i][j]]=true;
+                                                    connectTR[rr][waypoints3D[angle][in][jn]]=true;
+                                                }
+                                                if(connection((int)i,(int)j,(int)ll,in,jn,angle,MR_MAP*nrobots+rr)){
+                                                    graph[rr][waypoints3D[angle][in][jn]][waypoints3D[ll][i][j]]=true;
+                                                    graph[rr][waypoints3D[ll][i][j]][waypoints3D[angle][in][jn]]=true;
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    for(int rr=0;rr<nrobots;rr++){
-                        for(int m=std::max((int)i-rs[rr]-1,0);m<=std::min((int)i+rs[rr]+1,(int)waypoints.size()-1);m++){
-                            for(int n=std::max((int)j-rs[rr]-1,0);n<=std::min((int)j+rs[rr]+1,(int)waypoints[i].size()-1);n++){
-                                if( ((m-(int)i)*(m-(int)i)+(n-(int)j)*(n-(int)j))<=(rs[rr]*rs[rr]) ){
-                                    //if( getMapValue(2,i,j) && getMapValue(0,m,n) ){
-                                    if(connection_ray(i,j,m,n,nrobots+rr,rr)){
-                                        if(waypoints[m][n]>=0){
-                                            visible[rr][waypoints[i][j]][waypoints[m][n]]=true;
-                                            visibleT[rr][waypoints[m][n]]=true;
-                                        }
-                                    }
-                                    if(connection_ray(i,j,m,n,3*nrobots+rr,2*nrobots+rr)){
-                                        if(waypoints[m][n]>=0){
-                                            visible[rr][waypoints[i][j]][waypoints[m][n]]=true;
-                                            visibleTR[rr][waypoints[m][n]]=true;
-                                        }
+                        for(int rr=0;rr<nrobots;rr++){
+                            cv::Point lb=getStructLower(rr);
+                            cv::Point ub=getStructUpper(rr);
+                            for(int m=std::max((int)i-lb.x,0);m<=std::min((int)i+ub.x,(int)waypoints3D[ll].size()-1);m++){
+                                for(int n=std::max((int)j-lb.y,0);n<=std::min((int)j+ub.y,(int)waypoints3D[ll][i].size()-1);n++){
+                                    if(waypoints3D[ll][m][n]>=0 && waypoints[m][n]>=0){
+                                        //if( getStructCenteredValue(rr,ll,(m-(int)i),(n-(int)j)) ){
+                                            //if( getMapValue(2,i,j) && getMapValue(0,m,n) ){
+                                            if(connection_ray(i,j,ll,m,n,ME_MAP*nrobots+rr,MC_MAP*nrobots+rr)){
+                                                actuable[rr][waypoints3D[ll][i][j]][waypoints[m][n]]=true;
+                                                visibleT[rr][waypoints[m][n]]=true;
+                                            }
+                                            if(connection_ray(i,j,ll,m,n,MR_MAP*nrobots+rr,MA_MAP*nrobots+rr)){
+                                                actuable[rr][waypoints3D[ll][i][j]][waypoints[m][n]]=true;
+                                                visibleTR[rr][waypoints[m][n]]=true;
+                                            }
+                                        //}
                                     }
                                 }
                             }
@@ -730,6 +798,7 @@ bool PddlGenNC::run(void){
                 }
             }
         }
+        ROS_INFO("TEST!!!!!!");
         std::vector<std::vector<bool> > visibleTRF=visibleTR;
         std::vector<std::vector<bool> > visibleTF=visibleT;
         for(unsigned int i=0;i<waypoints.size();i++){
@@ -737,41 +806,46 @@ bool PddlGenNC::run(void){
                 if(waypoints[i][j]>=0){
                     for(int rr=0;rr<nrobots;rr++){
                         if( !visibleT[rr][waypoints[i][j]] || !visibleTR[rr][waypoints[i][j]] ){
-                            float searchwin=1.0*((float)jump)+((float)rs[rr]);
+                            if(!getMapValue(PC_MAP*nrobots+rr,i,j))
+                                continue;
+                            float searchwin=1.0*((float)jump)+((float)std::max(msg_rcv_multi_str[rr][0].size(),msg_rcv_multi_str[rr][0][0].size()));
                             int imin=(int)round(std::max((float)i-searchwin,(float)0.0));
                             int jmin=(int)round(std::max((float)j-searchwin,(float)0.0));
                             int imax=(int)round(std::min((float)i+searchwin,(float)waypoints.size()-1));
                             int jmax=(int)round(std::min((float)j+searchwin,(float)waypoints[i].size()-1));
                             FindMin<long int, long int> wp_v, wp_vr;
-                            for(int in=imin;in<=imax;in++){
-                                for(int jn=jmin;jn<=jmax;jn++){
-                                    if(waypoints[in][jn]>=0){
-                                        if( ((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j))<=(searchwin*searchwin) ){
-                                            if(connection_ray(in,jn,(int)i,(int)j,nrobots+rr,rr, false) && !visibleT[rr][waypoints[i][j]]){
-                                                //visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
-                                                wp_v.iter((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j), waypoints[in][jn]);
-                                                visibleTF[rr][waypoints[i][j]]=true;
-                                            }
-                                            if(connection_ray(in,jn,(int)i,(int)j,3*nrobots+rr,2*nrobots+rr, false) && !visibleTR[rr][waypoints[i][j]]){
-                                                //visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
-                                                wp_vr.iter((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j), waypoints[in][jn]);
-                                                visibleTRF[rr][waypoints[i][j]]=true;
-                                            }
+                            for(int ll=0;ll<(int)number_layers;ll++){
+                                for(int in=imin;in<=imax;in++){
+                                    for(int jn=jmin;jn<=jmax;jn++){
+                                        if(waypoints3D[ll][in][jn]>=0){
+                                            //if( ((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j))<=(searchwin*searchwin) ){
+                                                if(!visibleT[rr][waypoints[i][j]] && connection_ray(in,jn,ll,(int)i,(int)j,ME_MAP*nrobots+rr,MC_MAP*nrobots+rr, false) ){
+                                                    //visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
+                                                    wp_v.iter((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j), waypoints3D[ll][in][jn]);
+                                                    visibleTF[rr][waypoints[i][j]]=true;
+                                                }
+                                                if(!visibleTR[rr][waypoints[i][j]] && connection_ray(in,jn,ll,(int)i,(int)j,MR_MAP*nrobots+rr,MA_MAP*nrobots+rr, false)){
+                                                    //visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
+                                                    wp_vr.iter((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j), waypoints3D[ll][in][jn]);
+                                                    visibleTRF[rr][waypoints[i][j]]=true;
+                                                }
+                                            //}
                                         }
                                     }
                                 }
                             }
                             if(wp_v.valid()){
-                                visible[rr][wp_v.getP()][waypoints[i][j]]=true;
+                                actuable[rr][wp_v.getP()][waypoints[i][j]]=true;
                             }
                             if(wp_vr.valid()){
-                                visible[rr][wp_vr.getP()][waypoints[i][j]]=true;
+                                actuable[rr][wp_vr.getP()][waypoints[i][j]]=true;
                             }
                         }
                     }
                 }
             }
         }
+        ROS_INFO("TEST1233333333!!!!!!");
         std::vector<long int> goals(0);
         std::vector<std::vector<long int> > goalsR(nrobots, std::vector<long int>(0));
         std::vector<std::vector<long int> > goalsRP(nrobots, std::vector<long int>(0));
@@ -791,7 +865,7 @@ bool PddlGenNC::run(void){
                         goals.push_back(waypoints[i][j]);
 
                         for(int rr=0;rr<nrobots;rr++){
-                            if(!getMapValue(2*nrobots+rr,i,j)){
+                            if(!getMapValue(PA_MAP*nrobots+rr,i,j)){
                                 goalsR[rr].push_back(waypoints[i][j]);
                                 unfeasible_waypoints[waypoints[i][j]]++;
                             }
@@ -824,9 +898,9 @@ bool PddlGenNC::run(void){
                 int px=pos[rr].x+hlx[h].x;
                 int py=pos[rr].y+hlx[h].y;
                 if(px>=0 && py>=0 && px<(int)waypoints.size() && py<(int)waypoints[0].size()){
-                    if(waypoints[px][py]>=0 && valid(px,py,3*nrobots+rr)){
-                        if( connectTR[rr][waypoints[px][py]] ){
-                            initials[rr]=waypoints[px][py];
+                    if(waypoints3D[pos[rr].z][px][py]>=0 && valid(px,py,pos[rr].z,R_MAP*nrobots+rr)){
+                        if( connectTR[rr][waypoints3D[pos[rr].z][px][py]] ){
+                            initials[rr]=waypoints3D[pos[rr].z][px][py];
                             break;
                         }
                     }
@@ -834,10 +908,10 @@ bool PddlGenNC::run(void){
             }
         }
         std::stringstream strstream(""), strstreamGA(""), strstreamGAP(""), strstreamGAP_Heur(""), strstreamGA_P_Heur(""), strstreamUT("");
-        write_preamble(strstream, nrobots,count, names);
-        write_graph(strstream, graph, names);
-        write_visible(strstream, visible, names);
-        write_initRobots(strstream, nrobots, initials, names);
+        write_preamble(strstream, nrobots,count, names, count3D,names3D);
+        write_graph(strstream, graph, names3D);
+        write_visible(strstream, actuable, names, names3D);
+        write_initRobots(strstream, nrobots, initials, names3D);
         //write_goals(strstream, goals, names);//only feasible
         write_goals(strstream, count, names);//total coverage, even if not feasible
         write_goals_GA(strstreamGA, goalsR, names);//only unfeasible
@@ -1123,9 +1197,9 @@ void PddlGenNC::publish(void){
             point.color.r = 1.0f;
             point.color.b = 0.0f;
             point.color.g = 1.0f;
-            for(unsigned int i=0;i<visible[rr].size();i++){
-                for(unsigned int j=0;j<visible[rr][i].size();j++){
-                    if( visible[rr][i][j] ){
+            for(unsigned int i=0;i<actuable[rr].size();i++){
+                for(unsigned int j=0;j<actuable[rr][i].size();j++){
+                    if( actuable[rr][i][j] ){
                         p=convertI2W(wps[i], res);
                         point.points.clear();
                         point.points.push_back(p);
