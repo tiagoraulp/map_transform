@@ -1113,7 +1113,7 @@ bool PddlGenNC::procPaths(std::vector<std::string> input){
     return true;
 }
 
-bool suc=false;
+static bool suc=false;
 
 void PddlGenNC::readOutput(void){
     if(!output && suc){
@@ -1263,9 +1263,9 @@ int main(int argc, char **argv){
     loop_rate.sleep();
   }
   if(!suc)
-      ROS_INFO("Failed generation of pddl!");
+      std::cout<<"Fail..."<<std::endl;
   else
-      //ROS_INFO("Successful generation of pddl.");
-  ros::shutdown();
+      std::cout<<"Success!"<<std::endl;
+  //ros::shutdown();
   return 0;
 }
