@@ -1181,12 +1181,12 @@ void PddlGenNC::publish(void){
             for(unsigned int i=0;i<graph[rr].size();i++){
                 for(unsigned int j=0;j<graph[rr][i].size();j++){
                     if( graph[rr][i][j] ){
-                        p=convertI2W(wps[i], res);
+                        p=convertI2W2D(wps3D[i], res);
                         point.points.clear();
                         point.points.push_back(p);
-                        p=convertI2W(wps[j], res);
+                        p=convertI2W2D(wps3D[j], res);
                         point.points.push_back(p);
-                        point.id = (i)*wps.size()+j;
+                        point.id = (i)*wps3D.size()+j;
                         points.markers.push_back(point);
                     }
                 }
@@ -1200,7 +1200,7 @@ void PddlGenNC::publish(void){
             for(unsigned int i=0;i<actuable[rr].size();i++){
                 for(unsigned int j=0;j<actuable[rr][i].size();j++){
                     if( actuable[rr][i][j] ){
-                        p=convertI2W(wps[i], res);
+                        p=convertI2W2D(wps3D[i], res);
                         point.points.clear();
                         point.points.push_back(p);
                         p=convertI2W(wps[j], res);

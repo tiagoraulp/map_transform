@@ -11,6 +11,7 @@ PointI convertWtf2I(geometry_msgs::Point p, double res);
 
 void convertW2I(geometry_msgs::Point p, double res, cv::Point2i & pt);
 geometry_msgs::Point convertI2W(cv::Point2i p, double res);
+geometry_msgs::Point convertI2W2D(cv::Point3i  p, double res);
 void convertWtf2I(geometry_msgs::Point p, double res, cv::Point2i & pt);
 
 #endif // POINTS_CONVERSIONS_HPP
