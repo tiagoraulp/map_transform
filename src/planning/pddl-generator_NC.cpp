@@ -1239,7 +1239,6 @@ void HandlerStop(int){
     if(!suc)
         ROS_INFO("Failed generation of pddl.");
     ros::shutdown();
-    exit(-1);
 }
 
 int main(int argc, char **argv){
@@ -1266,6 +1265,5 @@ int main(int argc, char **argv){
       std::cout<<"Fail..."<<std::endl;
   else
       std::cout<<"Success!"<<std::endl;
-  //ros::shutdown();
   return 0;
 }
