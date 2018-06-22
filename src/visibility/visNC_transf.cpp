@@ -90,6 +90,12 @@ VisNC_transf::VisNC_transf(ros::NodeHandle nh, cv::Mat rob, cv::Mat sens): Vis_t
     struct_rob_pub = nh_.advertise<std_msgs::UInt8MultiArray>("rob_struct",1,true);
     struct_act_pub = nh_.advertise<std_msgs::UInt8MultiArray>("act_struct",1,true);
     rob_center_pub = nh_.advertise<std_msgs::Int16MultiArray>("rob_center",1,true);
+
+    rviz_click=nh_.subscribe<geometry_msgs::PointStamped>("/clicked_point", 10, boost::bind(&VisNC_transf::rcv_click,this,_1));
+    rviz_goal=nh_.subscribe<geometry_msgs::PoseStamped>("/move_base_simple/goal", 10, boost::bind(&VisNC_transf::rcv_goal,this,_1));
+    rviz_pose=nh_.subscribe<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 10, boost::bind(&VisNC_transf::rcv_pose,this,_1));
+
+    m_a=0;
 }
 
 VisNC_transf::~VisNC_transf()
@@ -114,6 +120,53 @@ VisNC_transf::~VisNC_transf()
        cv::destroyWindow(DP_WINDOW);
        cv::destroyWindow(CP_WINDOW);
     }
+}
+
+void VisNC_transf::rcv_click(const geometry_msgs::PointStamped::ConstPtr& msg){
+    m_a=0;
+    cout<<"Test Baba"<<endl;
+    this->map_erosionOpSmall=this->multi_er_map[m_a].clone();
+    this->map_erosionOpSmall=this->map_erosionOpSmall(rec);
+    this->map_closeOp=this->multi_cl_map[m_a].clone();
+    this->map_closeOp=this->map_closeOp(rec);
+    this->map_labelSmall=this->multi_labl_map[m_a].clone();
+    this->map_labelSmall=this->map_labelSmall(rec);
+    this->map_act=multi_act_map[m_a].clone();
+    this->map_act=this->map_act(rec);
+}
+
+void VisNC_transf::rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg){
+    m_a++;
+    if( (angle_res!=0) )
+        while(m_a>=angle_res)
+            m_a-=angle_res;
+
+    cout<<"Test Bebe+: "<<m_a<<endl;
+    this->map_erosionOpSmall=this->multi_er_map[m_a].clone();
+    this->map_erosionOpSmall=this->map_erosionOpSmall(rec);
+    this->map_closeOp=this->multi_cl_map[m_a].clone();
+    this->map_closeOp=this->map_closeOp(rec);
+    this->map_labelSmall=this->multi_labl_map[m_a].clone();
+    this->map_labelSmall=this->map_labelSmall(rec);
+    this->map_act=multi_act_map[m_a].clone();
+    this->map_act=this->map_act(rec);
+}
+
+void VisNC_transf::rcv_pose(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg){
+    m_a--;
+    if( (angle_res!=0) )
+        while(m_a<0)
+            m_a+=angle_res;
+
+    cout<<"Test Bibi-: "<<m_a<<endl;
+    this->map_erosionOpSmall=this->multi_er_map[m_a].clone();
+    this->map_erosionOpSmall=this->map_erosionOpSmall(rec);
+    this->map_closeOp=this->multi_cl_map[m_a].clone();
+    this->map_closeOp=this->map_closeOp(rec);
+    this->map_labelSmall=this->multi_labl_map[m_a].clone();
+    this->map_labelSmall=this->map_labelSmall(rec);
+    this->map_act=multi_act_map[m_a].clone();
+    this->map_act=this->map_act(rec);
 }
 
 
@@ -272,7 +325,7 @@ bool VisNC_transf::conf_space(void)
 
     double rtrd=angle_debug;
 
-    int m_a=angleD2I(rtrd, angle_res);
+    m_a=angleD2I(rtrd, angle_res);
 
     er_map=mer_map[m_a].clone();
 
@@ -547,7 +600,7 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         ROS_INFO("I'm Here 33333333!!!");
 
 
-        int m_a=angleD2I(angle_debug, angle_res);
+        m_a=angleD2I(angle_debug, angle_res);
 
         this->map_label=multi_labl_map[m_a].clone();
         this->map_labelSmall=map_label(rec);
@@ -953,6 +1006,8 @@ void VisNC_transf::publish(void)
 
     if(count>0)
     {
+        //cout<<"Bababebebibi"<<endl;
+
         nav_msgs::OccupancyGrid n_msg;
 
         n_msg=Mat2RosMsg(map_projErosSmall , msg_rcv_pub);

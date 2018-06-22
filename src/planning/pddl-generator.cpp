@@ -25,6 +25,7 @@ private:
     vector<ros::Subscriber> subs;
     vector<ros::Subscriber> subs_act;
     vector<ros::Publisher> pub_mar;
+    ros::Publisher pub_rob_markers;
     vector<ros::Publisher> pubs;
     vector<nav_msgs::Path> paths;
     bool output;
@@ -174,6 +175,8 @@ public:
         }
         paths.resize(nrobots);
         nh_.param("jump",jump, 5);
+
+        pub_rob_markers = nh_.advertise<visualization_msgs::MarkerArray>("visualization_robot_marker_array", 1,true);
     }
     bool run(void);
     void readOutput(void);
@@ -1139,6 +1142,31 @@ void PddlGen::publish(void){
             pub_mar[1+2*rr+1].publish(points);
         }
     }
+    visualization_msgs::MarkerArray robots;
+    visualization_msgs::Marker robot;
+    //robot.header.frame_id = "/robot_0/base_link";
+    robot.header.stamp =  ros::Time::now();
+    //robot.ns = "robot0";
+    //robot.id=0;
+    robot.action = visualization_msgs::Marker::ADD;
+    robot.pose.orientation.w = 1.0;
+    robot.type = visualization_msgs::Marker::SPHERE;
+    //robot.scale.x = 2.0*((float)rs[0])*res;
+    //robot.scale.y = 2.0*((float)rs[0])*res;
+    robot.scale.z = 0.01;
+    robot.color.r = 1.0;
+    robot.color.a = 1.0;
+    robot.lifetime = ros::Duration(1);
+    //robots.markers.push_back(robot);
+    for(int rr=0;rr<nrobots;rr++){
+        robot.header.frame_id = "/robot_"+to_string(rr)+"/base_link";
+        robot.ns = "/robot"+to_string(rr);
+        robot.id=rr;
+        robot.scale.x = 2.0*((float)rs[rr])*res;
+        robot.scale.y = 2.0*((float)rs[rr])*res;
+        robots.markers.push_back(robot);
+    }
+    pub_rob_markers.publish(robots);
 }
 
 // Replacement SIGINT handler
