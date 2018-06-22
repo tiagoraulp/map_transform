@@ -17,6 +17,10 @@
 #include "std_msgs/Int16MultiArray.h"
 #include "std_msgs/UInt8MultiArray.h"
 #include "points_conversions.hpp"
+#include "geometry_msgs/PoseWithCovarianceStamped.h"
+#include <cmath>
+
+#include <opencv2/highgui/highgui.hpp>
 
 static const double PI = 3.141592653589793;
 
@@ -40,6 +44,8 @@ static const double PI = 3.141592653589793;
 #define ACT_STR 1
 #define STRUCTS 2
 
+#define MARKER_PUB 5
+
 class PddlGenNC{
 private:
     ros::NodeHandle nh_;
@@ -51,10 +57,16 @@ private:
     std::vector<ros::Publisher> pub_mar;
     std::vector<ros::Publisher> pubs;
     std::vector<nav_msgs::Path> paths;
+    ros::Subscriber rviz_click;
+    ros::Subscriber rviz_goal;
+    ros::Subscriber rviz_pose;
+    int debug_angle;
+    int debug;
     bool output;
     std::vector<std::vector<std::vector<bool> > >  msg_rcv;
     std::vector<cv::Mat_<int> >  msg_rcv_act;
     std::vector<std::vector<std::vector<std::vector<bool> > > > msg_rcv_multi;
+    std::vector<std::vector<cv::Mat> > map_multi;
     std::vector<std::vector<std::vector<std::vector<bool> > > > msg_rcv_multi_str;
     std::vector<int> countM;
     std::vector<bool> map_rcv;
@@ -64,6 +76,12 @@ private:
     std::vector<cv::Point2i> rob_center;
     float res;
     int width,height;
+    unsigned int number_layers;
+    std::vector<std::vector<std::vector<geometry_msgs::Point> > >  pub_graph;
+    std::vector<std::vector<std::vector<geometry_msgs::Point> > >  pub_act;
+    std::vector<std::vector<bool> > connectTRF;
+    std::vector<std::vector<bool> > connectTRF2D;
+    std::vector<std::vector<bool> > visibleTRF;
     cv::Mat or_map;
     int jump, nrobots;
     std::vector<int> rs;
@@ -74,6 +92,10 @@ private:
     std::vector<std::vector<std::vector<bool> > > actuable;
     std::vector<std::vector<long int> > wp_n2i;
     std::vector<std::vector<std::vector<long int> > > wp_n2i3D;
+    int test;
+    void rcv_click(const geometry_msgs::PointStamped::ConstPtr& msg);
+    void rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg);
+    void rcv_pose(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg);
     std::string index2string(int index);
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index);
     void rcv_map_act(const std_msgs::Int16MultiArray::ConstPtr& msg, int index);
@@ -108,6 +130,7 @@ public:
         msg_rcv_act.resize(nrobots);
         map_rcv_multi.assign(M_MAP*nrobots,false);
         msg_rcv_multi.resize(M_MAP*nrobots);
+        map_multi.resize(M_MAP*nrobots);
         map_rcv_multi_str.assign(STRUCTS*nrobots,false);
         msg_rcv_multi_str.resize(STRUCTS*nrobots);
         rob_center.assign(nrobots,cv::Point2i(-1,-1));
@@ -115,6 +138,23 @@ public:
         wps3D.clear();
         graph.clear();
         actuable.clear();
+
+        pub_graph.resize(nrobots);
+        pub_act.resize(nrobots);
+        connectTRF.resize(nrobots);
+        connectTRF2D.resize(nrobots);
+        visibleTRF.resize(nrobots);
+
+        rviz_click=nh_.subscribe<geometry_msgs::PointStamped>("/clicked_point", 10, boost::bind(&PddlGenNC::rcv_click,this,_1));
+        rviz_goal=nh_.subscribe<geometry_msgs::PoseStamped>("/move_base_simple/goal", 10, boost::bind(&PddlGenNC::rcv_goal,this,_1));
+        rviz_pose=nh_.subscribe<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 10, boost::bind(&PddlGenNC::rcv_pose,this,_1));
+        debug_angle=0;
+
+        number_layers=0;
+
+        test=0;
+
+        debug=-1;
 
         subs.resize(O_MAP*nrobots+1);
         for(int i=0;i<O_MAP;i++){
@@ -165,13 +205,19 @@ public:
             std::string topic="path"+std::to_string(j);
             pubs[j]=nh_.advertise<nav_msgs::Path>(topic, 1,true);
         }
-        pub_mar.resize(nrobots*2+1);
+        pub_mar.resize(nrobots*MARKER_PUB+1);
         pub_mar[0] = nh_.advertise<visualization_msgs::MarkerArray>("waypoints", 1,true);
         for(int j=0;j<nrobots;j++){
             std::string topic="connected_"+std::to_string(j);
-            pub_mar[1+2*j]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
+            pub_mar[1+MARKER_PUB*j]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
             topic="visible_"+std::to_string(j);
-            pub_mar[1+2*j+1]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
+            pub_mar[1+MARKER_PUB*j+1]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
+            topic="reach_waypoints_"+std::to_string(j);
+            pub_mar[1+MARKER_PUB*j+2]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
+            topic="act_waypoints_"+std::to_string(j);
+            pub_mar[1+MARKER_PUB*j+3]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
+            topic="reach_angle_waypoints_"+std::to_string(j);
+            pub_mar[1+MARKER_PUB*j+4]=nh_.advertise<visualization_msgs::MarkerArray>(topic, 1,true);
         }
         rs.resize(nrobots);
         for(int j=0;j<nrobots;j++){
@@ -208,6 +254,25 @@ std::string PddlGenNC::index2string(int index){
             return "c";
     }
 }
+
+void PddlGenNC::rcv_click(const geometry_msgs::PointStamped::ConstPtr& msg){
+    debug_angle=0;
+}
+
+void PddlGenNC::rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg){
+    debug_angle++;
+    if( (number_layers!=0) )
+        while(debug_angle>=(int)number_layers)
+            debug_angle-=number_layers;
+}
+
+void PddlGenNC::rcv_pose(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg){
+    debug_angle--;
+    if( (number_layers!=0) )
+        while(debug_angle<0)
+            debug_angle+=number_layers;
+}
+
 
 void PddlGenNC::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg, int index){
     if(index==(nrobots*O_MAP))
@@ -251,15 +316,19 @@ void PddlGenNC::rcv_map_act(const std_msgs::Int16MultiArray::ConstPtr& msg, int 
 
 void PddlGenNC::rcv_map_multi(const std_msgs::UInt8MultiArray::ConstPtr& msg, int index){
     msg_rcv_multi[index].assign(msg->layout.dim[0].size, std::vector<std::vector<bool> >(msg->layout.dim[1].size,std::vector<bool>(msg->layout.dim[2].size,false)));
+    map_multi[index].resize(msg->layout.dim[0].size);
     for(unsigned int l=0;l<msg->layout.dim[0].size;l++){
+        map_multi[index][l]=cv::Mat::zeros(msg->layout.dim[1].size,msg->layout.dim[2].size,CV_8UC1);
         for(unsigned int i=0;i<msg->layout.dim[1].size;i++){
             for(unsigned int j=0;j<msg->layout.dim[2].size;j++){
                 unsigned char value=msg->data[msg->layout.data_offset+msg->layout.dim[1].stride*l+msg->layout.dim[2].stride*i+j];
                 if(value!=0){
                     msg_rcv_multi[index][l][i][j]=true;
+                    map_multi[index][l].at<uchar>(i,j)=255;
                 }
                 else{
                     msg_rcv_multi[index][l][i][j]=false;
+                    map_multi[index][l].at<uchar>(i,j)=0;
                 }
             }
         }
@@ -500,7 +569,7 @@ void write_goals_GA_P_Heur(std::stringstream & str, std::vector<std::vector<long
     str<<")";
 }
 
-int win=4;
+int win=8;
 float adj=1.2;
 
 
@@ -524,7 +593,10 @@ bool PddlGenNC::valid(int i, int j,int l, int r){
 }
 
 bool PddlGenNC::connection(int i, int j, int l, int in, int jn, int ln, int r){
-    if(!getMultiMapValue(r,l,i,j)){
+     int i_deb=i, j_deb=j;
+     if( (l==0) && (i_deb==75) && (j_deb==90) )
+         std::cout<<"T1"<<std::endl;
+     if(!getMultiMapValue(r,l,i,j)){
         bool stop=false;
         for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv_multi[r][l].size()-1); ii++){
             for(int jj=std::max(j-win,0); jj<=std::min(j+win,(int)msg_rcv_multi[r][l][ii].size()-1); jj++){
@@ -540,6 +612,8 @@ bool PddlGenNC::connection(int i, int j, int l, int in, int jn, int ln, int r){
         if(!stop)
             return false;
     }
+     if( (l==0) && (i_deb==75) && (j_deb==90) )
+         std::cout<<"T2: "<<i<<"; "<<j<<std::endl;
     if(!getMultiMapValue(r,ln,in,jn)){
         bool stop=false;
         for(int ii=std::max(in-win,0); ii<=std::min(in+win,(int)msg_rcv_multi[r][ln].size()-1); ii++){
@@ -557,23 +631,28 @@ bool PddlGenNC::connection(int i, int j, int l, int in, int jn, int ln, int r){
             return false;
     }
     std::vector<std::vector<bool> > temp=msg_rcv_multi[r][l];
-    for(int row=std::max(i-3*win,0);row<=std::min(i+3*win,(int)temp.size());row++){
-        for(int col=std::max(j-3*win,0);col<=std::min(j+3*win,(int)temp[row].size());col++){
+    for(int row=std::max(i-3*win,0);row<=std::min(i+3*win,(int)temp.size()-1);row++){
+        for(int col=std::max(j-3*win,0);col<=std::min(j+3*win,(int)temp[row].size()-1);col++){
             if( msg_rcv_multi[r][ln][row][col] )
                 temp[row][col]=true;
         }
     }
     Apath path=Astar<float>(PointI(i,j), PointI(in,jn), temp);
-    if( path.cost<=(adj*sqrt((i-in)*(i-in)+(j-jn)*(j-jn))) && path.cost>0)
+    if( path.cost<=(adj*sqrt((i-in)*(i-in)+(j-jn)*(j-jn))) && path.cost>=0)
         return true;
     else
         return false;
 }
 
 bool PddlGenNC::connection_ray(int i, int j, int l, int in, int jn, int r_e, int r_v, bool strict){
+    int i_deb=i, j_deb=j;
+    if( (l==0) && (i==75) && (j==90) && (in==75) && (jn==105) )
+        std::cout<<"T1"<<std::endl;
     if(!getMultiMapValue(r_v,l,in,jn)){
         return false;
     }
+    if( (l==0) && (i==75) && (j==90) && (in==75) && (jn==105) )
+        std::cout<<"T2"<<std::endl;
     if(!getMultiMapValue(r_e,l,i,j)){
         bool stop=false;
         for(int ii=std::max(i-win,0); ii<=std::min(i+win,(int)msg_rcv_multi[r_e][l].size()-1); ii++){
@@ -590,13 +669,27 @@ bool PddlGenNC::connection_ray(int i, int j, int l, int in, int jn, int r_e, int
         if(!stop)
             return false;
     }
+    if( (l==0) && (i_deb==75) && (j_deb==90) && (in==75) && (jn==105) )
+        std::cout<<"T3"<<std::endl;
     int rr=r_e%nrobots;
     if(strict && !getStructCenteredValue(rr,l,(in-i),(jn-j)))
         return false;
-    if(raytracing(or_map, i, j, in, jn, true))
+    if( (l==0) && (i_deb==75) && (j_deb==90) && (in==75) && (jn==105) )
+        std::cout<<"T4"<<std::endl;
+    if(raytracing(map_multi[r_v][l], i, j, in, jn, true)){
+        if( (l==0) && (i_deb==75) && (j_deb==90) && (in==75) && (jn==105) )
+            std::cout<<"T5P"<<std::endl;
         return true;
-    else
+    }
+    else{
+        if( (l==0) && (i_deb==75) && (j_deb==90) && (in==75) && (jn==105) ){
+            debug=r_v;
+            std::cout<<"T5F"<<std::endl;
+            //cv::imshow("MMMM",this->map_multi[r_v][l]);
+            //cv::waitKey(3);
+        }
         return false;
+    }
 }
 
 bool PddlGenNC::allMapsReceived(void){
@@ -688,7 +781,7 @@ bool PddlGenNC::run(void){
             if(!getMultiMapValue(ME_MAP*nrobots+rr,pos[rr].z,pos[rr].x,pos[rr].y))
                 return false;
         }
-        unsigned int number_layers=msg_rcv_multi[0].size();
+        number_layers=msg_rcv_multi[0].size();
         std::vector<std::vector<long int> > waypoints(msg_rcv[0].size(), std::vector<long int>(msg_rcv[0][0].size(),-1));
         std::vector<cv::Point2i> names(0);
         wp_n2i.assign(waypoints.size()/jump+1, std::vector<long int>(waypoints[0].size()/jump+1,-1));
@@ -731,6 +824,10 @@ bool PddlGenNC::run(void){
         std::vector<std::vector<bool> > visibleT(nrobots, std::vector<bool>(count, false));
         std::vector<std::vector<bool> > visibleTR(nrobots, std::vector<bool>(count, false));
         std::vector<std::vector<bool> > connectTR(nrobots, std::vector<bool>(count3D, false));
+        connectTRF.assign(nrobots, std::vector<bool>(count3D, false));
+        connectTRF2D.assign(nrobots, std::vector<bool>(count, false));
+        std::vector<std::vector<std::vector<bool> > > visibleLT(nrobots, std::vector<std::vector<bool> >(number_layers, std::vector<bool>(count, false)));
+        std::vector<std::vector<std::vector<bool> > > visibleLTR(nrobots, std::vector<std::vector<bool> >(number_layers, std::vector<bool>(count, false)));
         for(unsigned int ll=0; ll<waypoints3D.size();ll++){
             for(unsigned int i=0;i<waypoints3D[ll].size();i++){
                 for(unsigned int j=0;j<waypoints3D[ll][i].size();j++){
@@ -755,17 +852,19 @@ bool PddlGenNC::run(void){
                                 for(int jn=jmin;jn<=jmax;jn++){
                                     if(waypoints3D[angle][in][jn]>=0){
                                         //if((in==(int)i || jn==(int)j) && (in!=(int)i || jn!=(int)j) ){
-                                        if( std::max(abs(in-(int)i),abs(jn-(int)j))<=jump && (in!=(int)i || jn!=(int)j || angle!=(int)ll) ){
+                                        if( std::max(abs(in-(int)i),abs(jn-(int)j))<=jump ){
                                             for(int rr=0;rr<nrobots;rr++){
                                                 if(connection((int)i,(int)j,(int)ll,in,jn,angle,ME_MAP*nrobots+rr)){
                                                     graph[rr][waypoints3D[angle][in][jn]][waypoints3D[ll][i][j]]=true;
                                                     graph[rr][waypoints3D[ll][i][j]][waypoints3D[angle][in][jn]]=true;
-                                                    connectTR[rr][waypoints3D[ll][i][j]]=true;
-                                                    connectTR[rr][waypoints3D[angle][in][jn]]=true;
+                                                    //connectTR[rr][waypoints3D[ll][i][j]]=true;
+                                                    //connectTR[rr][waypoints3D[angle][in][jn]]=true;
                                                 }
                                                 if(connection((int)i,(int)j,(int)ll,in,jn,angle,MR_MAP*nrobots+rr)){
                                                     graph[rr][waypoints3D[angle][in][jn]][waypoints3D[ll][i][j]]=true;
                                                     graph[rr][waypoints3D[ll][i][j]][waypoints3D[angle][in][jn]]=true;
+                                                    connectTR[rr][waypoints3D[ll][i][j]]=true;
+                                                    connectTR[rr][waypoints3D[angle][in][jn]]=true;
                                                 }
                                             }
                                         }
@@ -773,6 +872,54 @@ bool PddlGenNC::run(void){
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+        ROS_INFO("Taaaaaaaaaa");
+        std::vector<long int> initials(nrobots,-1);
+        //initials[0]=waypoints[pos_r0.x][pos_r0.y];
+        //initials[1]=waypoints[pos_r1.x][pos_r1.y];
+        std::vector<cv::Point> hlx=bf_hlx(jump+1);
+        for(int rr=0;rr<nrobots;rr++){
+            for(unsigned int h=0;h<hlx.size();h++){
+                int px=pos[rr].x+hlx[h].x;
+                int py=pos[rr].y+hlx[h].y;
+                if(px>=0 && py>=0 && px<(int)waypoints.size() && py<(int)waypoints[0].size()){
+                    if(waypoints3D[pos[rr].z][px][py]>=0 && valid(px,py,pos[rr].z,R_MAP*nrobots+rr)){
+                        if( connectTR[rr][waypoints3D[pos[rr].z][px][py]] ){
+                            initials[rr]=waypoints3D[pos[rr].z][px][py];
+                            connectTRF[rr][initials[rr]]=true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        ROS_INFO("Tiiiiiiiiiiiiii!");
+        for(int rr=0; rr<nrobots;rr++){
+            int changes=1;
+            while(changes>0){
+                changes=0;
+                for(int wpff=0;wpff<(int)graph[rr].size();wpff++){
+                    if(connectTRF[rr][wpff]){
+                        for(int wpss=0;wpss<(int)graph[rr][wpff].size();wpss++){
+                            if(graph[rr][wpff][wpss] && connectTR[rr][wpss] && !connectTRF[rr][wpss]){
+                                connectTRF[rr][wpss]=true;
+                                changes++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ROS_INFO("Totooooo!!!!!!");
+        for(unsigned int ll=0; ll<waypoints3D.size();ll++){
+            for(unsigned int i=0;i<waypoints3D[ll].size();i++){
+                for(unsigned int j=0;j<waypoints3D[ll][i].size();j++){
+                    if(waypoints3D[ll][i][j]>=0){
                         for(int rr=0;rr<nrobots;rr++){
                             cv::Point lb=getStructLower(rr);
                             cv::Point ub=getStructUpper(rr);
@@ -784,10 +931,12 @@ bool PddlGenNC::run(void){
                                             if(connection_ray(i,j,ll,m,n,ME_MAP*nrobots+rr,MC_MAP*nrobots+rr)){
                                                 actuable[rr][waypoints3D[ll][i][j]][waypoints[m][n]]=true;
                                                 visibleT[rr][waypoints[m][n]]=true;
+                                                visibleLT[rr][ll][waypoints[m][n]]=true;
                                             }
-                                            if(connection_ray(i,j,ll,m,n,MR_MAP*nrobots+rr,MA_MAP*nrobots+rr)){
+                                            if(connection_ray(i,j,ll,m,n,MR_MAP*nrobots+rr,MA_MAP*nrobots+rr) && connectTRF[rr][waypoints3D[ll][i][j]]){
                                                 actuable[rr][waypoints3D[ll][i][j]][waypoints[m][n]]=true;
                                                 visibleTR[rr][waypoints[m][n]]=true;
+                                                visibleLTR[rr][ll][waypoints[m][n]]=true;
                                             }
                                         //}
                                     }
@@ -799,53 +948,85 @@ bool PddlGenNC::run(void){
             }
         }
         ROS_INFO("TEST!!!!!!");
-        std::vector<std::vector<bool> > visibleTRF=visibleTR;
+        visibleTRF=visibleTR;
         std::vector<std::vector<bool> > visibleTF=visibleT;
+        std::vector<std::vector<std::vector<bool> > > visibleLTRF=visibleLTR;
+        std::vector<std::vector<std::vector<bool> > > visibleLTF=visibleLT;
         for(unsigned int i=0;i<waypoints.size();i++){
             for(unsigned int j=0;j<waypoints[i].size();j++){
                 if(waypoints[i][j]>=0){
                     for(int rr=0;rr<nrobots;rr++){
-                        if( !visibleT[rr][waypoints[i][j]] || !visibleTR[rr][waypoints[i][j]] ){
-                            if(!getMapValue(PC_MAP*nrobots+rr,i,j))
-                                continue;
-                            float searchwin=1.0*((float)jump)+((float)std::max(msg_rcv_multi_str[rr][0].size(),msg_rcv_multi_str[rr][0][0].size()));
-                            int imin=(int)round(std::max((float)i-searchwin,(float)0.0));
-                            int jmin=(int)round(std::max((float)j-searchwin,(float)0.0));
-                            int imax=(int)round(std::min((float)i+searchwin,(float)waypoints.size()-1));
-                            int jmax=(int)round(std::min((float)j+searchwin,(float)waypoints[i].size()-1));
-                            FindMin<long int, long int> wp_v, wp_vr;
-                            for(int ll=0;ll<(int)number_layers;ll++){
+                        for(int ll=0;ll<(int)number_layers;ll++){
+                            if( !visibleLT[rr][ll][waypoints[i][j]] || !visibleLTR[rr][ll][waypoints[i][j]] ){
+                                if( (waypoints[i][j]==wp_n2i[5][7]) && (ll==0) )
+                                    std::cout<<"Bef"<<std::endl;
+                                if(!getMultiMapValue(MC_MAP*nrobots+rr,ll,i,j))
+                                //if(!getMapValue(PC_MAP*nrobots+rr,i,j))
+                                    continue;
+                                if((waypoints[i][j]==wp_n2i[5][7]) && (ll==0) )
+                                    std::cout<<"Af"<<std::endl;
+
+                                float searchwin=2.0*((float)jump)+((float)std::max(msg_rcv_multi_str[rr][0].size(),msg_rcv_multi_str[rr][0][0].size()));
+                                int imin=(int)round(std::max((float)i-searchwin,(float)0.0));
+                                int jmin=(int)round(std::max((float)j-searchwin,(float)0.0));
+                                int imax=(int)round(std::min((float)i+searchwin,(float)waypoints.size()-1));
+                                int jmax=(int)round(std::min((float)j+searchwin,(float)waypoints[i].size()-1));
+                                FindMin<long int, long int> wp_v, wp_vr;
                                 for(int in=imin;in<=imax;in++){
                                     for(int jn=jmin;jn<=jmax;jn++){
                                         if(waypoints3D[ll][in][jn]>=0){
+                                            if((waypoints3D[ll][in][jn]==wp_n2i3D[0][5][6]) && (waypoints[i][j]==wp_n2i[5][7]) )
+                                                std::cout<<"This11!!!"<<std::endl;
+
                                             //if( ((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j))<=(searchwin*searchwin) ){
-                                                if(!visibleT[rr][waypoints[i][j]] && connection_ray(in,jn,ll,(int)i,(int)j,ME_MAP*nrobots+rr,MC_MAP*nrobots+rr, false) ){
+                                                if(!visibleLT[rr][ll][waypoints[i][j]] && connection_ray(in,jn,ll,(int)i,(int)j,ME_MAP*nrobots+rr,MC_MAP*nrobots+rr, false) ){
                                                     //visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
                                                     wp_v.iter((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j), waypoints3D[ll][in][jn]);
                                                     visibleTF[rr][waypoints[i][j]]=true;
+                                                    visibleLTF[rr][ll][waypoints[i][j]]=true;
                                                 }
-                                                if(!visibleTR[rr][waypoints[i][j]] && connection_ray(in,jn,ll,(int)i,(int)j,MR_MAP*nrobots+rr,MA_MAP*nrobots+rr, false)){
+                                                if(!visibleLTR[rr][ll][waypoints[i][j]]  && connectTRF[rr][waypoints3D[ll][in][jn]] && connection_ray(in,jn,ll,(int)i,(int)j,MR_MAP*nrobots+rr,MA_MAP*nrobots+rr, false)){
+                                                    if((waypoints[i][j]==wp_n2i[5][7]) && (ll==0) )
+                                                        std::cout<<ll<<" "<<in<<" "<<jn<<" "<<std::endl;
+
                                                     //visible[rr][waypoints[in][jn]][waypoints[i][j]]=true;
                                                     wp_vr.iter((in-(int)i)*(in-(int)i)+(jn-(int)j)*(jn-(int)j), waypoints3D[ll][in][jn]);
                                                     visibleTRF[rr][waypoints[i][j]]=true;
+                                                    visibleLTRF[rr][ll][waypoints[i][j]]=true;
                                                 }
                                             //}
                                         }
                                     }
                                 }
-                            }
-                            if(wp_v.valid()){
-                                actuable[rr][wp_v.getP()][waypoints[i][j]]=true;
-                            }
-                            if(wp_vr.valid()){
-                                actuable[rr][wp_vr.getP()][waypoints[i][j]]=true;
+                                if(wp_v.valid()){
+                                    actuable[rr][wp_v.getP()][waypoints[i][j]]=true;
+                                }
+                                if(wp_vr.valid()){
+                                    actuable[rr][wp_vr.getP()][waypoints[i][j]]=true;
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        for(int rr=0;rr<nrobots;rr++){
+            for(int wpt=0;wpt<count3D;wpt++){
+                if(connectTRF[rr][wpt]){
+                    connectTRF2D[rr][waypoints[wps3D[wpt].x][wps3D[wpt].y]]=true;
+                }
+            }
+        }
         ROS_INFO("TEST1233333333!!!!!!");
+
+
+        std::cout<<"Test babe"<<std::endl;
+                std::cout<<connectTR[0][wp_n2i3D[0][5][7]]<<std::endl;
+                std::cout<<visibleLTR[0][0][wp_n2i[5][7]]<<std::endl;
+                std::cout<<visibleLTRF[0][0][wp_n2i[5][7]]<<std::endl;
+                std::cout<<visibleTR[0][wp_n2i[5][7]]<<std::endl;
+                std::cout<<visibleTRF[0][wp_n2i[5][7]]<<std::endl;
+
         std::vector<long int> goals(0);
         std::vector<std::vector<long int> > goalsR(nrobots, std::vector<long int>(0));
         std::vector<std::vector<long int> > goalsRP(nrobots, std::vector<long int>(0));
@@ -889,24 +1070,49 @@ bool PddlGenNC::run(void){
                 //}
             }
         }
-        std::vector<long int> initials(nrobots,-1);
-        //initials[0]=waypoints[pos_r0.x][pos_r0.y];
-        //initials[1]=waypoints[pos_r1.x][pos_r1.y];
-        std::vector<cv::Point> hlx=bf_hlx(jump+1);
+
         for(int rr=0;rr<nrobots;rr++){
-            for(unsigned int h=0;h<hlx.size();h++){
-                int px=pos[rr].x+hlx[h].x;
-                int py=pos[rr].y+hlx[h].y;
-                if(px>=0 && py>=0 && px<(int)waypoints.size() && py<(int)waypoints[0].size()){
-                    if(waypoints3D[pos[rr].z][px][py]>=0 && valid(px,py,pos[rr].z,R_MAP*nrobots+rr)){
-                        if( connectTR[rr][waypoints3D[pos[rr].z][px][py]] ){
-                            initials[rr]=waypoints3D[pos[rr].z][px][py];
-                            break;
+            pub_graph[rr].resize(number_layers);
+            pub_act[rr].resize(number_layers);
+            for(int ll=0;ll<(int)number_layers;ll++){
+                pub_graph[rr][ll].clear();
+                pub_act[rr][ll].clear();
+                geometry_msgs::Point pt;
+                pt.x=0.0f; pt.y=0.0f; pt.z=0.0f;
+                int shift=0;
+                int la=decAngle(ll,number_layers);
+                int ua=incAngle(ll,number_layers);
+                for(unsigned int i=0;i<graph[rr].size();i++){
+                    for(unsigned int j=0;j<graph[rr][i].size();j++){
+                        if( graph[rr][i][j] && (wps3D[i].z==ll) ){
+                            pt=convertI2W2D(wps3D[i], res);
+                            pub_graph[rr][ll].push_back(pt);
+                            if(wps3D[j].z==ll)
+                                shift=0;
+                            if(wps3D[j].z==la)
+                                shift=-std::max(jump/4,1);
+                            if(wps3D[j].z==ua)
+                                shift=std::max(jump/4,1);
+                            pt=convertI2W2D(wps3D[j]+cv::Point3i(shift,-shift,wps3D[j].z), res);
+                            //pt=convertI2W2D(wps3D[j], res);
+                            pt.z=shift*res;
+                            pub_graph[rr][ll].push_back(pt);
+                        }
+                    }
+                }
+                for(unsigned int i=0;i<actuable[rr].size();i++){
+                    for(unsigned int j=0;j<actuable[rr][i].size();j++){
+                        if( actuable[rr][i][j] && (wps3D[i].z==ll)  ){
+                            pt=convertI2W2D(wps3D[i], res);
+                            pub_act[rr][ll].push_back(pt);
+                            pt=convertI2W(wps[j], res);
+                            pub_act[rr][ll].push_back(pt);
                         }
                     }
                 }
             }
         }
+
         std::stringstream strstream(""), strstreamGA(""), strstreamGAP(""), strstreamGAP_Heur(""), strstreamGA_P_Heur(""), strstreamUT("");
         write_preamble(strstream, nrobots,count, names, count3D,names3D);
         write_graph(strstream, graph, names3D);
@@ -1145,6 +1351,7 @@ void PddlGenNC::publish(void){
             pubs[rr].publish(paths[rr]);
         }
     }
+    //std::cout<<"Ah pois e"<<std::endl;
     visualization_msgs::MarkerArray points;
     visualization_msgs::Marker point;
     if(wps.size()>0){
@@ -1153,64 +1360,105 @@ void PddlGenNC::publish(void){
         point.ns = "points_and_lines";
         point.action = visualization_msgs::Marker::ADD;
         point.pose.orientation.w = 1.0;
-        point.type = visualization_msgs::Marker::SPHERE;
+        point.type = visualization_msgs::Marker::SPHERE_LIST;
         point.scale.x = 0.1;
         point.scale.y = 0.1;
         point.scale.z = 0.02;
+        point.color.b = 0.0f;
+        point.color.r = 0.0f;
         point.color.g = 1.0f;
         point.color.a = 1.0;
-        point.lifetime = ros::Duration(10000000);
+        point.lifetime = ros::Duration(2);
+        point.pose.position.x=0;
+        point.pose.position.y=0;
+        point.pose.position.z=0;
+        point.id = 0;
         for (uint32_t i = 0; i < wps.size(); ++i){
-            point.pose.position=convertI2W(wps[i], res);
-            point.id = i;
-            points.markers.push_back(point);
+            //point.pose.position=convertI2W(wps[i]+cv::Point2i(test,test), res);
+            //point.pose.position=convertI2W(wps[i], res);
+            //point.id = i;
+            //points.markers.push_back(point);
+            point.points.push_back(convertI2W(wps[i], res));
         }
+        points.markers.push_back(point);
+        test++;
         pub_mar[0].publish(points);
         points.markers.clear();
-        point.type=visualization_msgs::Marker::LINE_STRIP;
-        point.scale.x = 0.03;
-        point.scale.y = 0.02;
-        point.scale.z = 0.001;
-        geometry_msgs::Point p;
-        p.x=0.0f; p.y=0.0f; p.z=0.0f;
-        point.pose.position=p;
+        //point.type=visualization_msgs::Marker::LINE_STRIP;
         for(int rr=0;rr<nrobots;rr++){
+            point.type=visualization_msgs::Marker::LINE_LIST;
+            point.scale.x = 0.03;
+            point.scale.y = 0.02;
+            point.scale.z = 0.001;
+            point.pose.position.x=0;
+            point.pose.position.y=0;
+            point.pose.position.z=0;
+
             point.color.b = 1.0f;
             point.color.r = 0.0f;
             point.color.g = 1.0f;
-            for(unsigned int i=0;i<graph[rr].size();i++){
-                for(unsigned int j=0;j<graph[rr][i].size();j++){
-                    if( graph[rr][i][j] ){
-                        p=convertI2W2D(wps3D[i], res);
-                        point.points.clear();
-                        point.points.push_back(p);
-                        p=convertI2W2D(wps3D[j], res);
-                        point.points.push_back(p);
-                        point.id = (i)*wps3D.size()+j;
-                        points.markers.push_back(point);
-                    }
-                }
-            }
-            pub_mar[1+2*rr].publish(points);
+            point.points.clear();
+            point.points=pub_graph[rr][debug_angle];
+            point.id = 1+MARKER_PUB*rr;
+            points.markers.push_back(point);
+            pub_mar[1+MARKER_PUB*rr].publish(points);
             points.markers.clear();
 
             point.color.r = 1.0f;
             point.color.b = 0.0f;
             point.color.g = 1.0f;
-            for(unsigned int i=0;i<actuable[rr].size();i++){
-                for(unsigned int j=0;j<actuable[rr][i].size();j++){
-                    if( actuable[rr][i][j] ){
-                        p=convertI2W2D(wps3D[i], res);
-                        point.points.clear();
-                        point.points.push_back(p);
-                        p=convertI2W(wps[j], res);
-                        point.points.push_back(p);
-                        point.id = (i)*wps.size()+j;
-                        points.markers.push_back(point);
-                    }
-                }
+            point.points.clear();
+            point.points=pub_act[rr][debug_angle];
+            point.id = 1+MARKER_PUB*rr+1;
+            points.markers.push_back(point);
+            pub_mar[1+MARKER_PUB*rr+1].publish(points);
+            points.markers.clear();
+
+            point.type = visualization_msgs::Marker::SPHERE_LIST;
+            point.scale.x = 0.1;
+            point.scale.y = 0.1;
+            point.scale.z = 0.02;
+            point.color.r = 1.0f;
+            point.color.b = 0.0f;
+            point.color.g = 0.0f;
+            point.color.a = 1.0;
+            point.id = 1+MARKER_PUB*rr+2;
+            point.points.clear();
+            for (uint32_t i = 0; i < connectTRF2D[rr].size(); ++i){
+                if(connectTRF2D[rr][i])
+                    point.points.push_back(convertI2W(wps[i], res));
             }
-            pub_mar[1+2*rr+1].publish(points);
+            points.markers.push_back(point);
+            pub_mar[1+MARKER_PUB*rr+2].publish(points);
+            points.markers.clear();
+
+
+            point.color.r = 0.0f;
+            point.color.b = 1.0f;
+            point.color.g = 0.0f;
+            point.color.a = 1.0;
+            point.id = 1+MARKER_PUB*rr+3;
+            point.points.clear();
+            for (uint32_t i = 0; i < visibleTRF[rr].size(); ++i){
+                if(visibleTRF[rr][i])
+                    point.points.push_back(convertI2W(wps[i], res));
+            }
+            points.markers.push_back(point);
+            pub_mar[1+MARKER_PUB*rr+3].publish(points);
+            points.markers.clear();
+
+            point.color.r = 1.0f;
+            point.color.b = 1.0f;
+            point.color.g = 0.0f;
+            point.color.a = 1.0;
+            point.id = 1+MARKER_PUB*rr+4;
+            point.points.clear();
+            for (uint32_t i = 0; i < connectTRF[rr].size(); ++i){
+                if(connectTRF[rr][i] && wps3D[i].z==debug_angle)
+                    point.points.push_back(convertI2W2D(wps3D[i], res));
+            }
+            points.markers.push_back(point);
+            pub_mar[1+MARKER_PUB*rr+4].publish(points);
             points.markers.clear();
         }
     }
@@ -1228,9 +1476,16 @@ void PddlGenNC::publish(void){
 
         pub_mar[0].publish(points);
         for(int rr=0;rr<nrobots;rr++){
-            pub_mar[1+2*rr].publish(points);
-            pub_mar[1+2*rr+1].publish(points);
+            pub_mar[1+MARKER_PUB*rr].publish(points);
+            pub_mar[1+MARKER_PUB*rr+1].publish(points);
+            pub_mar[1+MARKER_PUB*rr+2].publish(points);
+            pub_mar[1+MARKER_PUB*rr+3].publish(points);
+            pub_mar[1+MARKER_PUB*rr+4].publish(points);
         }
+    }
+    if(debug>=0){
+        cv::imshow("MMMM",this->map_multi[debug][0]);
+        cv::waitKey(3);
     }
 }
 

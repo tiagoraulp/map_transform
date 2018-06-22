@@ -1,8 +1,8 @@
 <launch>
  <arg name="x_0" default="8"/>
  <arg name="y_0" default="8"/>
- <arg name="x_1" default="10"/>
- <arg name="y_1" default="10"/>
+ <arg name="x_1" default="4"/>
+ <arg name="y_1" default="8"/>
  <arg name="x_2" default="6"/>
  <arg name="y_2" default="6"/>
 

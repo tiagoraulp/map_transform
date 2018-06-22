@@ -5,6 +5,7 @@
 #include "map_transform/ParametersncConfig.h"
 #include "morph.hpp"
 #include "unreachable.hpp"
+#include "geometry_msgs/PoseWithCovarianceStamped.h"
 
 class VisNC_transf: public Vis_transf<map_transform::ParametersncConfig>{
 protected:
@@ -24,7 +25,14 @@ protected:
     bool act;
     ros::Publisher reach_graph_publisher, act_graph_publisher, erosion_graph_publisher, close_graph_publisher, projLabelPub, projErosionPub, projActPub, projClosePub;
     ros::Publisher struct_rob_pub, struct_act_pub, rob_center_pub;
+    ros::Subscriber rviz_click;
+    ros::Subscriber rviz_goal;
+    ros::Subscriber rviz_pose;
+    int m_a;
 
+    void rcv_click(const geometry_msgs::PointStamped::ConstPtr& msg);
+    void rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg);
+    void rcv_pose(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg);
     cv::Mat ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<cv::Mat> r_map, bool optRay=true);
     std::vector<cv::Point> expVisibility_obs(cv::Point3i crit, Elem defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp);
     void update_config(map_transform::ParametersncConfig config, bool ch, bool _opt);

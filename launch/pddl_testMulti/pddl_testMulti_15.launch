@@ -1,8 +1,12 @@
 <launch>
  <arg name="x_0" default="10"/>
- <arg name="y_0" default="10"/>
- <arg name="x_1" default="10"/>
- <arg name="y_1" default="10"/>
+ <arg name="y_0" default="15"/>
+ <arg name="x_1" default="5"/>
+ <arg name="y_1" default="5"/>
+ <arg name="x_2" default="5"/>
+ <arg name="y_2" default="15"/>
+ <arg name="x_3" default="10"/>
+ <arg name="y_3" default="10"/>
 
  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/pddl_multi.rviz" />
 
@@ -55,7 +59,7 @@
        <remap from="/robot_2/visibility/map" to="/map"/>
     </node>
 
-    <node pkg="tf" type="static_transform_publisher" name="fake_localize_1" args="$(arg x_1) $(arg y_1) 0 0 0 0 /map /robot_2/base_link 10"/>
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_1" args="$(arg x_2) $(arg y_2) 0 0 0 0 /map /robot_2/base_link 10"/>
 
  </group>
 
@@ -71,7 +75,7 @@
        <remap from="/robot_3/visibility/map" to="/map"/>
     </node>
 
-    <node pkg="tf" type="static_transform_publisher" name="fake_localize_1" args="$(arg x_1) $(arg y_1) 0 0 0 0 /map /robot_3/base_link 10"/>
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_1" args="$(arg x_3) $(arg y_3) 0 0 0 0 /map /robot_3/base_link 10"/>
 
  </group>
 
