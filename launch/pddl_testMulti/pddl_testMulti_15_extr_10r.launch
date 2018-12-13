@@ -1,0 +1,245 @@
+<launch>
+ <arg name="x_0" default="8"/>
+ <arg name="y_0" default="30"/>
+ <arg name="x_1" default="8"/>
+ <arg name="y_1" default="35"/>
+ <arg name="x_2" default="8"/>
+ <arg name="y_2" default="45"/>
+ <arg name="x_3" default="8"/>
+ <arg name="y_3" default="55"/>
+ <arg name="x_4" default="8"/>
+ <arg name="y_4" default="6"/>
+ <arg name="x_5" default="40"/>
+ <arg name="y_5" default="6"/>
+ <arg name="x_6" default="40"/>
+ <arg name="y_6" default="45"/>
+ <arg name="x_7" default="30"/>
+ <arg name="y_7" default="58"/>
+ <arg name="x_8" default="40"/>
+ <arg name="y_8" default="25"/>
+ <arg name="x_9" default="15"/>
+ <arg name="y_9" default="20"/>
+
+ <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/pddl_multi.rviz" />
+
+ <node pkg="map_server" type="map_server" name="map_server" args="$(find map_transform)/maps/extremities.png 0.1" respawn="false" > 
+    <param name="frame_id" value="/map" />
+ </node>
+
+	
+ <group ns="robot_0">
+
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
+       <param name="infl" value="6" />
+       <param name="defl" value="6" />
+       <param name="debug" value="false" />
+       <param name="show" value="false" />
+       <param name="ground_truth" value="false" />
+       <param name="tf_prefix" value ="/robot_0" /> 
+       <remap from="/robot_0/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_0" args="$(arg x_0) $(arg y_0) 0 0 0 0 /map /robot_0/base_link 10"/>
+
+ </group>
+
+ <group ns="robot_1">
+
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
+       <param name="infl" value="15" />
+       <param name="defl" value="15" />
+       <param name="debug" value="false" />
+       <param name="show" value="false" />
+       <param name="ground_truth" value="false" />
+       <param name="tf_prefix" value ="/robot_1" /> 
+       <remap from="/robot_1/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_1" args="$(arg x_1) $(arg y_1) 0 0 0 0 /map /robot_1/base_link 10"/>
+
+ </group>
+
+ <group ns="robot_2">
+
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
+       <param name="infl" value="20" />
+       <param name="defl" value="20" />
+       <param name="debug" value="false" />
+       <param name="show" value="false" />
+       <param name="ground_truth" value="false" />
+       <param name="tf_prefix" value ="/robot_2" /> 
+       <remap from="/robot_2/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_2" args="$(arg x_2) $(arg y_2) 0 0 0 0 /map /robot_2/base_link 10"/>
+
+ </group>
+
+ <group ns="robot_3">
+
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
+       <param name="infl" value="25" />
+       <param name="defl" value="25" />
+       <param name="debug" value="false" />
+       <param name="show" value="false" />
+       <param name="ground_truth" value="false" />
+       <param name="tf_prefix" value ="/robot_3" /> 
+       <remap from="/robot_3/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_3" args="$(arg x_3) $(arg y_3) 0 0 0 0 /map /robot_3/base_link 10"/>
+
+ </group>
+
+ <group ns="robot_4">
+
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
+       <param name="infl" value="25" />
+       <param name="defl" value="25" />
+       <param name="debug" value="false" />
+       <param name="show" value="false" />
+       <param name="ground_truth" value="false" />
+       <param name="tf_prefix" value ="/robot_4" /> 
+       <remap from="/robot_4/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_4" args="$(arg x_4) $(arg y_4) 0 0 0 0 /map /robot_4/base_link 10"/>
+
+ </group>
+
+ <group ns="robot_5">
+
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
+       <param name="infl" value="20" />
+       <param name="defl" value="20" />
+       <param name="debug" value="false" />
+       <param name="show" value="false" />
+       <param name="ground_truth" value="false" />
+       <param name="tf_prefix" value ="/robot_5" /> 
+       <remap from="/robot_5/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_5" args="$(arg x_5) $(arg y_5) 0 0 0 0 /map /robot_5/base_link 10"/>
+
+ </group>
+
+ <group ns="robot_6">
+
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
+       <param name="infl" value="15" />
+       <param name="defl" value="15" />
+       <param name="debug" value="false" />
+       <param name="show" value="false" />
+       <param name="ground_truth" value="false" />
+       <param name="tf_prefix" value ="/robot_6" /> 
+       <remap from="/robot_6/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_6" args="$(arg x_6) $(arg y_6) 0 0 0 0 /map /robot_6/base_link 10"/>
+
+ </group>
+
+ <group ns="robot_7">
+
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
+       <param name="infl" value="6" />
+       <param name="defl" value="6" />
+       <param name="debug" value="false" />
+       <param name="show" value="false" />
+       <param name="ground_truth" value="false" />
+       <param name="tf_prefix" value ="/robot_7" /> 
+       <remap from="/robot_7/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_7" args="$(arg x_7) $(arg y_7) 0 0 0 0 /map /robot_7/base_link 10"/>
+
+ </group>
+
+ <group ns="robot_8">
+
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
+       <param name="infl" value="25" />
+       <param name="defl" value="25" />
+       <param name="debug" value="false" />
+       <param name="show" value="false" />
+       <param name="ground_truth" value="false" />
+       <param name="tf_prefix" value ="/robot_8" /> 
+       <remap from="/robot_8/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_8" args="$(arg x_8) $(arg y_8) 0 0 0 0 /map /robot_8/base_link 10"/>
+
+ </group>
+
+ <group ns="robot_9">
+
+    <node pkg="map_transform" type="visibility" name="visibility" output="screen">    
+       <param name="infl" value="15" />
+       <param name="defl" value="15" />
+       <param name="debug" value="false" />
+       <param name="show" value="false" />
+       <param name="ground_truth" value="false" />
+       <param name="tf_prefix" value ="/robot_9" /> 
+       <remap from="/robot_9/visibility/map" to="/map"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="fake_localize_9" args="$(arg x_9) $(arg y_9) 0 0 0 0 /map /robot_9/base_link 10"/>
+
+ </group>
+
+ <node name="pddl_generator" pkg="map_transform" type="pddl-gen" cwd="node" output="screen">
+       	<param name="jump" value="15" />
+	<param name="nrobots" value="10" />
+       	<remap from="/robot_0/c_map" to="/robot_0/visibility/c_map"/>
+       	<remap from="/robot_1/c_map" to="/robot_1/visibility/c_map"/>
+	<remap from="/robot_2/c_map" to="/robot_2/visibility/c_map"/>
+       	<remap from="/robot_3/c_map" to="/robot_3/visibility/c_map"/>
+       	<remap from="/robot_4/c_map" to="/robot_4/visibility/c_map"/>
+       	<remap from="/robot_5/c_map" to="/robot_5/visibility/c_map"/>
+       	<remap from="/robot_6/c_map" to="/robot_6/visibility/c_map"/>
+       	<remap from="/robot_7/c_map" to="/robot_7/visibility/c_map"/>
+       	<remap from="/robot_8/c_map" to="/robot_8/visibility/c_map"/>
+       	<remap from="/robot_9/c_map" to="/robot_9/visibility/c_map"/>
+       	<remap from="/robot_0/e_map" to="/robot_0/visibility/e_map"/>
+       	<remap from="/robot_1/e_map" to="/robot_1/visibility/e_map"/>
+       	<remap from="/robot_2/e_map" to="/robot_2/visibility/e_map"/>
+       	<remap from="/robot_3/e_map" to="/robot_3/visibility/e_map"/>
+       	<remap from="/robot_4/e_map" to="/robot_4/visibility/e_map"/>
+       	<remap from="/robot_5/e_map" to="/robot_5/visibility/e_map"/>
+       	<remap from="/robot_6/e_map" to="/robot_6/visibility/e_map"/>
+       	<remap from="/robot_7/e_map" to="/robot_7/visibility/e_map"/>
+       	<remap from="/robot_8/e_map" to="/robot_8/visibility/e_map"/>
+       	<remap from="/robot_9/e_map" to="/robot_9/visibility/e_map"/>
+       	<remap from="/robot_0/v_map" to="/robot_0/visibility/v_map"/>
+       	<remap from="/robot_1/v_map" to="/robot_1/visibility/v_map"/>
+     	<remap from="/robot_2/v_map" to="/robot_2/visibility/v_map"/>
+       	<remap from="/robot_3/v_map" to="/robot_3/visibility/v_map"/>
+       	<remap from="/robot_4/v_map" to="/robot_4/visibility/v_map"/>
+       	<remap from="/robot_5/v_map" to="/robot_5/visibility/v_map"/>
+       	<remap from="/robot_6/v_map" to="/robot_6/visibility/v_map"/>
+       	<remap from="/robot_7/v_map" to="/robot_7/visibility/v_map"/>
+       	<remap from="/robot_8/v_map" to="/robot_8/visibility/v_map"/>
+       	<remap from="/robot_9/v_map" to="/robot_9/visibility/v_map"/>
+       	<remap from="/robot_0/r_map" to="/robot_0/visibility/r_map"/>
+       	<remap from="/robot_1/r_map" to="/robot_1/visibility/r_map"/>
+	<remap from="/robot_2/r_map" to="/robot_2/visibility/r_map"/>
+       	<remap from="/robot_3/r_map" to="/robot_3/visibility/r_map"/>
+       	<remap from="/robot_4/r_map" to="/robot_4/visibility/r_map"/>
+       	<remap from="/robot_5/r_map" to="/robot_5/visibility/r_map"/>
+       	<remap from="/robot_6/r_map" to="/robot_6/visibility/r_map"/>
+       	<remap from="/robot_7/r_map" to="/robot_7/visibility/r_map"/>
+       	<remap from="/robot_8/r_map" to="/robot_8/visibility/r_map"/>
+       	<remap from="/robot_9/r_map" to="/robot_9/visibility/r_map"/>
+        <remap from="/robot_0/a_map" to="/robot_0/visibility/act_dist"/>
+       	<remap from="/robot_1/a_map" to="/robot_1/visibility/act_dist"/>
+	<remap from="/robot_2/a_map" to="/robot_2/visibility/act_dist"/>
+       	<remap from="/robot_3/a_map" to="/robot_3/visibility/act_dist"/>
+       	<remap from="/robot_4/a_map" to="/robot_4/visibility/act_dist"/>
+       	<remap from="/robot_5/a_map" to="/robot_5/visibility/act_dist"/>
+       	<remap from="/robot_6/a_map" to="/robot_6/visibility/act_dist"/>
+       	<remap from="/robot_7/a_map" to="/robot_7/visibility/act_dist"/>
+       	<remap from="/robot_8/a_map" to="/robot_8/visibility/act_dist"/>
+       	<remap from="/robot_9/a_map" to="/robot_9/visibility/act_dist"/>
+ </node>
+
+</launch>
