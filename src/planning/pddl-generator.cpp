@@ -66,12 +66,37 @@ private:
     void rcv_map19(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map20(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map21(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map22(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map23(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map24(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map25(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map26(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map27(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map28(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map29(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map30(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map31(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map32(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map33(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map34(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map35(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map36(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map37(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map38(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map39(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map40(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+    void rcv_map41(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map_act(const std_msgs::Int16MultiArray::ConstPtr& msg, int index);
     void rcv_map1_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
     void rcv_map2_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
     void rcv_map3_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
     void rcv_map4_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
     void rcv_map5_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
+    void rcv_map6_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
+    void rcv_map7_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
+    void rcv_map8_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
+    void rcv_map9_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
+    void rcv_map10_act(const std_msgs::Int16MultiArray::ConstPtr& msg);
     bool getMapValue(int n, int i, int j);
     int getActMapValue(int n, int i, int j);
     bool valid(int i, int j, int r);
@@ -114,6 +139,26 @@ public:
         v_f.push_back(&PddlGen::rcv_map18);
         v_f.push_back(&PddlGen::rcv_map19);
         v_f.push_back(&PddlGen::rcv_map20);
+        v_f.push_back(&PddlGen::rcv_map21);
+        v_f.push_back(&PddlGen::rcv_map22);
+        v_f.push_back(&PddlGen::rcv_map23);
+        v_f.push_back(&PddlGen::rcv_map24);
+        v_f.push_back(&PddlGen::rcv_map25);
+        v_f.push_back(&PddlGen::rcv_map26);
+        v_f.push_back(&PddlGen::rcv_map27);
+        v_f.push_back(&PddlGen::rcv_map28);
+        v_f.push_back(&PddlGen::rcv_map29);
+        v_f.push_back(&PddlGen::rcv_map30);
+        v_f.push_back(&PddlGen::rcv_map31);
+        v_f.push_back(&PddlGen::rcv_map32);
+        v_f.push_back(&PddlGen::rcv_map33);
+        v_f.push_back(&PddlGen::rcv_map34);
+        v_f.push_back(&PddlGen::rcv_map35);
+        v_f.push_back(&PddlGen::rcv_map36);
+        v_f.push_back(&PddlGen::rcv_map37);
+        v_f.push_back(&PddlGen::rcv_map38);
+        v_f.push_back(&PddlGen::rcv_map39);
+        v_f.push_back(&PddlGen::rcv_map40);
         subs.resize(nrobots*4+1);
         for(unsigned int i=0;i<4;i++){
             char top;
@@ -139,7 +184,7 @@ public:
                 subs[i*nrobots+j]=nh_.subscribe(topic, 1, v_f[i*nrobots+j], this);
             }
         }
-        subs[subs.size()-1] = nh_.subscribe("/map", 1, &PddlGen::rcv_map21, this);
+        subs[subs.size()-1] = nh_.subscribe("/map", 1, &PddlGen::rcv_map41, this);
 
 
         vector<void (PddlGen::*)(const std_msgs::Int16MultiArray::ConstPtr& msg)> v_f_act;
@@ -148,6 +193,11 @@ public:
         v_f_act.push_back(&PddlGen::rcv_map3_act);
         v_f_act.push_back(&PddlGen::rcv_map4_act);
         v_f_act.push_back(&PddlGen::rcv_map5_act);
+        v_f_act.push_back(&PddlGen::rcv_map6_act);
+        v_f_act.push_back(&PddlGen::rcv_map7_act);
+        v_f_act.push_back(&PddlGen::rcv_map8_act);
+        v_f_act.push_back(&PddlGen::rcv_map9_act);
+        v_f_act.push_back(&PddlGen::rcv_map10_act);
         subs_act.resize(nrobots);
         for(int j=0;j<nrobots;j++){
             string topic="/robot_"+to_string(j)+"/"+"a_map";
@@ -293,6 +343,85 @@ void PddlGen::rcv_map20(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 }
 
 void PddlGen::rcv_map21(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 20);
+}
+
+void PddlGen::rcv_map22(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 21);
+}
+
+void PddlGen::rcv_map23(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 22);
+}
+
+void PddlGen::rcv_map24(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 23);
+}
+
+void PddlGen::rcv_map25(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 24);
+}
+
+void PddlGen::rcv_map26(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 25);
+}
+
+void PddlGen::rcv_map27(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 26);
+}
+
+void PddlGen::rcv_map28(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 27);
+}
+
+void PddlGen::rcv_map29(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 28);
+}
+
+void PddlGen::rcv_map30(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 29);
+}
+
+void PddlGen::rcv_map31(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 30);
+}
+
+void PddlGen::rcv_map32(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 31);
+}
+
+void PddlGen::rcv_map33(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 32);
+}
+
+void PddlGen::rcv_map34(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 33);
+}
+
+void PddlGen::rcv_map35(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 34);
+}
+
+void PddlGen::rcv_map36(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 35);
+}
+
+void PddlGen::rcv_map37(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 36);
+}
+
+void PddlGen::rcv_map38(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 37);
+}
+
+void PddlGen::rcv_map39(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 38);
+}
+
+void PddlGen::rcv_map40(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+    rcv_map(msg, 39);
+}
+void PddlGen::rcv_map41(const nav_msgs::OccupancyGrid::ConstPtr& msg){
     rcv_map(msg, nrobots*4);
 }
 
@@ -327,6 +456,25 @@ void PddlGen::rcv_map5_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
     rcv_map_act(msg, 4);
 }
 
+void PddlGen::rcv_map6_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
+    rcv_map_act(msg, 5);
+}
+
+void PddlGen::rcv_map7_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
+    rcv_map_act(msg, 6);
+}
+
+void PddlGen::rcv_map8_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
+    rcv_map_act(msg, 7);
+}
+
+void PddlGen::rcv_map9_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
+    rcv_map_act(msg, 8);
+}
+
+void PddlGen::rcv_map10_act(const std_msgs::Int16MultiArray::ConstPtr& msg){
+    rcv_map_act(msg, 9);
+}
 
 bool PddlGen::getMapValue(int n, int i, int j){
     if( (n>=0) && (n<(int)msg_rcv.size()) && (i>=0) && (i<(int)msg_rcv[n].size()) && (j>=0) && (j<(int)msg_rcv[n][i].size()))
