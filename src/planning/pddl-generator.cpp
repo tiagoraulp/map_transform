@@ -36,6 +36,8 @@ private:
     vector<bool> map_rcv_act;
     float res;
     int width,height;
+    std::vector<std::vector<geometry_msgs::Point> >  pub_graph;
+    std::vector<std::vector<geometry_msgs::Point> >  pub_act;
     cv::Mat or_map;
     int jump, nrobots;
     vector<int> rs;
@@ -118,6 +120,8 @@ public:
         wps.clear();
         graph.clear();
         visible.clear();
+        pub_graph.resize(nrobots);
+        pub_act.resize(nrobots);
         vector<void (PddlGen::*)(const nav_msgs::OccupancyGrid::ConstPtr& msg)> v_f;
         v_f.push_back(&PddlGen::rcv_map1);
         v_f.push_back(&PddlGen::rcv_map2);
@@ -965,6 +969,34 @@ bool PddlGen::run(void){
                 }
             }
         }
+
+        for(int rr=0;rr<nrobots;rr++){
+            pub_graph[rr].clear();
+            pub_act[rr].clear();
+            geometry_msgs::Point pt;
+            pt.x=0.0f; pt.y=0.0f; pt.z=0.0f;
+            for(unsigned int i=0;i<graph[rr].size();i++){
+                for(unsigned int j=0;j<graph[rr][i].size();j++){
+                    if( graph[rr][i][j] ){
+                        pt=convertI2W(wps[i], res);
+                        pub_graph[rr].push_back(pt);
+                        pt=convertI2W(wps[j], res);
+                        pub_graph[rr].push_back(pt);
+                    }
+                }
+            }
+            for(unsigned int i=0;i<visible[rr].size();i++){
+                for(unsigned int j=0;j<visible[rr][i].size();j++){
+                    if( visible[rr][i][j] ){
+                        pt=convertI2W(wps[i], res);
+                        pub_act[rr].push_back(pt);
+                        pt=convertI2W(wps[j], res);
+                        pub_act[rr].push_back(pt);
+                    }
+                }
+            }
+        }
+
         stringstream strstream(""), strstreamGA(""), strstreamGAP(""), strstreamGAP_Heur(""), strstreamGA_P_Heur(""), strstreamUT("");
         write_preamble(strstream, nrobots,count, names);
         write_graph(strstream, graph, names);
@@ -1211,63 +1243,58 @@ void PddlGen::publish(void){
         point.ns = "points_and_lines";
         point.action = visualization_msgs::Marker::ADD;
         point.pose.orientation.w = 1.0;
-        point.type = visualization_msgs::Marker::SPHERE;
+        point.type = visualization_msgs::Marker::SPHERE_LIST;
         point.scale.x = 0.1;
         point.scale.y = 0.1;
         point.scale.z = 0.02;
         point.color.g = 1.0f;
         point.color.a = 1.0;
-        point.lifetime = ros::Duration(10000000);
+        point.lifetime = ros::Duration(2);
+        point.pose.position.x=0;
+        point.pose.position.y=0;
+        point.pose.position.z=0;
+        point.id = 0;
         for (uint32_t i = 0; i < wps.size(); ++i){
-            point.pose.position=convertI2W(wps[i], res);
-            point.id = i;
-            points.markers.push_back(point);
+            //point.pose.position=convertI2W(wps[i], res);
+            //point.id = i;
+            //points.markers.push_back(point);
+            point.points.push_back(convertI2W(wps[i], res));
         }
+        points.markers.push_back(point);
         pub_mar[0].publish(points);
         points.markers.clear();
-        point.type=visualization_msgs::Marker::LINE_STRIP;
-        point.scale.x = 0.03;
-        point.scale.y = 0.02;
-        point.scale.z = 0.001;
-        geometry_msgs::Point p;
-        p.x=0.0f; p.y=0.0f; p.z=0.0f;
-        point.pose.position=p;
+        //point.type=visualization_msgs::Marker::LINE_STRIP;
+        //point.scale.x = 0.03;
+        //point.scale.y = 0.02;
+        //point.scale.z = 0.001;
+        //geometry_msgs::Point p;
+        //p.x=0.0f; p.y=0.0f; p.z=0.0f;
+        //point.pose.position=p;
         for(int rr=0;rr<nrobots;rr++){
+            point.type=visualization_msgs::Marker::LINE_LIST;
+            point.scale.x = 0.03;
+            point.scale.y = 0.02;
+            point.scale.z = 0.001;
+            point.pose.position.x=0;
+            point.pose.position.y=0;
+            point.pose.position.z=0;
             point.color.b = 1.0f;
             point.color.r = 0.0f;
             point.color.g = 1.0f;
-            for(unsigned int i=0;i<graph[rr].size();i++){
-                for(unsigned int j=0;j<graph[rr][i].size();j++){
-                    if( graph[rr][i][j] ){
-                        p=convertI2W(wps[i], res);
-                        point.points.clear();
-                        point.points.push_back(p);
-                        p=convertI2W(wps[j], res);
-                        point.points.push_back(p);
-                        point.id = (i)*wps.size()+j;
-                        points.markers.push_back(point);
-                    }
-                }
-            }
+            point.points.clear();
+            point.points=pub_graph[rr];
+            point.id = 1+2*rr;
+            points.markers.push_back(point);
             pub_mar[1+2*rr].publish(points);
             points.markers.clear();
 
             point.color.r = 1.0f;
             point.color.b = 0.0f;
             point.color.g = 1.0f;
-            for(unsigned int i=0;i<visible[rr].size();i++){
-                for(unsigned int j=0;j<visible[rr][i].size();j++){
-                    if( visible[rr][i][j] ){
-                        p=convertI2W(wps[i], res);
-                        point.points.clear();
-                        point.points.push_back(p);
-                        p=convertI2W(wps[j], res);
-                        point.points.push_back(p);
-                        point.id = (i)*wps.size()+j;
-                        points.markers.push_back(point);
-                    }
-                }
-            }
+            point.points.clear();
+            point.points=pub_act[rr];
+            point.id = 1+2*rr+1;
+            points.markers.push_back(point);
             pub_mar[1+2*rr+1].publish(points);
             points.markers.clear();
         }
