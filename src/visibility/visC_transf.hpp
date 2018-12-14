@@ -14,11 +14,13 @@ protected:
     int defl;
     ros::Publisher  graph_publisher;
     bool opt;
+    bool fast_opt;
     std::vector<cv::Point2i> crit_pts;
-    cv::Mat vis_temp;
+    cv::Mat vis_temp, vis_map;
 
+    std::vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp, std::vector<cv::Point> &vis_map_temp_list);
     bool reachability_map(cv::Point3i pos, cv::Mat & r_map);
-    cv::Mat ext_vis(Unreachable, cv::Mat vis_map, cv::Mat r_map, bool _opt=true);
+    cv::Mat ext_vis(Unreachable, Unreachable, cv::Mat r_map, bool _opt=true);
     void update_config(map_transform::ParametersConfig config, bool ch, bool _opt);
     void show(void);
     bool conf_space(void);

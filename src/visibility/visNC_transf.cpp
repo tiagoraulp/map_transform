@@ -288,10 +288,11 @@ bool VisNC_transf::testConf(void)
 
 bool VisNC_transf::conf_space(void)
 {
-    cv::Mat or_map, er_map, cl_map, or_mapN;
+    cv::Mat or_map, or_map_perc, er_map, cl_map, or_mapN;
 
     //or_map=this->cv_map.clone();
     or_map=this->cv_map_scaled.clone();
+    or_map_perc=this->cv_map_scaled_perc.clone();
     this->msg_rcv_pub=this->msg_rcv;
 
 
@@ -322,6 +323,7 @@ bool VisNC_transf::conf_space(void)
 
     this->multi_er_map=mer_map;
     this->map_or=or_map;
+    this->map_or_perc=or_map_perc;
 
     double rtrd=angle_debug;
 
@@ -616,12 +618,13 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
         ROS_INFO("I'm Here  444444444!!!");
 
 
-        Unreachable unreach(map_or, act_map(rec));
+        Unreachable unreach(map_or_perc, act_map(rec));
+        Unreachable unreachCP(map_or, act_map(rec));
 
         map_debug_pos=unreach.unreach_map;
 
         if(!act)
-            vis_map=ext_vis(unreach, vis_map, multi_labl_map, opt);
+            vis_map=ext_vis(unreach, unreachCP, vis_map, multi_labl_map, opt);
 
         this->map_vis=vis_map;
 
@@ -656,7 +659,7 @@ void VisNC_transf::visibility(cv::Point3i pos, bool proc, ros::Time t01)
                 }
             }
 
-            vector<cv::Point> labels_gt=label_seed(map_or.clone()/255,4,cv::Point(pos.x-robot_or.pu,pos.y-robot_or.pl));
+            vector<cv::Point> labels_gt=label_seed(map_or_perc.clone()/255,4,cv::Point(pos.x-robot_or.pu,pos.y-robot_or.pl));
 
             cv::Mat eff_gt=cv::Mat::zeros(map_or.rows,map_or.cols, CV_8UC1);
 
@@ -812,7 +815,7 @@ vector<cv::Point> VisNC_transf::expVisibility_obs(cv::Point3i crit3P, Elem senso
             {
                 vis_map_temp.at<uchar>(rowx,coly)=255;
             }
-            else if (reg && sens && (map_or.at<uchar>(rowx,coly)==0) )
+            else if (reg && sens && (map_or_perc.at<uchar>(rowx,coly)==0) )
             {
                 bool stop=false;
                 for(int vx=-1;vx<=1;vx++)
@@ -839,11 +842,11 @@ vector<cv::Point> VisNC_transf::expVisibility_obs(cv::Point3i crit3P, Elem senso
     return occ;
 }
 
-cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<cv::Mat> r_map, bool optRay)
+cv::Mat VisNC_transf::ext_vis(Unreachable unreach, Unreachable unreachCP, cv::Mat vis_map, std::vector<cv::Mat> r_map, bool optRay)
 {
     ROS_INFO("I'm Here 000000000000!!!");
 
-    unreach.getFrontiers2();
+    unreachCP.getFrontiers2();
 
     cv::Mat regions=unreach.regions;
 
@@ -853,10 +856,10 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
 
     CritPointsAS critP(map_or, map_projAct, r_map, sensor_ev, sens_area);
 
-    for (unsigned int k=0;k<unreach.clusters.size();k++){//2;k++){//
-        for(unsigned int ff=0;ff<unreach.clusters[k].size();ff++)
+    for (unsigned int k=0;k<unreachCP.clusters.size();k++){//2;k++){//
+        for(unsigned int ff=0;ff<unreachCP.clusters[k].size();ff++)
         {
-            vector<cv::Point> frontier=unreach.clusters[k][ff].cluster;
+            vector<cv::Point> frontier=unreachCP.clusters[k][ff].cluster;
 
             if(frontier.size()>0)
             {
@@ -866,7 +869,7 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                 //}
 
                 cv::Point2i crit;
-                cv::Point3i crit3=critP.find_crit_point(unreach.clusters[k][ff]);
+                cv::Point3i crit3=critP.find_crit_point(unreachCP.clusters[k][ff]);
                 crit=critP.getCrit();
 
                 //cout<<"x: "<<crit3.x-sensor_ev.pu<<";y: "<<crit3.y-sensor_ev.pl<<";a: "<<crit3.z<<";at: "<<angle_res<<endl;
@@ -885,6 +888,22 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                     //cout<<critP.getExtremesP()[0].x<<" "<<critP.getExtremesP()[0].y<<" "<<critP.getExtremesP()[1].x<<" "<<critP.getExtremesP()[1].y<<" "<<endl;
 
                     vis_map_temp = cv::Mat::zeros(regions.rows, regions.cols, CV_8UC1)*255;
+
+                    uchar k_perc=0;
+                    for(int pt_f_k_perc=0;unreachCP.clusters[k][ff].cluster.size();pt_f_k_perc++){
+                        if(regions.at<uchar>(unreachCP.clusters[k][ff].cluster[pt_f_k_perc].x,unreachCP.clusters[k][ff].cluster[pt_f_k_perc].y)>1)
+                        {
+                            k_perc=regions.at<uchar>(unreachCP.clusters[k][ff].cluster[pt_f_k_perc].x,unreachCP.clusters[k][ff].cluster[pt_f_k_perc].y);
+                            break;
+                        }
+                    }
+                    if(k_perc==0){
+                        k_perc=k;
+                    }
+                    else{
+                        k_perc=k_perc-2;
+                    }
+
 
                     //vector<cv::Point> occ=Vis_transf::expVisibility_obs(cv::Point2i(crit.x,crit.y), sensor_ev.pr, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
                     vector<cv::Point> occ=expVisibility_obs(crit3, sensor_or, regions, k, critP.getExtremes(), critP.getObt(), vis_map_temp);
@@ -925,7 +944,7 @@ cv::Mat VisNC_transf::ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<
                     }
                     else
                     {
-                        vis_map_temp=bf_pt(map_or, crit3, sensor_or, vis_map_temp, true, true);
+                        vis_map_temp=bf_pt(map_or_perc, crit3, sensor_or, vis_map_temp, true, true);
 
                         for(int xx=0;xx<vis_map_temp.rows;xx++)
                         {
