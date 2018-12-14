@@ -33,7 +33,7 @@ protected:
     void rcv_click(const geometry_msgs::PointStamped::ConstPtr& msg);
     void rcv_goal(const geometry_msgs::PoseStamped::ConstPtr& msg);
     void rcv_pose(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg);
-    cv::Mat ext_vis(Unreachable unreach, cv::Mat vis_map, std::vector<cv::Mat> r_map, bool optRay=true);
+    cv::Mat ext_vis(Unreachable unreach, Unreachable unreachCP, cv::Mat vis_map, std::vector<cv::Mat> r_map, bool optRay=true);
     std::vector<cv::Point> expVisibility_obs(cv::Point3i crit, Elem defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp);
     void update_config(map_transform::ParametersncConfig config, bool ch, bool _opt);
     void show(void);

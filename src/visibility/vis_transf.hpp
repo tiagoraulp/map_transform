@@ -32,17 +32,18 @@ protected:
     float res, or_x, or_y;
     bool _debug, _show, gt, gt_c, changed, changed2;
     bool pub_once, frga;
+    bool city;
+    bool two_maps;
     double rxr,ryr, rtr;
     bool changed_p;
     double map_scale;
     T _config;
     nav_msgs::OccupancyGrid msg_rcv,msg_rcv_pub;
-    cv::Mat cv_map, cv_map_scaled, map_or, map_erosionOp, map_closeOp, map_label , map_act, map_vis, map_debug, map_truth, map_erosionOpPrintColor,
-            map_erosionOpSmall, map_labelSmall, map_comp;
+    cv::Mat cv_map_perc, cv_map_scaled_perc, map_or_perc, cv_map, cv_map_scaled, map_or, map_erosionOp, map_closeOp, map_label , map_act, map_vis, map_debug,
+            map_truth, map_erosionOpPrintColor, map_erosionOpSmall, map_labelSmall, map_comp;
     std::vector<cv::Point> small_frontiers;
     cv::Mat_<int> act_dist;
 
-    std::vector<cv::Point> expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, std::vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp, std::vector<cv::Point> &vis_map_temp_list);
     std::vector<cv::Point> getExtremeFromObstacles(std::vector<cv::Point> occ, cv::Point2i crit);
     nav_msgs::OccupancyGrid Mat2RosMsg(cv::Mat map ,const nav_msgs::OccupancyGrid& msg);
     void rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg);

@@ -78,6 +78,8 @@ Vis_transf<T>::Vis_transf(ros::NodeHandle nh): nh_(nh)
     nh_.param("show", _show, true);
     nh_.param("pub_once", pub_once, true);
     nh_.param("frga", frga, false);
+    nh_.param("city", city, false);
+    two_maps=false;
     prev.x=-1; prev.y=-1; prev.z=-1;
     count=0;
     res=false;
@@ -143,6 +145,7 @@ void Vis_transf<T>::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     cv::Mat prev_map=cv_map.clone();
 
     cv_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
+    cv_map_perc = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
 
     treated=true;
 
@@ -163,20 +166,36 @@ void Vis_transf<T>::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
 
 
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
-    signed char map_occ_thres = 90;
+    signed char map_occ_thres_nav = 80;
+    signed char map_occ_thres_per = 90;
     for(unsigned int i=0;i<msg->info.height;i++){
         for(unsigned int j=0;j<msg->info.width;j++){
-            unsigned char val_cv;
-            if(*mapDataIterC >  map_occ_thres)
-            {val_cv=0;}
+            unsigned char val_cv_nav, val_cv_perc;
+            if(*mapDataIterC >  map_occ_thres_nav)
+            {val_cv_nav=0;}
             else if(*mapDataIterC == 0)
-            {val_cv=255;}
+            {val_cv_nav=255;}
             else
-            {val_cv=255;}
-            cv_map.at<uchar>(j,i) = val_cv;
+            {val_cv_nav=255;}
+            cv_map.at<uchar>(j,i) = val_cv_nav;
+
+            if(*mapDataIterC >  map_occ_thres_per)
+            {val_cv_perc=0;}
+            else if(*mapDataIterC == 0)
+            {val_cv_perc=255;}
+            else
+            {val_cv_perc=255;}
+            cv_map_perc.at<uchar>(j,i) = val_cv_perc;
+
+            if(!two_maps)
+                if(val_cv_perc!=val_cv_nav)
+                    two_maps=true;
+
+            if (i==0 && j==0)
+                cout<<"Map value: "<<((signed int)(*mapDataIterC))<<endl;
 
             if(count>0 && treated)
-                if(val_cv!=prev_map.at<uchar>(j,i))
+                if(val_cv_nav!=prev_map.at<uchar>(j,i))
                     treated=false;
 
             mapDataIterC++;
@@ -192,6 +211,7 @@ void Vis_transf<T>::rcv_map(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     treated2=treated;
 
     cv::resize(cv_map, cv_map_scaled, cv::Size(0,0), map_scale, map_scale, cv::INTER_NEAREST);
+    cv::resize(cv_map_perc, cv_map_scaled_perc, cv::Size(0,0), map_scale, map_scale, cv::INTER_NEAREST);
 }
 
 template <typename T>
@@ -305,55 +325,6 @@ bool Vis_transf<T>::getPos(cv::Point3i&pos)
     get2DPosition(pos, p);
 
     return true;
-}
-
-template <typename T>
-vector<cv::Point> Vis_transf<T>::expVisibility_obs(cv::Point2i crit, int defl, cv::Mat regions, uchar k, vector<float> extremes, unsigned obt_angle, cv::Mat &vis_map_temp, vector<cv::Point> &vis_map_temp_list)
-{
-    vector<cv::Point> occ;
-    for(int rowx=max((crit.x-defl),0);rowx<=min((crit.x+defl),regions.rows-1);rowx++)
-    {
-        for(int coly=max((crit.y-defl),0);coly<=min((crit.y+defl),regions.cols-1);coly++)
-        {
-            float angle=atan2(coly-crit.y,rowx-crit.x);
-            float dist=(rowx-crit.x)*(rowx-crit.x)+(coly-crit.y)*(coly-crit.y);
-
-            bool reg;
-            if(obt_angle==1)
-                reg=(angle<extremes[1] && angle>extremes[0]);
-            else
-                reg=(angle<extremes[0] || angle>extremes[1]);
-
-            if(reg && (dist<=(1*defl*defl)) && (regions.at<uchar>(rowx,coly)==(k+2) ) )
-            {
-                vis_map_temp.at<uchar>(rowx,coly)=255;
-                vis_map_temp_list.push_back(cv::Point(rowx,coly));
-            }
-            else if (reg && (dist<=(1*defl*defl)) && (map_or.at<uchar>(rowx,coly)==0) )
-            {
-                bool stop=false;
-                for(int vx=-1;vx<=1;vx++)
-                {
-                    for(int vy=-1;vy<=1;vy++)
-                    {
-                        if( (rowx+vx)>=0 && (rowx+vx)<regions.rows && (coly+vy)>=0 && (coly+vy)<regions.cols )
-                        {
-                            if( (abs(vx)+abs(vy)==1) &&  regions.at<uchar>(rowx+vx,coly+vy)==(k+2)  )
-                            {
-                                occ.push_back(cv::Point(rowx,coly));
-                                stop=true;
-                                break;
-                            }
-                        }
-                    }
-                    if(stop)
-                        break;
-                }
-            }
-        }
-    }
-
-    return occ;
 }
 
 template <typename T>
