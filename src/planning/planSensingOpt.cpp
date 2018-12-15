@@ -964,7 +964,6 @@ void Planner::plan(void){
             if(!run){
                 deb7.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
             }
-
             clock=0;
             vvv=0;
         }
@@ -984,26 +983,46 @@ void Planner::plan(void){
     if(vvv>=0 && deb7.size()>0 && deb7[0].rows>0){
         int run_limit;
         if(run_all_goals){
-            //cv::imshow("BFS",color_print_expansion(or_map,nav_map,nav_map,deb1[min(vvv,(int)deb1.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-            //cv::waitKey(3);
-            cv::imshow("PA",color_print_expansion(or_map,nav_map,nav_map,deb2[min(vvv,(int)deb2.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-            cv::waitKey(3);
-            cv::imshow("PA 1",color_print_expansion(or_map,r_map,vis_map,deb3[min(vvv,(int)deb3.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-            cv::waitKey(3);
-            cv::imshow("PA 1+CD",color_print_expansion(or_map,r_map,vis_map,deb4[min(vvv,(int)deb4.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-            cv::waitKey(3);
-            cv::imshow("PA 1+CD+2",color_print_expansion(or_map,r_map,vis_map,deb5[min(vvv,(int)deb5.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-            cv::waitKey(3);
-            cv::imshow("PA 1+CD+2 Opt",color_print_expansion(or_map,r_map,vis_map,deb55[min(vvv,(int)deb55.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-            cv::waitKey(3);
-            //cv::imshow("PA 1+CD+2 Opt A*",color_print_expansion(or_map,r_map,vis_map,deb59[min(vvv,(int)deb59.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-            //cv::waitKey(3);
-            cv::imshow("PA 1+CD+2+CP",color_print_expansion(or_map,r_map,vis_map,deb6[min(vvv,(int)deb6.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-            cv::waitKey(3);
-            cv::imshow("PA 1+CD+2+CP Opt",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv,(int)deb7.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-            cv::waitKey(3);
-            //cv::imshow("PA 1+CD+2+CP Opt A*",color_print_expansion(or_map,r_map,vis_map,deb79[min(vvv,(int)deb79.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-            //cv::waitKey(3);
+            if(deb1.size()>0){
+                //cv::imshow("BFS",color_print_expansion(or_map,nav_map,nav_map,deb1[min(vvv,(int)deb1.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+                //cv::waitKey(3);
+            }
+            if(deb2.size()>0){
+                cv::imshow("PA",color_print_expansion(or_map,nav_map,nav_map,deb2[min(vvv,(int)deb2.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+                cv::waitKey(3);
+            }
+            if(deb3.size()>0){
+                cv::imshow("PA 1",color_print_expansion(or_map,r_map,vis_map,deb3[min(vvv,(int)deb3.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+                cv::waitKey(3);
+            }
+            if(deb4.size()>0){
+                cv::imshow("PA 1+CD",color_print_expansion(or_map,r_map,vis_map,deb4[min(vvv,(int)deb4.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+                cv::waitKey(3);
+            }
+            if(deb5.size()>0){
+                cv::imshow("PA 1+CD+2",color_print_expansion(or_map,r_map,vis_map,deb5[min(vvv,(int)deb5.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+                cv::waitKey(3);
+            }
+            if(deb55.size()>0){
+                cv::imshow("PA 1+CD+2 Opt",color_print_expansion(or_map,r_map,vis_map,deb55[min(vvv,(int)deb55.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+                cv::waitKey(3);
+            }
+            if(deb59.size()>0){
+                //cv::imshow("PA 1+CD+2 Opt A*",color_print_expansion(or_map,r_map,vis_map,deb59[min(vvv,(int)deb59.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+                //cv::waitKey(3);
+            }
+            if(deb6.size()>0){
+                cv::imshow("PA 1+CD+2+CP",color_print_expansion(or_map,r_map,vis_map,deb6[min(vvv,(int)deb6.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+                cv::waitKey(3);
+            }
+            if(deb7.size()>0){
+                cv::imshow("PA 1+CD+2+CP Opt",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv,(int)deb7.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+                cv::waitKey(3);
+            }
+            if(deb79.size()>0){
+                //cv::imshow("PA 1+CD+2+CP Opt A*",color_print_expansion(or_map,r_map,vis_map,deb79[min(vvv,(int)deb79.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+                //cv::waitKey(3);
+            }
             run_limit=deb2.size();
         } else {
             cv::imshow("PA Custom",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv,(int)deb7.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
@@ -1015,24 +1034,8 @@ void Planner::plan(void){
             clock=0;
             if(vvv<run_limit)
                 vvv++;
-            //cout<<"loop "<<vvv<<endl;
         }
-        //cout<<"Test "<<clock<<endl;
     }
-//    if(deb7.size()>0 && deb7[0].rows>0){
-//        cv::imshow("BFS",color_print_expansion(or_map,nav_map,nav_map,deb1.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
-//        cv::waitKey(3);
-//        cv::imshow("PA",color_print_expansion(or_map,nav_map,nav_map,deb2.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
-//        cv::waitKey(3);
-//        cv::imshow("PA 1",color_print_expansion(or_map,r_map,vis_map,deb3.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
-//        cv::waitKey(3);
-//        cv::imshow("PA 1-OS",color_print_expansion(or_map,r_map,vis_map,deb4.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
-//        cv::waitKey(3);
-//        cv::imshow("PA 1-OS 2",color_print_expansion(or_map,r_map,vis_map,deb5.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
-//        cv::waitKey(3);
-//        cv::imshow("PA 1-OS 2-CS-P",color_print_expansion(or_map,r_map,vis_map,deb7.back(),target,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t));
-//        cv::waitKey(3);
-//    }
 }
 
 void Planner::publish(void){
