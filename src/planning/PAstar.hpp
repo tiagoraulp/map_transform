@@ -49,17 +49,19 @@ public:
 class PAstar{
 private:
     std::vector<std::vector<bool> > map_;
-    cv::Mat or_map, expansion;
+    cv::Mat or_map, dir_map, expansion;
     std::vector<cv::Mat> expansions;
     int infl;
     int defl;
     bool isGoal(PointI p0, PointI p1);
+    bool wrong_direction(int i, int x, int y);
     int save_rate;
 public:
     PAstar(int in, int de);
     PAstar();
     void updateNavMap(std::vector<std::vector<bool> > map);
     void updateOrMap(cv::Mat map);
+    void updateDirMap(cv::Mat map);
     void resetExpansion(void);
     cv::Mat getExpansion(void);
     std::vector<cv::Mat> getExpansions(void);

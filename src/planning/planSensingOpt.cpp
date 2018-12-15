@@ -17,6 +17,7 @@
 #include <cmath>
 #include <opencv2/highgui/highgui.hpp>
 #include "color.hpp"
+#include "vector_utils.hpp"
 
 using namespace std;
 
@@ -30,7 +31,7 @@ private:
     int vvv;
     unsigned int clock;
     nav_msgs::Path path_0, path_1;
-    cv::Mat or_map, nav_map, vis_map, r_map;
+    cv::Mat or_map, nav_map, vis_map, r_map, dir_map;
     vector<cv::Mat> deb1, deb2, deb3, deb4, deb5, deb6, deb7;
     cv::Point target, p0_ini;
     ros::NodeHandle nh_;
@@ -163,24 +164,70 @@ void Planner::rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 void Planner::rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg){
     msg_rcv[2].assign(msg->info.width, vector<bool>(msg->info.height,false));
     or_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
+    dir_map = cv::Mat(msg->info.width, msg->info.height, CV_8UC1);
     std::vector<signed char>::const_iterator mapDataIterC = msg->data.begin();
+    signed char map_occ_thres_per = 90;
+    signed char map_occ_thres_nav = 80;
+    FindMin<int> mini;
     for(unsigned int i=0;i<msg->info.height;i++){
         for(unsigned int j=0;j<msg->info.width;j++){
-            if(*mapDataIterC == 0){
-                msg_rcv[2][j][i]=true;
-                or_map.at<uchar>(j,i) = 255;
-            }
-            else{
+            if(*mapDataIterC >  map_occ_thres_per){
                 msg_rcv[2][j][i]=false;
                 or_map.at<uchar>(j,i) = 0;
             }
+            else{
+                msg_rcv[2][j][i]=true;
+                or_map.at<uchar>(j,i) = 255;
+                if((i==j) && ((*mapDataIterC)>0) && ((*mapDataIterC)<100))
+                    mini.iter(i,*mapDataIterC);
+
+            }
+            // dir map
+            if(*mapDataIterC >  map_occ_thres_nav){
+                dir_map.at<uchar>(j,i) = 9;
+            }
+            else if(*mapDataIterC == 0){
+                dir_map.at<uchar>(j,i) = 8;
+            }
+            else if(*mapDataIterC < 5){ //2
+                dir_map.at<uchar>(j,i) = 0;
+            }
+            else if(*mapDataIterC < 8){ //6
+                dir_map.at<uchar>(j,i) = 1;
+            }
+            else if(*mapDataIterC < 12){ //10
+                dir_map.at<uchar>(j,i) = 2;
+            }
+            else if(*mapDataIterC < 17){ //14
+                dir_map.at<uchar>(j,i) = 3;
+            }
+            else if(*mapDataIterC < 22){ //19
+                dir_map.at<uchar>(j,i) = 4;
+            }
+            else if(*mapDataIterC < 26){ //24
+                dir_map.at<uchar>(j,i) = 5;
+            }
+            else if(*mapDataIterC < 30){ //27
+                dir_map.at<uchar>(j,i) = 6;
+            }
+            else if(*mapDataIterC < 35){ //31
+                dir_map.at<uchar>(j,i) = 7;
+            }
+            else {
+                dir_map.at<uchar>(j,i) = 9;
+            }
+
             mapDataIterC++;
         }
     }
+    if(mini.valid())
+        cout<<"FFF: "<<mini.getP()<<endl;
+
     map_rcv[2]=true;
     count[2]=count[2]+1;
 
     pastar.updateOrMap(or_map);
+    pastar.updateDirMap(dir_map);
 }
 
 void Planner::rcv_map4(const nav_msgs::OccupancyGrid::ConstPtr& msg){
