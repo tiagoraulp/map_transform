@@ -13,6 +13,46 @@ const int dir=8; // number of possible directions to go at any position
 static int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
 static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
 
+bool wrong_direction(int i, int x, int y, cv::Mat dir_nav){
+    uchar map_direction=dir_nav.at<uchar>(x,y);
+    switch (map_direction) { // from 0 to 7, directions
+    case 0: // x positive
+        return !( i==6 || i==7 || i==0 || i==1 || i==2 );
+        break;
+    case 1: // intersection of x positive and y positive
+        return !( i==0 || i==1 || i==2 );
+        break;
+    case 2: // y positive
+        return !( i==0 || i==1 || i==2 || i==3 || i==4 );
+        break;
+    case 3: // intersection of y positive and x negative
+        return !( i==2 || i==3 || i==4 );
+        break;
+    case 4: // x negative
+        return !( i==2 || i==3 || i==4 || i==5 || i==6 );
+        break;
+    case 5: // intersection of x negative and y negative
+        return !( i==4 || i==5 || i==6 );
+        break;
+    case 6: // y negative
+        return !( i==4 || i==5 || i==6 || i==7 || i==0 );
+        break;
+    case 7: // intersection of y negative and x positive
+        return !( i==6 || i==7 || i==0 );
+        break;
+    case 8:
+        return false; // free space
+        break;
+    case 9:
+        return true; // obstacle
+        break;
+    default:
+        return true; // obstacle by default
+        break;
+    }
+    return true; //obstacle by default
+}
+
 Apath::Apath(){
     cost=-1;
     points.clear();
@@ -94,7 +134,7 @@ bool operator<(const node<T> & a, const node<T> & b)
 }
 
 template <typename T>
-Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_thin_diagonals, T th)
+Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_thin_diagonals, T th, cv::Mat dir_nav)
 {
     Apath path; path.points.clear();path.cost=-1;
     const int n=msg_rcv.size();
@@ -108,6 +148,13 @@ Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_th
         threshold_active=false;
     else
         threshold_active=true;
+    bool dir_nav_active;
+    if(dir_nav.rows==0){
+        dir_nav=cv::Mat::ones(n,m,CV_8UC1)*8;
+        dir_nav_active=false;
+    } else {
+        dir_nav_active=true;
+    }
     vector<vector<int> > closed_nodes_map;closed_nodes_map.assign(n,vector<int>(m,0));
     vector<vector<int> > open_nodes_map;open_nodes_map.assign(n,vector<int>(m,0));
     vector<vector<int> > dir_map;dir_map.assign(n,vector<int>(m,0));
@@ -152,7 +199,8 @@ Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_th
             if(!(xdx<0 || xdx>n-1 || ydy<0 || ydy>m-1 || !msg_rcv[xdx][ydy]
                 || closed_nodes_map[xdx][ydy]==1 || ( disable_thin_diagonals && (dir==1 || dir==3 || dir==5 || dir==7)
                                                       && !msg_rcv[x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
-                                                      && !msg_rcv[x+dx[(i+1)%dir]][y+dy[(i+1)%dir]]) ))
+                                                      && !msg_rcv[x+dx[(i+1)%dir]][y+dy[(i+1)%dir]])
+                || (dir_nav_active && wrong_direction(i,xdx,ydy,dir_nav)) ))
             {
                 node<T> m0( xdx, ydy, n0.getLevel(),n0.getPriority());
                 m0.nextLevel(i);
@@ -177,5 +225,5 @@ Apath Astar(PointI p0, PointI p1, vector<vector<bool> > msg_rcv, bool disable_th
 template class node<int>;
 template class node<float>;
 
-template Apath Astar<float>(PointI p0, PointI p1, vector<vector<bool> > msg, bool disable_thin_diagonals=false, float th);
-template Apath Astar<int>(PointI p0, PointI p1, vector<vector<bool> > msg, bool disable_thin_diagonals=false, int th);
+template Apath Astar<float>(PointI p0, PointI p1, vector<vector<bool> > msg, bool disable_thin_diagonals=false, float th=-1, cv::Mat dir_nav=cv::Mat(0,0,CV_8UC1));
+template Apath Astar<int>(PointI p0, PointI p1, vector<vector<bool> > msg, bool disable_thin_diagonals=false, int th=-1, cv::Mat dir_nav=cv::Mat(0,0,CV_8UC1));

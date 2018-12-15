@@ -32,7 +32,7 @@ private:
     unsigned int clock;
     nav_msgs::Path path_0, path_1;
     cv::Mat or_map, nav_map, vis_map, r_map, dir_map;
-    vector<cv::Mat> deb1, deb2, deb3, deb4, deb5, deb6, deb7;
+    vector<cv::Mat> deb1, deb2, deb3, deb4, deb5, deb55, deb59, deb6, deb7, deb79;
     cv::Point target, p0_ini;
     ros::NodeHandle nh_;
     ros::Publisher pub1, pub2;
@@ -369,7 +369,7 @@ void Planner::plan(void){
 
         pi=convertWtf2I(p, res);
 
-        int save_rate=50;
+        int save_rate=0;
         //for(unsigned int ii=max((int)(goals.size()-1), 0); ii<goals.size();ii++){
         //for(unsigned int ii=0; ii<goals.size();ii++){
         for(unsigned int ii=0; ii<1;ii++){
@@ -562,6 +562,111 @@ void Planner::plan(void){
             }
 
             //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
+             run=false;
+             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
+                t01=ros::Time::now();
+                //for(unsigned int i=ii; i<ii+1;i++){
+                //for(unsigned int i=ii; i<goals.size();i++){
+                for(unsigned int i=(goals.size()-1); i<goals.size();i++){
+                    run=false;
+                    PointI g=convertW2I(goals[i], res);
+                    if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size()){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(!msg_rcv[0][g.i][g.j]){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    vector<float> crits_dists;
+                    if(vis_[g.i*msg_rcv[0][0].size()+g.j]>=0){
+                        for(unsigned int cc=0; cc<crit_points[g.i*msg_rcv[0][0].size()+g.j].points.size(); cc++){
+                            float xG=g.i-crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.x;
+                            float yG=g.j-crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.y;
+                            float distCG=sqrt(xG*xG+yG*yG);
+                            crits_dists.push_back(distCG);
+                        }
+                    }
+                    path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true,false, NULL, NULL, save_rate );
+                    cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    run=true;
+                }
+                deb55=pastar.getExpansions();
+                //deb55.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
+                diff = ros::Time::now() - t01;
+                ROS_INFO("Time PA-RDVM (1+CD+2 Opt): %f; Cost: %f",diff.toSec(),path.cost);
+            }
+            if(!run){
+                deb55.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
+            }
+
+            //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
+             run=false;
+             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
+                t01=ros::Time::now();
+                //for(unsigned int i=ii; i<ii+1;i++){
+                //for(unsigned int i=ii; i<goals.size();i++){
+                for(unsigned int i=(goals.size()-1); i<goals.size();i++){
+                    run=false;
+                    PointI g=convertW2I(goals[i], res);
+                    if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size()){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(!msg_rcv[0][g.i][g.j]){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    bool crits_valid=true;
+                    vector<float> crits_dists;
+                    vector<float> crits_ini_dists;
+                    if(vis_[g.i*msg_rcv[0][0].size()+g.j]>=0){
+                        for(unsigned int cc=0; cc<crit_points[g.i*msg_rcv[0][0].size()+g.j].points.size(); cc++){
+                            float xG=g.i-crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.x;
+                            float yG=g.j-crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.y;
+                            float distCG=sqrt(xG*xG+yG*yG);
+                            crits_dists.push_back(distCG);
+                            Apath path=Astar<float>(pi, PointI(round(crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.x),
+                                                               round(crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.y)),
+                                                        msg_rcv[1], false, -1,dir_map);
+                            if(path.cost<0){
+                                crits_valid=false;
+                            } else {
+                                crits_ini_dists.push_back(path.cost);
+                            }
+                        }
+                    }
+                    if(crits_valid)
+                        path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true,false, NULL, NULL, save_rate, &crits_ini_dists);
+                    else
+                        path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true,false, NULL, NULL, save_rate, NULL );
+                    cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    run=true;
+                }
+                deb59=pastar.getExpansions();
+                //deb59.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
+                diff = ros::Time::now() - t01;
+                ROS_INFO("Time PA-RDVM (1+CD+2 Opt A*): %f; Cost: %f",diff.toSec(),path.cost);
+            }
+            if(!run){
+                deb59.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
+            }
+
+            //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
             run=false;
             if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
                 t01=ros::Time::now();
@@ -586,13 +691,13 @@ void Planner::plan(void){
                         continue;
                     }
                     path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], NULL, true, true, NULL, NULL, save_rate);
-                    //cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
                     run=true;
                 }
                 deb6=pastar.getExpansions();
                 //deb6.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
                 diff = ros::Time::now() - t01;
-                //ROS_INFO("Time PA-RDVM (1-OS+2-CS): %f; Cost: %f",diff.toSec(),path.cost);
+                ROS_INFO("Time PA-RDVM (1-CD+2-CP): %f; Cost: %f",diff.toSec(),path.cost);
             }
             if(!run){
                 deb6.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
@@ -642,7 +747,7 @@ void Planner::plan(void){
                 }
                 deb7=pastar.getExpansions();
                 diff = ros::Time::now() - t01;
-                ROS_INFO("Time PA-RDVM (1+CD+2+CP): %f; Cost: %f",diff.toSec(),path.cost);
+                ROS_INFO("Time PA-RDVM (1+CD+2+CP Opt): %f; Cost: %f",diff.toSec(),path.cost);
                 //if(path.cost>=0)
                 //    myfile[index_file]<<diff<<"; "<<path.cost<<"; "<<"\n";
                 if(path.cost>0){
@@ -660,6 +765,69 @@ void Planner::plan(void){
             }
             if(!run){
                 deb7.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
+            }
+
+            //path=pastar.run(pi, convertW2I(goals[0], res),LAMBDA, true, -5);
+            run=false;
+            if(vis_.size()==(msg_rcv[0].size()*msg_rcv[0][0].size())){
+                t01=ros::Time::now();
+                //for(unsigned int i=ii; i<ii+1;i++){
+                //for(unsigned int i=ii; i<goals.size();i++){
+                for(unsigned int i=(goals.size()-1); i<goals.size();i++){
+                    run=false;
+                    PointI g=convertW2I(goals[i], res);
+                    if(g.i<0 || g.i>=(int)msg_rcv[0].size()){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(g.j<0 || g.j>=(int)msg_rcv[0][g.i].size()){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    if(!msg_rcv[0][g.i][g.j]){
+                        //clearG();
+                        path.cost=-3;
+                        continue;
+                    }
+                    bool crits_valid=true;
+                    vector<float> crits_dists;
+                    vector<float> crits_angles;
+                    vector<float> crits_anglesDelta;
+                    vector<float> crits_ini_dists;
+                    if(vis_[g.i*msg_rcv[0][0].size()+g.j]>=0){
+                        for(unsigned int cc=0; cc<crit_points[g.i*msg_rcv[0][0].size()+g.j].points.size(); cc++){
+                            float xG=g.i-crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.x;
+                            float yG=g.j-crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.y;
+                            float distCG=sqrt(xG*xG+yG*yG);
+                            crits_dists.push_back(distCG);
+                            Apath path=Astar<float>(pi, PointI(round(crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.x),
+                                                               round(crit_points[g.i*msg_rcv[0][0].size()+g.j].points[cc].position.y)),
+                                                        msg_rcv[1], false, -1,dir_map);
+                            if(path.cost<0){
+                                crits_valid=false;
+                            } else {
+                                crits_ini_dists.push_back(path.cost);
+                            }
+                            crits_angles.push_back(atan2(yG,xG));
+                            //crits_anglesDelta.push_back(atan2(infl,crits_dists.back()));
+                            crits_anglesDelta.push_back(atan2(infl,sqrt(distCG*distCG-infl*infl)));
+                        }
+                    }
+                    if(crits_valid)
+                        path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta, save_rate, &crits_ini_dists);
+                    else
+                        path=pastar.run(pi, g, LAMBDA, true, vis_[g.i*msg_rcv[0][0].size()+g.j], false, &crit_points[g.i*msg_rcv[0][0].size()+g.j], &crits_dists, true, true, &crits_angles, &crits_anglesDelta, save_rate, NULL);
+                    cout<<"ExpTUS: "<<path.exp_unfiltered<<"; Exp: "<<path.exp_nodes<<"; Exp_r: "<<path.exp_nodes_r<<"; Goal_tested: "<<path.tested_goal<<endl;
+                    run=true;
+                }
+                deb79=pastar.getExpansions();
+                diff = ros::Time::now() - t01;
+                ROS_INFO("Time PA-RDVM (1+CD+2+CP Opt A*): %f; Cost: %f",diff.toSec(),path.cost);
+            }
+            if(!run){
+                deb79.assign(1,cv::Mat::zeros(or_map.rows,or_map.cols,CV_8UC1));
             }
         }
         clock=0;
@@ -687,9 +855,15 @@ void Planner::plan(void){
         cv::waitKey(3);
         cv::imshow("PA 1+CD+2",color_print_expansion(or_map,r_map,vis_map,deb5[min(vvv,(int)deb5.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
         cv::waitKey(3);
-        //cv::imshow("PA 1+CD+2+CP",color_print_expansion(or_map,r_map,vis_map,deb6[min(vvv,(int)deb6.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
-        //cv::waitKey(3);
-        cv::imshow("PA 1+CD+2+CP",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv,(int)deb7.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+        cv::imshow("PA 1+CD+2 Opt",color_print_expansion(or_map,r_map,vis_map,deb55[min(vvv,(int)deb55.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+        cv::waitKey(3);
+        cv::imshow("PA 1+CD+2 Opt A*",color_print_expansion(or_map,r_map,vis_map,deb59[min(vvv,(int)deb59.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+        cv::waitKey(3);
+        cv::imshow("PA 1+CD+2+CP",color_print_expansion(or_map,r_map,vis_map,deb6[min(vvv,(int)deb6.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+        cv::waitKey(3);
+        cv::imshow("PA 1+CD+2+CP Opt",color_print_expansion(or_map,r_map,vis_map,deb7[min(vvv,(int)deb7.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
+        cv::waitKey(3);
+        cv::imshow("PA 1+CD+2+CP Opt A*",color_print_expansion(or_map,r_map,vis_map,deb79[min(vvv,(int)deb79.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
         cv::waitKey(3);
         clock++;
         if(clock==1){
