@@ -18,7 +18,7 @@ class nodePA: public node<T>{
     T sens;
     float opt;
     map_transform::VisNode * crit;
-    std::vector<float> * dist_c_g, * angle_c_g, * angleD_c_g;
+    std::vector<float> * dist_c_g, * angle_c_g, * angleD_c_g, * dist_ini_c;
     bool useCritSens, useOptSens;
     float K;
     bool bfs;
@@ -34,7 +34,7 @@ class nodePA: public node<T>{
     float costEstimate(const int x,const int y) const;
     float costEstimate2(const int x,const int y) const;
 public:
-    nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode * cr_, std::vector<float> * dist_crit_goal,bool use_opt_sens, bool use_crit_sens, std::vector<float> * angle_crit_goal, std::vector<float> * angleD_crit_goal);
+    nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode * cr_, std::vector<float> * dist_crit_goal,bool use_opt_sens, bool use_crit_sens, std::vector<float> * angle_crit_goal, std::vector<float> * angleD_crit_goal, std::vector<float> * dist_ini_crit);
     T getSensing() const;
     double getCost() const;
     double getMotionCost() const;
@@ -66,7 +66,7 @@ public:
     cv::Mat getExpansion(void);
     std::vector<cv::Mat> getExpansions(void);
     template <typename T=float>
-    PApath run(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false, std::vector<float> * angle_crit_goal=NULL, std::vector<float> * angleD_crit_goal=NULL, int rate_save=-1);
+    PApath run(PointI p0, PointI p1, float k2=1, bool quad=false, float opt=-3, bool bfs=false, map_transform::VisNode * crit=NULL, std::vector<float> * dist_crit_goal=NULL, bool use_opt_sens=false, bool use_crit_sens=false, std::vector<float> * angle_crit_goal=NULL, std::vector<float> * angleD_crit_goal=NULL, int rate_save=-1, std::vector<float> * dist_ini_crit=NULL);
 };
 
 #endif // PASTAR_HPP

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "pointi.hpp"
+#include <opencv2/core/core.hpp>
 
 class Apath{
 public:
@@ -47,6 +48,6 @@ public:
 };
 
 template <typename T>
-Apath Astar(PointI p0, PointI p1, std::vector<std::vector<bool> > msg_rcv, bool disable_thin_diagonals=false, T th=T(-1));
+Apath Astar(PointI p0, PointI p1, std::vector<std::vector<bool> > msg_rcv, bool disable_thin_diagonals=false, T th=T(-1), cv::Mat dir_nav=cv::Mat(0,0,CV_8UC1));
 
 #endif // ASTAR_HPP
