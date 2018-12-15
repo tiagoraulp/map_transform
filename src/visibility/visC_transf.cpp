@@ -1445,13 +1445,28 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, Unreachable unreachCP, cv::Mat
                 }
             }
         }
-        for(unsigned int r_pt_i=0; r_pt_i<(unsigned int)r_map.rows;r_pt_i++){
-            for(unsigned int r_pt_j=0; r_pt_j<(unsigned int)r_map.cols;r_pt_j++){
-                if((r_pt_i%8==0) && (r_pt_j%8==0) && (r_map.at<uchar>(r_pt_i,r_pt_j)==255)){
-                    crit_points.push_back( cv::Point2i(r_pt_i,r_pt_j) );
+        vector<cv::Point2i> crits_temp;
+        for(int r_pt_i=0; r_pt_i<r_map.rows;r_pt_i++){
+            for(int r_pt_j=0; r_pt_j<r_map.cols;r_pt_j++){
+                if(r_map.at<uchar>(r_pt_i,r_pt_j)==255){
+                    FindMin<float,cv::Point2i,cv::Point2i> closest_pt_XYZ;
+                    for(auto lct=0u; lct<crits_temp.size(); lct++){
+                        float d1=(float)(r_pt_i-crits_temp[lct].x);
+                        float d2=(float)(r_pt_j-crits_temp[lct].y);
+                        closest_pt_XYZ.iter( d1*d1+d2*d2, crits_temp[lct],cv::Point2i(r_pt_i,r_pt_j) );
+                    }
+                    for(auto lct=0u; lct<crit_points.size(); lct++){ // it's ok to be closer to real critical points, thus the x2
+                        float d1=(float)((r_pt_i-crit_points[lct].x)*2);
+                        float d2=(float)((r_pt_j-crit_points[lct].y)*2);
+                        closest_pt_XYZ.iter( d1*d1+d2*d2 , crit_points[lct],cv::Point2i(0,0));
+                    }
+                    if((!closest_pt_XYZ.valid()) || (closest_pt_XYZ.valid() && (closest_pt_XYZ.getVal()>=(3*((float)infl)*3*((float)infl))))){
+                        crits_temp.push_back( cv::Point2i(r_pt_i,r_pt_j) );
+                    }
                 }
             }
         }
+        crit_points.insert(crit_points.end(), crits_temp.begin(), crits_temp.end());
         unsigned int number_runs;
         if(fast_opt)
             number_runs=2;
