@@ -982,7 +982,7 @@ void Planner::plan(void){
     unsigned char c_i[3]={0,255,255};
     if(vvv>=0 && deb7.size()>0 && deb7[0].rows>0){
         int run_limit;
-        if(run_all_goals){
+        if(run_all_opts){
             if(deb1.size()>0){
                 //cv::imshow("BFS",color_print_expansion(or_map,nav_map,nav_map,deb1[min(vvv,(int)deb1.size()-1)],target,p0_ini,c_b,c_w,c_n,c_v,c_o,c_c,c_cf,c_g,c_p,c_t,c_i));
                 //cv::waitKey(3);
