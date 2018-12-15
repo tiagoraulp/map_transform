@@ -23,6 +23,17 @@
       <param name="tf_prefix" value ="/robot_0" /> 
       <param name="defl" value="200" />
       <param name="infl" value="6" />
+      <param name="lambda" value="0.1" />
+      <param name="quad" value="false" />
+      <param name="video" value="0" />
+      <param name="run_all_opts" value="false" />
+      <param name="run_all_goals" value="false" />
+      <param name="bfs" value="false" />
+      <param name="opt_1" value="true" />
+      <param name="opt_1_CD" value="true" />
+      <param name="opt_1_CD_2" value="false" />
+      <param name="opt_1_CD_2_CP" value="false" />
+      <param name="fast" value="true" />
       <remap from="/robot_0/planner/v_map" to="/robot_0/visibility/v_map"/>
       <remap from="/robot_0/planner/e_map" to="/robot_0/visibility/e_map"/>
       <remap from="/robot_0/planner/r_map" to="/robot_0/visibility/r_map"/>
@@ -31,5 +42,7 @@
     </node>
   </group>
 
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/planning.rviz" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_transform)/launch/planning_uber.rviz" />
+
+ <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="gui"/>
 </launch>
