@@ -1011,11 +1011,9 @@ vector<cv::Point> VisC_transf::expVisibility_obs(cv::Point2i crit, int defl, cv:
     {
         for(int coly=max((crit.y-defl),0);coly<=min((crit.y+defl),regions.cols-1);coly++)
         {
-            float angle=atan2(coly-crit.y,rowx-crit.x);
-            float dist=(rowx-crit.x)*(rowx-crit.x)+(coly-crit.y)*(coly-crit.y);
-
             bool reg, free_space;
             if(extremes.size()!=0){
+                float angle=atan2(coly-crit.y,rowx-crit.x);
                 if(obt_angle==1)
                     reg=(angle<extremes[1] && angle>extremes[0]);
                 else
@@ -1026,43 +1024,45 @@ vector<cv::Point> VisC_transf::expVisibility_obs(cv::Point2i crit, int defl, cv:
                 reg=((map_or_perc.at<uchar>(rowx,coly)==255) && (!(map_act.at<uchar>(rowx,coly)==255)));
                 free_space=true;
             }
-
-            if(reg && (dist<=(1*defl*defl)) && free_space )
-            {
-                if(vis_map.at<uchar>(rowx,coly)==255 && fast_opt){
-                    geometry_msgs::Pose pcp;
-                    pcp.position.x=rowx-crit.x;
-                    pcp.position.y=coly-crit.y;
-                    float diff=sqrt(pcp.position.x*pcp.position.x+pcp.position.y*pcp.position.y);
-                    if( (vis_.vis[rowx*vis_map.cols+coly]<0) || (diff<(vis_.vis[rowx*vis_map.cols+coly])) )
-                    {
+            if(reg){
+                float dist=(rowx-crit.x)*(rowx-crit.x)+(coly-crit.y)*(coly-crit.y);
+                if( (dist<=(1*defl*defl)) && free_space )
+                {
+                    if(vis_map.at<uchar>(rowx,coly)==255 && fast_opt){
+                        geometry_msgs::Pose pcp;
+                        pcp.position.x=rowx-crit.x;
+                        pcp.position.y=coly-crit.y;
+                        float diff=sqrt(pcp.position.x*pcp.position.x+pcp.position.y*pcp.position.y);
+                        if( (vis_.vis[rowx*vis_map.cols+coly]<0) || (diff<(vis_.vis[rowx*vis_map.cols+coly])) )
+                        {
+                            vis_map_temp.at<uchar>(rowx,coly)=255;
+                            vis_map_temp_list.push_back(cv::Point(rowx,coly));
+                        }
+                    } else {
                         vis_map_temp.at<uchar>(rowx,coly)=255;
                         vis_map_temp_list.push_back(cv::Point(rowx,coly));
                     }
-                } else {
-                    vis_map_temp.at<uchar>(rowx,coly)=255;
-                    vis_map_temp_list.push_back(cv::Point(rowx,coly));
                 }
-            }
-            else if (reg && (dist<=(1*defl*defl)) && (map_or_perc.at<uchar>(rowx,coly)==0) )
-            {
-                bool stop=false;
-                for(int vx=-1;vx<=1;vx++)
+                else if ( (dist<=(1*defl*defl)) && (map_or_perc.at<uchar>(rowx,coly)==0) )
                 {
-                    for(int vy=-1;vy<=1;vy++)
+                    bool stop=false;
+                    for(int vx=-1;vx<=1;vx++)
                     {
-                        if( (rowx+vx)>=0 && (rowx+vx)<regions.rows && (coly+vy)>=0 && (coly+vy)<regions.cols )
+                        for(int vy=-1;vy<=1;vy++)
                         {
-                            if( (abs(vx)+abs(vy)==1) &&  regions.at<uchar>(rowx+vx,coly+vy)==(k+2)  )
+                            if( (rowx+vx)>=0 && (rowx+vx)<regions.rows && (coly+vy)>=0 && (coly+vy)<regions.cols )
                             {
-                                occ.push_back(cv::Point(rowx,coly));
-                                stop=true;
-                                break;
+                                if( (abs(vx)+abs(vy)==1) &&  regions.at<uchar>(rowx+vx,coly+vy)==(k+2)  )
+                                {
+                                    occ.push_back(cv::Point(rowx,coly));
+                                    stop=true;
+                                    break;
+                                }
                             }
                         }
+                        if(stop)
+                            break;
                     }
-                    if(stop)
-                        break;
                 }
             }
         }
@@ -1273,6 +1273,8 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, Unreachable unreachCP, cv::Mat
                                 occ=expVisibility_obs(crit_point, defl, regions, k_perc, vector<float>(0), obt, vis_map_temp, vis_map_temp_list);
                             //cout<<" - time Expetected Visibility: "<<ros::Time::now()-tt<<endl;
 
+                            if(vis_map_temp_list.size()==0)
+                                continue;
 
                             if(optRay)
                             {
@@ -1430,6 +1432,7 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, Unreachable unreachCP, cv::Mat
         }
     }
     else{
+        ros::Time txyz=ros::Time::now();
         vector<cv::Point2i> crit_points;
         cv::Point2i crit_point;
         for (unsigned int k=0;k<unreachCP.frontiers.size();k++){//1;k++){//
@@ -1445,6 +1448,8 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, Unreachable unreachCP, cv::Mat
                 }
             }
         }
+        cout<<"City Method Pre1: "<<ros::Time::now()-txyz<<endl;
+        txyz=ros::Time::now();
         vector<cv::Point2i> crits_temp;
         for(int r_pt_i=0; r_pt_i<r_map.rows;r_pt_i++){
             for(int r_pt_j=0; r_pt_j<r_map.cols;r_pt_j++){
@@ -1467,6 +1472,8 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, Unreachable unreachCP, cv::Mat
             }
         }
         crit_points.insert(crit_points.end(), crits_temp.begin(), crits_temp.end());
+        cout<<"City Method Pre2: "<<ros::Time::now()-txyz<<endl;
+        txyz=ros::Time::now();
         unsigned int number_runs;
         if(fast_opt)
             number_runs=2;
@@ -1485,6 +1492,8 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, Unreachable unreachCP, cv::Mat
                 vis_map_temp = cv::Mat::zeros(regions.rows, regions.cols, CV_8UC1)*255;
                 vis_map_temp_list.clear();
                 expVisibility_obs(crit_point, sens_size, map_or_perc, 255, vector<float>(0), 0, vis_map_temp, vis_map_temp_list);
+                if(vis_map_temp_list.size()==0)
+                    continue;
                 //vis_map_temp=bf_pt(map_or_perc, crit_point, sens_size, vis_map_temp, false, false);
                 vis_map_temp=bf_pt_v2(map_or_perc, crit_point, sens_size, vis_map_temp, false, false, vis_map_temp_list);
                 //vis_map_temp=bf_pt_v2(map_or_perc, crit_point, sens_size, vis_map_temp, false, false);
@@ -1525,6 +1534,9 @@ cv::Mat VisC_transf::ext_vis(Unreachable unreach, Unreachable unreachCP, cv::Mat
                 }
             }
         }
+
+        cout<<"City Method Pos: "<<ros::Time::now()-txyz<<endl;
+        txyz=ros::Time::now();
     }
 
     if(optRay)
