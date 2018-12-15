@@ -17,6 +17,46 @@ const int dir=8; // number of possible directions to go at any position
 static int dx[dir]={1, 1, 0, -1, -1, -1, 0, 1};
 static int dy[dir]={0, 1, 1, 1, 0, -1, -1, -1};
 
+bool PAstar::wrong_direction(int i, int x, int y){
+    uchar map_direction=dir_map.at<uchar>(x,y);
+    switch (map_direction) { // from 0 to 7, directions
+    case 0: // x positive
+        return !( i==6 || i==7 || i==0 || i==1 || i==2 );
+        break;
+    case 1: // intersection of x positive and y positive
+        return !( i==0 || i==1 || i==2 );
+        break;
+    case 2: // y positive
+        return !( i==0 || i==1 || i==2 || i==3 || i==4 );
+        break;
+    case 3: // intersection of y positive and x negative
+        return !( i==2 || i==3 || i==4 );
+        break;
+    case 4: // x negative
+        return !( i==2 || i==3 || i==4 || i==5 || i==6 );
+        break;
+    case 5: // intersection of x negative and y negative
+        return !( i==4 || i==5 || i==6 );
+        break;
+    case 6: // y negative
+        return !( i==4 || i==5 || i==6 || i==7 || i==0 );
+        break;
+    case 7: // intersection of y negative and x positive
+        return !( i==6 || i==7 || i==0 );
+        break;
+    case 8:
+        return false; // free space
+        break;
+    case 9:
+        return true; // obstacle
+        break;
+    default:
+        return true; // obstacle by default
+        break;
+    }
+    return true; //obstacle by default
+}
+
 PApath::PApath(): Apath(){
     costM=-1;
     costP=-1;
@@ -371,6 +411,10 @@ void PAstar::updateOrMap(cv::Mat map){
     or_map=map.clone();
 }
 
+void PAstar::updateDirMap(cv::Mat map){
+    dir_map=map.clone();
+}
+
 void PAstar::resetExpansion(void){
     expansion=cv::Mat::zeros(or_map.rows,or_map.cols, CV_8UC1);
     expansions.clear();
@@ -585,7 +629,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
                     || closed_nodes_map[xdx][ydy]==1 //|| ( (dir==1 || dir==3 || dir==5 || dir==7)
                                                      //     && !msg_rcv[r][x+dx[(i-1)%dir]][y+dy[(i-1)%dir]]
                                                      //     && !msg_rcv[r][x+dx[(i+1)%dir]][y+dy[(i+1)%dir]])
-                     ))
+                    || wrong_direction(i,xdx,ydy) ))
                 {
                     nodePA<T> m0=nodePA<T>( xdx, ydy, n0.getLevel(),
                                  n0.getPriority(), infl, defl, n0.getSensing(), k2, opt, quad, bfs, crit, dist_crit_goal, use_opt_sens, use_crit_sens, angle_crit_goal, angleD_crit_goal);
