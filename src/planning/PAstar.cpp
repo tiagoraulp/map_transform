@@ -7,6 +7,8 @@
 #include "vector_utils.hpp"
 #include "color.hpp"
 
+#define MYSQRT(x,y) ((mySqrtLookUpTable==nullptr)?(sqrt(x*x+y*y)):((*mySqrtLookUpTable)[abs(x)][abs(y)]))
+
 using namespace std;
 
 const int dir=8; // number of possible directions to go at any position
@@ -66,13 +68,14 @@ PApath::PApath(): Apath(){
 }
 
 template<typename T>
-nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode * cr_, std::vector<float> * dist_crit_goal, bool use_opt_sens, bool use_crit_sens, std::vector<float> * angle_crit_goal, std::vector<float> * angleD_crit_goal, std::vector<float> * dist_ini_crit): node<T>(xp, yp, d, p){
+nodePA<T>::nodePA(int xp, int yp, T d, T p, int inf, int def, T ss, float cost2, float dist, bool q, bool bfs_, map_transform::VisNode * cr_, std::vector<float> * dist_crit_goal, bool use_opt_sens, bool use_crit_sens, std::vector<float> * angle_crit_goal, std::vector<float> * angleD_crit_goal, std::vector<float> * dist_ini_crit, std::vector<std::vector<float> > * mySqrtLUT): node<T>(xp, yp, d, p){
     infl=inf;defl=def;sens=ss;
     opt=dist-1.5; // opt should be dist in continuous case where dist is minimum; -1.5 (max dist neighbors) adjusts for discretizations errors...
     crit=cr_; dist_c_g=dist_crit_goal; useCritSens=use_crit_sens; useOptSens=use_opt_sens;
     angle_c_g=angle_crit_goal;
     angleD_c_g=angleD_crit_goal;
     dist_ini_c=dist_ini_crit;
+    mySqrtLookUpTable=mySqrtLUT;
     power=q;
     bfs=bfs_;
     k2=cost2;
@@ -111,7 +114,8 @@ bool nodePA<T>::validSensing(const int x, const int y, float dist) const{
                 if(dist_c_g==NULL || dist_c_g->empty()){
                     float xG=Gx-crit->points[i].position.x;
                     float yG=Gy-crit->points[i].position.y;
-                    distCG=sqrt(xG*xG+yG*yG);
+                    //distCG=sqrt(xG*xG+yG*yG);
+                    distCG=MYSQRT(xG,yG);
                 }
                 else{
                     distCG=(*dist_c_g)[i];
@@ -137,7 +141,8 @@ float nodePA<T>::costSensing(const int x,const int y) const{
     if(!validSensing(x,y,dist))
         return -2;
     else
-        return k2*sqrt(dist);
+        //return k2*sqrt(dist);
+        return k2*MYSQRT(x,y);
 }
 
 template<typename T>
@@ -155,18 +160,22 @@ float nodePA<T>::costEstimate(const int x,const int y) const
     float dist=(x)*(x)+(y)*(y);
     if(1.0>k2){
         if( ( dist )>(defl*defl) )
-            return 1.0*this->costEstimateDist((sqrt(dist)-defl), sens)+k2*defl;
+            //return 1.0*this->costEstimateDist((sqrt(dist)-defl), sens)+k2*defl;
+            return 1.0*this->costEstimateDist((MYSQRT(x,y)-defl), sens)+k2*defl;
         else
-            return k2*sqrt(dist);
+            //return k2*sqrt(dist);
+            return k2*MYSQRT(x,y);
         //// could also use opt here?!...
     }
     else{
         if(opt<0)
-            return 1.0*this->costEstimateDist(sqrt(dist),sens);
+            //return 1.0*this->costEstimateDist(sqrt(dist),sens);
+            return 1.0*this->costEstimateDist(MYSQRT(x,y),sens);
         else{
             float est1;
             if( ( dist )>(opt*opt) )
-                est1=1.0*this->costEstimateDist((sqrt(dist)-opt),sens)+k2*opt;
+                //est1=1.0*this->costEstimateDist((sqrt(dist)-opt),sens)+k2*opt;
+                est1=1.0*this->costEstimateDist((MYSQRT(x,y)-opt),sens)+k2*opt;
             else
                 est1=k2*opt;
 
@@ -181,9 +190,11 @@ float nodePA<T>::costEstimate(const int x,const int y) const
                     if(dist_ini_c==NULL || dist_ini_c->empty()){
                         xx=crit->points[0].position.x-this->xPos;
                         yy=crit->points[0].position.y-this->yPos;
-                        est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*(sqrt(xG*xG+yG*yG)-1.5);
+                        //est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*(sqrt(xG*xG+yG*yG)-1.5);
+                        est2=1.0*this->costEstimateDist(max(MYSQRT(xx,yy)-2*infl,(float)0.0),sens)+k2*(MYSQRT(xG,yG)-1.5);
                     } else {
-                        est2=1.0*this->costEstimateDist(max(((*dist_ini_c)[0]-(float)getMotionCost())-2*infl,(float)0.0),sens)+k2*(sqrt(xG*xG+yG*yG)-1.5);
+                        //est2=1.0*this->costEstimateDist(max(((*dist_ini_c)[0]-(float)getMotionCost())-2*infl,(float)0.0),sens)+k2*(sqrt(xG*xG+yG*yG)-1.5);
+                        est2=1.0*this->costEstimateDist(max(((*dist_ini_c)[0]-(float)getMotionCost())-2*infl,(float)0.0),sens)+k2*(MYSQRT(xG,yG)-1.5);
                     }
                     //same correction as before with -1.5; only correcting for xG and yG; do xx and yy also need?
                     return max(est1,est2);
@@ -193,7 +204,8 @@ float nodePA<T>::costEstimate(const int x,const int y) const
                     if(dist_ini_c==NULL || dist_ini_c->empty()){
                         xx=crit->points[0].position.x-this->xPos;
                         yy=crit->points[0].position.y-this->yPos;
-                        est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0), sens)+k2*((*dist_c_g)[0]-1.5);
+                        //est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0), sens)+k2*((*dist_c_g)[0]-1.5);
+                        est2=1.0*this->costEstimateDist(max(MYSQRT(xx,yy)-2*infl,(float)0.0), sens)+k2*((*dist_c_g)[0]-1.5);
                     } else {
                         est2=1.0*this->costEstimateDist(max(((*dist_ini_c)[0]-(float)getMotionCost())-2*infl,(float)0.0), sens)+k2*((*dist_c_g)[0]-1.5);
                     }
@@ -211,9 +223,11 @@ float nodePA<T>::costEstimate(const int x,const int y) const
                         if(dist_ini_c==NULL || dist_ini_c->empty()){
                             xx=crit->points[i].position.x-this->xPos;
                             yy=crit->points[i].position.y-this->yPos;
-                            min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*(sqrt(xG*xG+yG*yG)-1.5));
+                            //min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*(sqrt(xG*xG+yG*yG)-1.5));
+                            min_est.iter(1.0*this->costEstimateDist(max(MYSQRT(xx,yy)-2*infl,(float)0.0),sens)+k2*(MYSQRT(xG,yG)-1.5));
                         } else {
-                            min_est.iter(1.0*this->costEstimateDist(max(((*dist_ini_c)[i]-(float)getMotionCost())-2*infl,(float)0.0),sens)+k2*(sqrt(xG*xG+yG*yG)-1.5));
+                            //min_est.iter(1.0*this->costEstimateDist(max(((*dist_ini_c)[i]-(float)getMotionCost())-2*infl,(float)0.0),sens)+k2*(sqrt(xG*xG+yG*yG)-1.5));
+                            min_est.iter(1.0*this->costEstimateDist(max(((*dist_ini_c)[i]-(float)getMotionCost())-2*infl,(float)0.0),sens)+k2*(MYSQRT(xG,yG)-1.5));
                         }
                     }
                     est2=min_est.getVal();
@@ -227,7 +241,8 @@ float nodePA<T>::costEstimate(const int x,const int y) const
                         if(dist_ini_c==NULL || dist_ini_c->empty()){
                             xx=crit->points[i].position.x-this->xPos;
                             yy=crit->points[i].position.y-this->yPos;
-                            min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*((*dist_c_g)[i]-1.5));
+                            //min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl,(float)0.0),sens)+k2*((*dist_c_g)[i]-1.5));
+                            min_est.iter(1.0*this->costEstimateDist(max(MYSQRT(xx,yy)-2*infl,(float)0.0),sens)+k2*((*dist_c_g)[i]-1.5));
                         } else {
                             min_est.iter(1.0*this->costEstimateDist(max(((*dist_ini_c)[i]-(float)getMotionCost())-2*infl,(float)0.0),sens)+k2*((*dist_c_g)[i]-1.5));
                         }
@@ -246,12 +261,14 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
     if(opt<0){
         if(K<defl)
             if( ( dist )>=(K*K) )
-                return 1.0*this->costEstimateDist((sqrt(dist)-K),sens)+k2*K*K;
+                //return 1.0*this->costEstimateDist((sqrt(dist)-K),sens)+k2*K*K;
+                return 1.0*this->costEstimateDist((MYSQRT(x,y)-K),sens)+k2*K*K;
             else
                 return k2*(dist);
         else
             if( ( dist )>=(defl*defl) )
-                return 1.0*this->costEstimateDist((sqrt(dist)-defl),sens)+k2*defl*defl;
+                //return 1.0*this->costEstimateDist((sqrt(dist)-defl),sens)+k2*defl*defl;
+                return 1.0*this->costEstimateDist((MYSQRT(x,y)-defl),sens)+k2*defl*defl;
             else
                 return k2*(dist);
     }
@@ -260,7 +277,8 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
         if(K<defl)
             if( K>opt )
                 if( ( dist )>=(K*K) )
-                    est1= 1.0*this->costEstimateDist((sqrt(dist)-K),sens)+k2*K*K;
+                    //est1= 1.0*this->costEstimateDist((sqrt(dist)-K),sens)+k2*K*K;
+                    est1= 1.0*this->costEstimateDist((MYSQRT(x,y)-K),sens)+k2*K*K;
                 else
                     if( ( dist )>=(opt*opt) )
                         est1= k2*(dist);
@@ -268,12 +286,14 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                         est1= k2*opt*opt;
             else
                 if( ( dist )>=(opt*opt) )
-                    est1= 1.0*this->costEstimateDist((sqrt(dist)-opt),sens)+k2*opt*opt;
+                    //est1= 1.0*this->costEstimateDist((sqrt(dist)-opt),sens)+k2*opt*opt;
+                    est1= 1.0*this->costEstimateDist((MYSQRT(x,y)-opt),sens)+k2*opt*opt;
                 else
                     est1= k2*opt*opt;
         else
             if( ( dist )>=(defl*defl) )
-                est1= 1.0*this->costEstimateDist((sqrt(dist)-defl),sens)+k2*defl*defl;
+                //est1= 1.0*this->costEstimateDist((sqrt(dist)-defl),sens)+k2*defl*defl;
+                est1= 1.0*this->costEstimateDist((MYSQRT(x,y)-defl),sens)+k2*defl*defl;
             else
                 if( ( dist )>=(opt*opt) )
                     est1= k2*(dist);
@@ -288,12 +308,14 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                 float xx, yy, est2;
                 float xG=crit->points[0].position.x-Gx;
                 float yG=crit->points[0].position.y-Gy;
-                float T2C_dist=sqrt(xG*xG+yG*yG)-1.5;
+                //float T2C_dist=sqrt(xG*xG+yG*yG)-1.5;
+                float T2C_dist=MYSQRT(xG,yG)-1.5;
                 float ext_dist=max(K-T2C_dist,(float)0.0);
                 if(dist_ini_c==NULL || dist_ini_c->empty()){
                     xx=crit->points[0].position.x-this->xPos;
                     yy=crit->points[0].position.y-this->yPos;
-                    est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
+                    //est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
+                    est2=1.0*this->costEstimateDist(max(MYSQRT(xx,yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
                 } else {
                     est2=1.0*this->costEstimateDist(max(((*dist_ini_c)[0]-(float)getMotionCost())-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
                 }
@@ -306,7 +328,8 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                 if(dist_ini_c==NULL || dist_ini_c->empty()){
                     xx=crit->points[0].position.x-this->xPos;
                     yy=crit->points[0].position.y-this->yPos;
-                    est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
+                    //est2=1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
+                    est2=1.0*this->costEstimateDist(max(MYSQRT(xx,yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
                 } else {
                     est2=1.0*this->costEstimateDist(max(((*dist_ini_c)[0]-(float)getMotionCost())-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist);
                 }
@@ -322,14 +345,16 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                     float xx, yy;
                     float xG=crit->points[i].position.x-Gx;
                     float yG=crit->points[i].position.y-Gy;
-                    float T2C_dist=sqrt(xG*xG+yG*yG)-1.5;
+                    //float T2C_dist=sqrt(xG*xG+yG*yG)-1.5;
+                    float T2C_dist=MYSQRT(xG,yG)-1.5;
                     //if(this->xPos==180 && this->yPos==180)
                     //    cout<<"T2C: "<<T2C_dist<<endl;
                     float ext_dist=max(K-T2C_dist,(float)0.0);
                     if(dist_ini_c==NULL || dist_ini_c->empty()){
                         xx=crit->points[i].position.x-this->xPos;
                         yy=crit->points[i].position.y-this->yPos;
-                        min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
+                        //min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
+                        min_est.iter(1.0*this->costEstimateDist(max(MYSQRT(xx,yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
                     } else {
                         min_est.iter(1.0*this->costEstimateDist(max(((*dist_ini_c)[i]-(float)getMotionCost())-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
                     }
@@ -349,7 +374,8 @@ float nodePA<T>::costEstimate2(const int x,const int y) const{
                     if(dist_ini_c==NULL || dist_ini_c->empty()){
                         xx=crit->points[i].position.x-this->xPos;
                         yy=crit->points[i].position.y-this->yPos;
-                        min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
+                        //min_est.iter(1.0*this->costEstimateDist(max(sqrt(xx*xx+yy*yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
+                        min_est.iter(1.0*this->costEstimateDist(max(MYSQRT(xx,yy)-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
                     } else {
                         min_est.iter(1.0*this->costEstimateDist(max(((*dist_ini_c)[i]-(float)getMotionCost())-2*infl-ext_dist,(float)0.0), sens)+k2*(T2C_dist)*(T2C_dist));
                     }
@@ -456,6 +482,10 @@ void PAstar::updateDirMap(cv::Mat map){
     dir_map=map.clone();
 }
 
+void PAstar::updateSqrtLookUpTable(std::vector<std::vector<float> > * mSqrt){
+    mySqrtLookUpTable=mSqrt;
+}
+
 void PAstar::resetExpansion(void){
     expansion=cv::Mat::zeros(or_map.rows,or_map.cols, CV_8UC1);
     expansions.clear();
@@ -473,10 +503,12 @@ PAstar::PAstar(int in, int de){
     infl=in;
     defl=de;
     save_rate=-1;
+    mySqrtLookUpTable=nullptr;
 }
 
 PAstar::PAstar(){
     save_rate=-1;
+    mySqrtLookUpTable=nullptr;
 }
 
 template <typename T>
@@ -527,7 +559,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
 //    }
     priority_queue<nodePA<T> > pq[3];
     int pqi;
-    nodePA<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, k2, opt, quad, bfs, crit, dist_crit_goal, use_opt_sens, use_crit_sens, angle_crit_goal, angleD_crit_goal, dist_ini_crit);
+    nodePA<T> n0(p0.i, p0.j, 0, 0, infl, defl, 0, k2, opt, quad, bfs, crit, dist_crit_goal, use_opt_sens, use_crit_sens, angle_crit_goal, angleD_crit_goal, dist_ini_crit, mySqrtLookUpTable);
     int i, j, x, y, xdx, ydy;
     pqi=0;
 
@@ -673,7 +705,7 @@ PApath PAstar::run(PointI p0, PointI p1, float k2, bool quad, float opt, bool bf
                     || wrong_direction(i,xdx,ydy) ))
                 {
                     nodePA<T> m0=nodePA<T>( xdx, ydy, n0.getLevel(),
-                                 n0.getPriority(), infl, defl, n0.getSensing(), k2, opt, quad, bfs, crit, dist_crit_goal, use_opt_sens, use_crit_sens, angle_crit_goal, angleD_crit_goal, dist_ini_crit);
+                                 n0.getPriority(), infl, defl, n0.getSensing(), k2, opt, quad, bfs, crit, dist_crit_goal, use_opt_sens, use_crit_sens, angle_crit_goal, angleD_crit_goal, dist_ini_crit,mySqrtLookUpTable);
                     m0.nextLevel(i);
                     m0.updatePriority(p1.i, p1.j);
                     m0.updateSensing(p1.i, p1.j);

@@ -71,6 +71,7 @@ private:
     bool fast;
     bool run_all_goals;
     bool run_all_opts;
+    std::vector<std::vector<float> > mySqrtLookUpTable;
     void rcv_map1(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map2(const nav_msgs::OccupancyGrid::ConstPtr& msg);
     void rcv_map3(const nav_msgs::OccupancyGrid::ConstPtr& msg);
@@ -115,6 +116,18 @@ public:
         pl=false;
         goals.clear();
         pastar=PAstar(infl, defl);
+        long int max_size_sqrt=2000;
+        vector<float> mySqrt(max_size_sqrt*max_size_sqrt*2,-1);
+        for(unsigned int i=0;i<mySqrt.size();i++){
+            mySqrt[i]=sqrt(i);
+        }
+        mySqrtLookUpTable.assign(max_size_sqrt,vector<float>(max_size_sqrt,-1));
+        for(unsigned int i=0;i<mySqrtLookUpTable.size();i++){
+            for(unsigned int j=0;j<mySqrtLookUpTable[i].size();j++){
+                mySqrtLookUpTable[i][j]=mySqrt[i*i+j*j];
+            }
+        }
+        pastar.updateSqrtLookUpTable(&mySqrtLookUpTable);
         vvv=-1;
         clock=0;
         f = boost::bind(&Planner::configCallback, this, _1, _2);
